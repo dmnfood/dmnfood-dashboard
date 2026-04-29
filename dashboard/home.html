@@ -394,7 +394,7 @@
                     <span class="section-count">1</span>
                 </div>
                 <div class="card-grid">
-                    <a href="/bond/monthlybond.html" class="dashboard-card card-active">
+                    <a href="/bond" class="dashboard-card card-active">
                         <div class="card-icon">📋</div>
                         <div class="card-title">미청구채권 현황</div>
                         <div class="card-desc">거래처별 채권 잔액을 3가지 유형으로 분류하고 검토 우선순위를 파악합니다.</div>
@@ -459,7 +459,7 @@
         const auth = getAuth(app);
 
         onAuthStateChanged(auth, user => {
-            if (!user) { window.location.href = '/loginpage.html'; return; }
+            if (!user) { window.location.href = '/'; return; }
             const emailId = user.email.split('@')[0];
             document.getElementById('userAvatar').textContent = emailId.charAt(0).toUpperCase();
             document.getElementById('userIdDisplay').textContent = emailId;
@@ -480,7 +480,7 @@
         window.handleLogout = async () => {
             if (!confirm('로그아웃 하시겠습니까?')) return;
             await signOut(auth);
-            window.location.href = '/loginpage.html';
+            window.location.href = '/';
         };
     </script>
 </body>

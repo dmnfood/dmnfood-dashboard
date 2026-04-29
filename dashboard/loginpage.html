@@ -253,7 +253,7 @@
         const auth = getAuth(app);
 
         onAuthStateChanged(auth, user => {
-            if (user) window.location.href = '/home.html';
+            if (user) window.location.href = '/home';
         });
 
         document.addEventListener('keydown', e => { if (e.key === 'Enter') handleLogin(); });
@@ -277,7 +277,7 @@
             try {
                 const email = `${userId.toLowerCase()}@${companyCode.toLowerCase()}.dmnfood`;
                 await signInWithEmailAndPassword(auth, email, password);
-                window.location.href = '/home.html';
+                window.location.href = '/home';
             } catch (err) {
                 const msg = {
                     'auth/user-not-found': '등록되지 않은 아이디입니다.',

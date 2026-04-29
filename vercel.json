@@ -2,15 +2,15 @@
     "rewrites": [
         {
             "source": "/",
-            "destination": "/loginpage.html"
-        },
-        {
-            "source": "/bond",
-            "destination": "/bond/monthlybond.html"
+            "destination": "/dashboard/loginpage.html"
         },
         {
             "source": "/home",
-            "destination": "/home.html"
+            "destination": "/dashboard/home.html"
+        },
+        {
+            "source": "/bond",
+            "destination": "/dashboard/bond/monthlybond.html"
         }
     ],
     "headers": [

@@ -1,6 +1,10 @@
 {
     "rewrites": [
         {
+            "source": "/",
+            "destination": "/loginpage.html"
+        },
+        {
             "source": "/bond",
             "destination": "/bond/monthlybond.html"
         },

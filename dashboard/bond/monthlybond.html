@@ -786,7 +786,7 @@
   <div class="auth-hidden" id="mainContent">
     <header class="app-header">
       <div class="header-left">
-        <a href="/home.html" class="back-btn">← 홈</a>
+        <a href="/home" class="back-btn">← 홈</a>
         <div class="app-title"><span class="dot"></span>미청구채권 현황</div>
       </div>
       <div style="display:flex;align-items:center;gap:10px">
@@ -942,7 +942,7 @@
     const auth = getAuth(app);
 
     onAuthStateChanged(auth, user => {
-      if (!user) { window.location.href = '/loginpage.html'; return; }
+      if (!user) { window.location.href = '/'; return; }
       document.getElementById('userChip').textContent = user.email.split('@')[0];
       document.getElementById('loadingScreen').classList.add('hidden');
       document.getElementById('mainContent').classList.remove('auth-hidden');
@@ -952,7 +952,7 @@
     window.handleLogout = async () => {
       if (!confirm('로그아웃 하시겠습니까?')) return;
       await signOut(auth);
-      window.location.href = '/loginpage.html';
+      window.location.href = '/';
     };
   </script>
 

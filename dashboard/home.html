@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>들메내식품 · 대시보드</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+        :root {
+            --bg: #f0f2f5;
+            --surface: #ffffff;
+            --surface2: #f9fafb;
+            --border: #e2e5ea;
+            --text-primary: #1a1d23;
+            --text-secondary: #5a6070;
+            --text-muted: #8d94a3;
+            --accent: #1a56db;
+            --accent-hover: #1447c8;
+            --accent-light: #ebf0fc;
+            --green: #0d7a4a;
+            --green-light: #edf7f1;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background: var(--bg);
+            min-height: 100vh;
+            color: var(--text-primary);
+            font-size: 13px;
+        }
+
+        .auth-hidden {
+            display: none !important;
+        }
+
+        .loading-screen {
+            position: fixed;
+            inset: 0;
+            background: var(--bg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 12px;
+            z-index: 999;
+        }
+
+        .loading-screen.hidden {
+            display: none;
+        }
+
+        .loading-spinner {
+            width: 36px;
+            height: 36px;
+            border: 3px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin .8s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .app-header {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 0 32px;
+            height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, .06);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .logo-mark {
+            width: 32px;
+            height: 32px;
+            background: var(--accent);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+
+        .header-title {
+            font-size: 15px;
+            font-weight: 700;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .user-avatar {
+            width: 28px;
+            height: 28px;
+            background: var(--accent-light);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--accent);
+        }
+
+        .user-info {
+            font-size: 12px;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .current-time {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            color: var(--text-muted);
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            padding: 2px 8px;
+            border-radius: 4px;
+        }
+
+        .btn-logout {
+            height: 30px;
+            padding: 0 14px;
+            border: 1px solid var(--border);
+            background: var(--surface);
+            border-radius: 6px;
+            font-family: 'Noto Sans KR', sans-serif;
+            font-size: 12px;
+            color: var(--text-secondary);
+            cursor: pointer;
+        }
+
+        .btn-logout:hover {
+            background: var(--bg);
+        }
+
+        .main {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 40px 32px 80px;
+        }
+
+        .page-greeting {
+            margin-bottom: 36px;
+        }
+
+        .page-greeting h1 {
+            font-size: 24px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            margin-bottom: 6px;
+        }
+
+        .page-greeting p {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .section {
+            margin-bottom: 40px;
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .section-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .section-count {
+            font-size: 11px;
+            color: var(--text-muted);
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            padding: 1px 7px;
+            border-radius: 20px;
+        }
+
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 16px;
+        }
+
+        .dashboard-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 24px;
+            cursor: pointer;
+            text-decoration: none;
+            display: block;
+            transition: box-shadow .2s, transform .15s;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, .06);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .dashboard-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+        }
+
+        .dashboard-card:hover {
+            box-shadow: 0 8px 28px rgba(0, 0, 0, .12);
+            transform: translateY(-2px);
+        }
+
+        .card-active::before {
+            background: var(--accent);
+        }
+
+        .card-placeholder {
+            cursor: default;
+            opacity: .65;
+        }
+
+        .card-placeholder:hover {
+            box-shadow: 0 1px 3px rgba(0, 0, 0, .06);
+            transform: none;
+        }
+
+        .card-placeholder::before {
+            background: var(--text-muted);
+            opacity: .5;
+        }
+
+        .card-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            margin-bottom: 14px;
+        }
+
+        .card-active .card-icon {
+            background: var(--accent-light);
+        }
+
+        .card-placeholder .card-icon {
+            background: var(--surface2);
+        }
+
+        .card-title {
+            font-size: 15px;
+            font-weight: 700;
+            margin-bottom: 5px;
+            letter-spacing: -0.2px;
+        }
+
+        .card-desc {
+            font-size: 12px;
+            color: var(--text-secondary);
+            line-height: 1.6;
+            margin-bottom: 14px;
+        }
+
+        .card-meta {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 8px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .badge-live {
+            background: #edf7f1;
+            color: #0d7a4a;
+        }
+
+        .badge-soon {
+            background: var(--surface2);
+            color: var(--text-muted);
+            border: 1px solid var(--border);
+        }
+
+        .badge-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: currentColor;
+            animation: pulse 2s ease infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1
+            }
+
+            50% {
+                opacity: .4
+            }
+        }
+
+        .card-arrow {
+            font-size: 16px;
+            color: var(--text-muted);
+            margin-left: auto;
+            transition: transform .15s, color .15s;
+        }
+
+        .dashboard-card:hover .card-arrow {
+            transform: translateX(3px);
+            color: var(--accent);
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="loading-screen" id="loadingScreen">
+        <div class="loading-spinner"></div>
+    </div>
+
+    <div class="auth-hidden" id="mainContent">
+        <header class="app-header">
+            <div class="header-left">
+                <div class="logo-mark">🌿</div>
+                <span class="header-title">들메내식품 대시보드</span>
+            </div>
+            <div class="header-right">
+                <span class="current-time" id="clockDisplay">--:--:--</span>
+                <div class="user-info">
+                    <div class="user-avatar" id="userAvatar">—</div>
+                    <span id="userIdDisplay">—</span>
+                </div>
+                <button class="btn-logout" onclick="handleLogout()">로그아웃</button>
+            </div>
+        </header>
+
+        <main class="main">
+            <div class="page-greeting">
+                <h1 id="greetingText">안녕하세요 👋</h1>
+                <p>들메내식품 내부 대시보드입니다. 원하는 메뉴를 선택하세요.</p>
+            </div>
+
+            <div class="section">
+                <div class="section-header">
+                    <span class="section-title">운영 중</span>
+                    <span class="section-count">1</span>
+                </div>
+                <div class="card-grid">
+                    <a href="/bond/monthlybond.html" class="dashboard-card card-active">
+                        <div class="card-icon">📋</div>
+                        <div class="card-title">미청구채권 현황</div>
+                        <div class="card-desc">거래처별 채권 잔액을 3가지 유형으로 분류하고 검토 우선순위를 파악합니다.</div>
+                        <div class="card-meta">
+                            <span class="badge badge-live"><span class="badge-dot"></span> 운영 중</span>
+                            <span class="card-arrow">→</span>
+                        </div>
+                    </a>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-header">
+                    <span class="section-title">준비 중</span>
+                    <span class="section-count">4</span>
+                </div>
+                <div class="card-grid">
+                    <div class="dashboard-card card-placeholder">
+                        <div class="card-icon">📈</div>
+                        <div class="card-title">월별 매출 현황</div>
+                        <div class="card-desc">거래처 및 품목별 월별 매출 추이와 목표 대비 실적을 확인합니다.</div>
+                        <div class="card-meta"><span class="badge badge-soon">준비 중</span></div>
+                    </div>
+                    <div class="dashboard-card card-placeholder">
+                        <div class="card-icon">📦</div>
+                        <div class="card-title">재고 현황</div>
+                        <div class="card-desc">원재료 및 완제품 재고 수량과 입출고 내역을 실시간으로 파악합니다.</div>
+                        <div class="card-meta"><span class="badge badge-soon">준비 중</span></div>
+                    </div>
+                    <div class="dashboard-card card-placeholder">
+                        <div class="card-icon">🏭</div>
+                        <div class="card-title">생산 현황</div>
+                        <div class="card-desc">일별·월별 생산 실적과 수율 데이터를 확인하고 관리합니다.</div>
+                        <div class="card-meta"><span class="badge badge-soon">준비 중</span></div>
+                    </div>
+                    <div class="dashboard-card card-placeholder">
+                        <div class="card-icon">🧹</div>
+                        <div class="card-title">청결 점검 현황</div>
+                        <div class="card-desc">구역별 청결 점검 결과와 부적합 이력을 관리합니다.</div>
+                        <div class="card-meta"><span class="badge badge-soon">준비 중</span></div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+        import { getAuth, onAuthStateChanged, signOut }
+            from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+
+        const FIREBASE_CONFIG = {
+            apiKey: "AIzaSyAlvRWMpYV5Cq2vb0XxpA4t56KuByj8KuE",
+            authDomain: "dmnfood-erp.firebaseapp.com",
+            projectId: "dmnfood-erp",
+            storageBucket: "dmnfood-erp.firebasestorage.app",
+            messagingSenderId: "918686575195",
+            appId: "1:918686575195:web:699d961aa0a092ee9ead7e",
+        };
+
+        const app = initializeApp(FIREBASE_CONFIG);
+        const auth = getAuth(app);
+
+        onAuthStateChanged(auth, user => {
+            if (!user) { window.location.href = '/loginpage.html'; return; }
+            const emailId = user.email.split('@')[0];
+            document.getElementById('userAvatar').textContent = emailId.charAt(0).toUpperCase();
+            document.getElementById('userIdDisplay').textContent = emailId;
+            const hour = new Date().getHours();
+            const greeting = hour < 12 ? '좋은 아침입니다' : hour < 18 ? '안녕하세요' : '수고하셨습니다';
+            document.getElementById('greetingText').textContent = `${greeting}, ${emailId}님 👋`;
+            document.getElementById('loadingScreen').classList.add('hidden');
+            document.getElementById('mainContent').classList.remove('auth-hidden');
+        });
+
+        setInterval(() => {
+            const t = new Date();
+            const s = [t.getHours(), t.getMinutes(), t.getSeconds()].map(n => String(n).padStart(2, '0')).join(':');
+            const el = document.getElementById('clockDisplay');
+            if (el) el.textContent = s;
+        }, 1000);
+
+        window.handleLogout = async () => {
+            if (!confirm('로그아웃 하시겠습니까?')) return;
+            await signOut(auth);
+            window.location.href = '/loginpage.html';
+        };
+    </script>
+</body>
+
+</html>

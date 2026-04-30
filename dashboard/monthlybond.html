@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>미청구채권 현황 — 들메내식품 대시보드</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap"
+    rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <link rel="stylesheet" href="/style.css">
+</head>
+
+<body>
+  <div class="blobs">
+    <div class="b1"></div>
+    <div class="b2"></div>
+  </div>
+
+  <div class="nw">
+    <div class="ngb">
+      <div class="ns">
+        <div class="nl">
+          <a href="/home.html" style="text-decoration:none;">
+            <div class="nm-">들</div>
+          </a>
+          <div>
+            <div class="nt">미청구채권 대시보드</div>
+            <div class="ns-">주식회사 들메내식품 · Ecount ERP</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div class="nm-t" id="nav-meta" style="display:none;"></div>
+          <label id="nav-upload" class="ub" style="margin:0;cursor:pointer;" ondragover="ev(event,true)"
+            ondragleave="ev(event,false)" ondrop="dropNav(event)">
+            📂 엑셀 업로드
+            <input type="file" id="fi" accept=".xlsx,.xls" style="display:none" onchange="sel(event)">
+          </label>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="main">
+
+    <div id="dash" style="display:none">
+      <div class="kg" id="kg"></div>
+      <div class="cr">
+        <div class="p cp">
+          <div class="pt">분류 현황</div>
+          <div style="height:165px;position:relative;"><canvas id="dc"></canvas></div>
+        </div>
+        <div class="p cp">
+          <div class="pt">그룹별 검토 필요 잔액</div>
+          <div class="gb" id="gb"></div>
+        </div>
+      </div>
+      <div class="ct">
+        <div class="tg">
+          <button class="tb rv a" data-c="rv" onclick="setTab(this)">⚠ 검토 필요</button>
+          <button class="tb nm" data-c="nm" onclick="setTab(this)">✓ 4월 정상</button>
+          <button class="tb zr" data-c="zr" onclick="setTab(this)">◉ 잔액 없음</button>
+          <button class="tb al" data-c="al" onclick="setTab(this)">전체</button>
+        </div>
+        <input class="sb" type="text" placeholder="거래처 검색..." oninput="draw()">
+        <select class="gs" id="gsel" onchange="draw()">
+          <option value="">전체 그룹</option>
+        </select>
+        <span class="cb" id="cnt"></span>
+      </div>
+      <div class="p" style="overflow:hidden;">
+        <div class="tw">
+          <table>
+            <thead>
+              <tr>
+                <th>거래처</th>
+                <th>잔액</th>
+                <th id="month-headers"></th>
+              </tr>
+            </thead>
+            <tbody id="tb"></tbody>
+          </table>
+        </div>
+        <div class="empty" id="emp" style="display:none">검색 결과가 없습니다.</div>
+      </div>
+    </div>
+
+    <div class="p empty" id="init">
+      <div style="font-size:38px;opacity:.3;margin-bottom:10px;">📊</div>
+      <div style="font-size:13px;color:var(--t2);">우측 상단 버튼으로 Ecount 엑셀 파일을 업로드하면 분석이 시작됩니다.</div>
+    </div>
+  </div>
+
+  <script>
+    const GRP = ['매출처(학교급식)', '매출처(유통)', '매출처(일반)', '매출처(온라인)', '매출처(예식장)', '매출처(일회성)', '매출처(세금계산서X)', '매출처(수출)', '기부단체', '(그룹 미지정)'];
+    const fmt = n => new Intl.NumberFormat('ko-KR').format(n);
+    const fmtK = n => { const a = Math.abs(n); return a >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : a >= 1e3 ? (n / 1e3).toFixed(0) + 'K' : String(n); };
+    const gIdx = g => { const i = GRP.indexOf(g); return i < 0 ? 99 : i; };
+    const sort = a => [...a].sort((x, y) => { const gi = gIdx(x.그룹) - gIdx(y.그룹); return gi || Math.abs(y.잔액) - Math.abs(x.잔액); });
+
+    let D = null, cat = 'rv', dc = null;
+
+    // drag/drop
+    function ev(e, on) { e.preventDefault(); }
+    function dropNav(e) { e.preventDefault(); if (e.dataTransfer.files[0]) load(e.dataTransfer.files[0]); }
+    function drop(e) { e.preventDefault(); if (e.dataTransfer.files[0]) load(e.dataTransfer.files[0]); }
+    function sel(e) { if (e.target.files[0]) load(e.target.files[0]); e.target.value = ''; }
+
+    function load(file) {
+      const r = new FileReader();
+      r.onload = e => {
+        try {
+          const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+          const ws = wb.Sheets[wb.SheetNames[0]];
+          parse(XLSX.utils.sheet_to_json(ws, { header: 1, defval: null, raw: true }));
+        } catch (err) { alert('파싱 오류: ' + err.message); }
+      };
+      r.readAsArrayBuffer(file);
+    }
+
+    function parse(rows) {
+      const hrow = rows[1] || [];
+      const months = [];
+      for (let c = 4; c < hrow.length; c++) months.push(hrow[c] ? String(hrow[c]).trim() : `M${c}`);
+
+      const companies = []; let cur = null;
+      for (let i = 2; i < rows.length; i++) {
+        const r = rows[i], g = r[3];
+        if (!['매출', '수금', '기타할인등차액', '잔액', '미회수액'].includes(g)) continue;
+        if (g === '매출') {
+          const code = r[0], name = r[1];
+          if ((!code && !name) || String(code) === '[누계]') { cur = null; continue; }
+          cur = { 코드: String(code || ''), 명: String(name || ''), 그룹: r[2] || '(그룹 미지정)', rows: {} };
+        }
+        if (!cur) continue;
+        cur.rows[g] = r.slice(4).map(v => typeof v === 'number' ? v : parseFloat(v) || 0);
+        if (g === '미회수액') {
+          const zr = cur.rows['잔액'] || [], mr = cur.rows['매출'] || [];
+          cur.잔액 = (zr[zr.length - 1]) || 0;
+          cur.apr = (mr[mr.length - 2]) || 0;
+          companies.push(cur); cur = null;
+        }
+      }
+
+      const rv = [], nm = [], zr = [];
+      companies.forEach(c => {
+        if (c.잔액 === 0) { c.cat = 'zr'; zr.push(c); }
+        else if (c.잔액 > 0 && c.apr === c.잔액) { c.cat = 'nm'; nm.push(c); }
+        else { c.cat = 'rv'; rv.push(c); }
+      });
+
+      const gs = {};
+      rv.forEach(c => { if (!gs[c.그룹]) gs[c.그룹] = { n: 0, b: 0 }; gs[c.그룹].n++; gs[c.그룹].b += c.잔액; });
+
+      // 마지막 월 이름 추출 (잔액 열 제외, 그 바로 앞이 실제 마지막 달)
+      const lastMonth = months.length >= 2 ? months[months.length - 2] : months[months.length - 1] || '최신월';
+
+      D = {
+        months, companies, rv: sort(rv), nm: sort(nm), zr: sort(zr), gs, lastMonth,
+        sum: {
+          rv: rv.length, nm: nm.length, zr: zr.length, tot: companies.length,
+          rvb: rv.reduce((s, c) => s + c.잔액, 0), nmb: nm.reduce((s, c) => s + c.잔액, 0)
+        }
+      };
+
+      document.getElementById('init').style.display = 'none';
+      document.getElementById('dash').style.display = 'block';
+      const navMeta = document.getElementById('nav-meta');
+      navMeta.style.display = 'block';
+      navMeta.textContent =
+        '기준일 ' + new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' }) +
+        ' · 총 ' + D.sum.tot + '개사';
+
+      buildKPI(); buildDonut(); buildGrpBars(); buildSel(); draw();
+    }
+
+    function buildKPI() {
+      const s = D.sum;
+      const lastMon = D.lastMonth;
+      document.getElementById('kg').innerHTML = [
+        { c: 'rv', i: '⚠', l: '검토 필요', v: s.rv, s: fmt(s.rvb) + '원' },
+        { c: 'nm', i: '✓', l: lastMon + ' 미수금 (정상)', v: s.nm, s: fmt(s.nmb) + '원' },
+        { c: 'zr', i: '◉', l: '정리 완료', v: s.zr, s: '잔액 0' },
+        { c: 'to', i: '∑', l: '전체 거래처', v: s.tot, s: '총잔액 ' + fmt(s.rvb + s.nmb) + '원' },
+      ].map(k => `<div class="p kp ${k.c}"><div class="kb">${k.i}</div><div class="kl">${k.l}</div>
+    <div class="kv">${k.v}<span style="font-size:13px;font-weight:400;color:var(--t2)"> 개사</span></div>
+    <div class="ks">${k.s}</div></div>`).join('');
+    }
+
+    function buildDonut() {
+      if (dc) { dc.destroy(); dc = null; }
+      const s = D.sum;
+      dc = new Chart(document.getElementById('dc'), {
+        type: 'doughnut',
+        data: {
+          labels: ['검토 필요', '4월 정상', '잔액 없음'],
+          datasets: [{
+            data: [s.rv, s.nm, s.zr],
+            backgroundColor: ['rgba(248,113,113,.75)', 'rgba(96,165,250,.75)', 'rgba(74,222,128,.75)'],
+            borderColor: 'rgba(255,255,255,.06)', borderWidth: 2, hoverOffset: 4
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false, cutout: '64%',
+          plugins: {
+            legend: { position: 'bottom', labels: { color: 'rgba(255,255,255,.45)', font: { family: 'Noto Sans KR', size: 11 }, padding: 10, boxWidth: 10 } },
+            tooltip: { callbacks: { label: c => ` ${c.label}: ${c.raw}개사` } }
+          }
+        }
+      });
+    }
+
+    function buildGrpBars() {
+      const gs = D.gs;
+      const order = GRP.filter(g => gs[g]).concat(Object.keys(gs).filter(g => !GRP.includes(g)));
+      const max = Math.max(...order.map(g => Math.abs(gs[g].b || 0)), 1);
+      document.getElementById('gb').innerHTML = order.map(g => {
+        const d = gs[g], bal = d.b || 0, pct = (Math.abs(bal) / max * 100).toFixed(1);
+        const sh = g.replace('매출처', '').replace(/[()]/g, '') || g;
+        return `<div class="gr"><div class="gn" title="${g}">${sh}</div>
+      <div class="gt"><div class="gf" style="width:${pct}%"></div></div>
+      <div class="gv">${d.n}사 · ${fmt(bal)}원</div></div>`;
+      }).join('');
+    }
+
+    function buildSel() {
+      const sel = document.getElementById('gsel');
+      sel.innerHTML = '<option value="">전체 그룹</option>';
+      [...new Set(D.companies.map(c => c.그룹))].sort().forEach(g => {
+        const o = document.createElement('option'); o.value = g; o.textContent = g; sel.appendChild(o);
+      });
+    }
+
+    function setTab(btn) {
+      document.querySelectorAll('.tb').forEach(t => t.classList.remove('a'));
+      btn.classList.add('a'); cat = btn.dataset.c; draw();
+    }
+
+    function draw() {
+      if (!D) return;
+      const q = document.querySelector('.sb').value.toLowerCase();
+      const gf = document.getElementById('gsel').value;
+      const pool = cat === 'al' ? [...D.rv, ...D.nm, ...D.zr] : D[cat] || [];
+      const list = pool.filter(c => {
+        if (gf && c.그룹 !== gf) return false;
+        if (q && !c.명.toLowerCase().includes(q) && !c.코드.includes(q)) return false;
+        return true;
+      });
+      document.getElementById('cnt').textContent = list.length + '개사';
+      const tb = document.getElementById('tb');
+      tb.innerHTML = '';
+      if (!list.length) { document.getElementById('emp').style.display = 'block'; return; }
+      document.getElementById('emp').style.display = 'none';
+
+      const CL = { rv: '⚠ 검토필요', nm: '✓ ' + D.lastMonth + ' 정상', zr: '◉ 완료' };
+      let lg = null;
+
+      // 월 헤더 설정
+      const mh = document.getElementById('month-headers');
+      if (mh) mh.outerHTML = `<th colspan="${D.months.length + 1}" style="padding-left:8px;">월별 상세</th>`;
+
+      list.forEach((c, i) => {
+        if (c.그룹 !== lg) {
+          lg = c.그룹;
+          const gr = document.createElement('tr'); gr.className = 'gh';
+          gr.innerHTML = `<td colspan="3">▶  ${c.그룹}</td>`; tb.appendChild(gr);
+        }
+        const rows5 = ['매출', '수금', '기타할인등차액', '잔액', '미회수액'];
+        const bc = c.잔액 > 0 ? 'pos' : c.잔액 < 0 ? 'neg' : 'zer';
+
+        // 월 헤더 행 (업체마다 표시)
+        const hdrCells = '<td style="background:rgba(255,255,255,.04);font-size:9px;font-weight:700;color:var(--t2);">구분</td>' +
+          D.months.map(m => `<td style="background:rgba(255,255,255,.04);font-size:9px;font-weight:700;color:var(--t2);text-align:right;">${m}</td>`).join('');
+
+        const mk = (l) => {
+          const d = c.rows[l] || [];
+          const ib = l === '잔액';
+          const cells = D.months.map((_, mi) => {
+            const v = d[mi] || 0;
+            let cl = ''; if (ib) { cl = v > 0 ? 'pv' : v < 0 ? 'nv' : ''; }
+            return `<td class="${cl}">${v ? fmt(v) : ''}</td>`;
+          }).join('');
+          return `<tr class="${ib ? 'rb' : ''}"><td>${l}</td>${cells}</tr>`;
+        };
+
+        const tr = document.createElement('tr'); tr.className = 'co';
+        tr.innerHTML = `<td colspan="3"><div class="cob">
+      <div class="cm"><div class="cn">${c.명}</div><div class="cc">${c.코드}</div>
+        <div class="cg" title="${c.그룹}">${c.그룹.replace('매출처', '').replace(/[()]/g, '') || c.그룹}</div></div>
+      <div class="cb2"><div class="ba ${bc}">${fmt(c.잔액)}원</div><div class="bl">최종잔액</div>
+        <div class="pill ${c.cat}">${CL[c.cat]}</div></div>
+      <div class="cmd"><table class="mt">
+        <thead><tr>${hdrCells}</tr></thead>
+        <tbody>${rows5.map(mk).join('')}</tbody>
+      </table></div>
+    </div></td>`;
+        tb.appendChild(tr);
+      });
+    }
+  </script>
+</body>
+
+</html>

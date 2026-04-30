@@ -1,0 +1,583 @@
+/* ============================================================
+   들메내식품 대시보드 — 공통 디자인 시스템 (style.css)
+   기준 디자인: bond_v4.html
+   ============================================================ */
+
+/* ── 1. Google Fonts ─────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+
+/* ── 2. 디자인 토큰 (CSS 변수) ────────────────────────────── */
+:root {
+  /* 배경 */
+  --bg: radial-gradient(1200px 600px at 20% 0%, #070b14, #0b1220);
+
+  /* 카드 레이어 */
+  --card:   rgba(255,255,255,0.06);
+  --card-s: rgba(255,255,255,0.09);
+  --card-w: rgba(255,255,255,0.04);
+
+  /* 테두리 & 그림자 */
+  --border: rgba(255,255,255,0.10);
+  --shadow: 0 22px 56px rgba(0,0,0,.52);
+
+  /* 텍스트 계층 */
+  --t0: rgba(255,255,255,.92);
+  --t1: rgba(255,255,255,.62);
+  --t2: rgba(255,255,255,.38);
+
+  /* 인풋 */
+  --in-bg: rgba(255,255,255,.06);
+  --in-br: rgba(255,255,255,.14);
+  --in-ph: rgba(255,255,255,.35);
+
+  /* 테이블 */
+  --tb-br: rgba(255,255,255,.08);
+  --tb-hd: rgba(255,255,255,.05);
+  --tb-hv: rgba(255,255,255,.04);
+
+  /* 배경 블롭 그라디언트 */
+  --blob1: linear-gradient(135deg,#22d3ee,#0ea5e9,#d946ef);
+  --blob2: linear-gradient(135deg,#d946ef,#6366f1,#22d3ee);
+
+  /* 상태 색상 */
+  --rv:    #f87171;  --rv-bg: rgba(248,113,113,.12);   /* 검토 필요 / 경고 */
+  --nm:    #60a5fa;  --nm-bg: rgba(96,165,250,.12);    /* 정상 / 정보 */
+  --zr:    #4ade80;  --zr-bg: rgba(74,222,128,.12);    /* 완료 / 성공 */
+  --ac:    #fbbf24;                                     /* 강조 / 합계 */
+
+  /* 브랜드 */
+  --brand-a: #22d3ee;
+  --brand-b: #d946ef;
+}
+
+/* ── 3. 기본 리셋 ─────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+html {
+  font-size: 93%;
+  scroll-behavior: smooth;
+}
+body {
+  background: var(--bg);
+  color: var(--t0);
+  font-family: 'Noto Sans KR', sans-serif;
+  min-height: 100dvh;
+  overflow-x: hidden;
+}
+
+/* ── 4. 배경 블롭 애니메이션 ────────────────────────────── */
+.blobs {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+}
+.b1, .b2 {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: .3;
+}
+.b1 {
+  width: 520px; height: 520px;
+  top: -130px; left: -130px;
+  background-image: var(--blob1);
+}
+.b2 {
+  width: 580px; height: 580px;
+  bottom: -170px; right: -170px;
+  background-image: var(--blob2);
+}
+
+/* ── 5. 네비게이션 바 ────────────────────────────────────── */
+.nw {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  padding: 14px 24px 0;
+}
+.ngb {
+  border-radius: 24px;
+  background: linear-gradient(to right,
+    rgba(34,211,238,.22),
+    rgba(14,165,233,.18),
+    rgba(217,70,239,.22));
+  padding: 1px;
+}
+.ns {
+  border-radius: 23px;
+  background: var(--card-s);
+  backdrop-filter: blur(24px);
+  border: 1px solid var(--border);
+  padding: 11px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.nl {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+/* 로고 아이콘 박스 */
+.nav-logo {
+  width: 32px; height: 32px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #22d3ee, #d946ef);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 14px;
+  color: #fff;
+  flex-shrink: 0;
+}
+/* 레거시 호환 */
+.nm- { width:32px;height:32px;border-radius:10px;background:linear-gradient(135deg,#22d3ee,#d946ef);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:#fff;flex-shrink:0; }
+.nt  { font-size:14px;font-weight:700;color:var(--t0); }
+.ns- { font-size:11px;color:var(--t2); }
+.nm-t { font-size:11px;color:var(--t2);font-family:'JetBrains Mono',monospace; }
+.nav-title { font-size:14px;font-weight:700;color:var(--t0); }
+.nav-sub   { font-size:11px;color:var(--t2); }
+.nav-meta  { font-size:11px;color:var(--t2);font-family:'JetBrains Mono',monospace; }
+
+/* 네비게이션 우측 버튼 영역 */
+.nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* ── 6. 페이지 레이아웃 ──────────────────────────────────── */
+.main {
+  position: relative;
+  z-index: 10;
+  max-width: 1360px;
+  margin: 0 auto;
+  padding: 26px 24px 60px;
+}
+/* 중앙 정렬 (로그인 등) */
+.main-center {
+  position: relative;
+  z-index: 10;
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+/* ── 7. 카드 (패널) ──────────────────────────────────────── */
+.card, .p {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  backdrop-filter: blur(20px);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+/* 패널 타이틀 */
+.panel-title, .pt {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .9px;
+  color: var(--t2);
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.panel-title::after, .pt::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+.panel-body {
+  padding: 18px 22px;
+}
+
+/* ── 8. 로그인 전용 ──────────────────────────────────────── */
+.login-card {
+  background: var(--card-s);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  backdrop-filter: blur(24px);
+  box-shadow: var(--shadow);
+  padding: 40px 36px;
+  width: 100%;
+  max-width: 400px;
+}
+.login-logo-wrap {
+  text-align: center;
+  margin-bottom: 28px;
+}
+.login-logo {
+  width: 56px; height: 56px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #22d3ee, #d946ef);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  font-weight: 800;
+  color: #fff;
+  margin-bottom: 12px;
+}
+.login-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--t0);
+  margin-bottom: 4px;
+}
+.login-sub {
+  font-size: 12px;
+  color: var(--t2);
+}
+.login-error {
+  background: var(--rv-bg);
+  border: 1px solid rgba(248,113,113,.25);
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 12px;
+  color: var(--rv);
+  margin-bottom: 16px;
+  display: none;
+}
+.login-error.show { display: block; }
+
+/* ── 9. 홈 메뉴 카드 그리드 ─────────────────────────────── */
+.menu-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+  margin-top: 24px;
+}
+.menu-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 24px 22px;
+  cursor: pointer;
+  text-decoration: none;
+  display: block;
+  transition: background .15s, border-color .15s, transform .15s;
+  position: relative;
+  overflow: hidden;
+}
+.menu-card:hover {
+  background: var(--card-s);
+  border-color: rgba(34,211,238,.3);
+  transform: translateY(-2px);
+}
+.menu-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 3px; height: 100%;
+  background: linear-gradient(to bottom, #22d3ee, #d946ef);
+}
+.menu-icon {
+  font-size: 28px;
+  margin-bottom: 12px;
+}
+.menu-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--t0);
+  margin-bottom: 4px;
+}
+.menu-desc {
+  font-size: 11px;
+  color: var(--t2);
+  line-height: 1.5;
+}
+
+/* ── 10. 폼 요소 ─────────────────────────────────────────── */
+.form-group {
+  margin-bottom: 16px;
+}
+.form-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .6px;
+  color: var(--t2);
+  margin-bottom: 6px;
+}
+.input, .sb {
+  width: 100%;
+  background: var(--in-bg);
+  border: 1px solid var(--in-br);
+  border-radius: 10px;
+  padding: 10px 14px;
+  color: var(--t0);
+  font-family: 'Noto Sans KR', sans-serif;
+  font-size: 13px;
+  outline: none;
+  transition: border-color .15s, box-shadow .15s;
+  backdrop-filter: blur(14px);
+}
+.input:focus, .sb:focus {
+  border-color: rgba(34,211,238,.4);
+  box-shadow: 0 0 0 3px rgba(34,211,238,.08);
+}
+.input::placeholder, .sb::placeholder { color: var(--in-ph); }
+
+select.input, .gs {
+  background: var(--in-bg);
+  border: 1px solid var(--in-br);
+  border-radius: 10px;
+  padding: 7px 12px;
+  color: var(--t0);
+  font-family: 'Noto Sans KR', sans-serif;
+  font-size: 12px;
+  outline: none;
+  cursor: pointer;
+}
+select.input option, .gs option {
+  background: #0b1220;
+  color: rgba(255,255,255,.92);
+}
+
+/* ── 11. 버튼 ────────────────────────────────────────────── */
+/* 기본 버튼 */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 20px;
+  border-radius: 10px;
+  border: none;
+  font-family: 'Noto Sans KR', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s, opacity .15s;
+}
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+
+/* 프라이머리 (브랜드) */
+.btn-primary {
+  background: linear-gradient(135deg, #22d3ee, #6366f1);
+  color: #fff;
+  width: 100%;
+}
+.btn-primary:hover:not(:disabled) { opacity: .88; }
+
+/* 보조 (시안) */
+.btn-secondary, .ub {
+  background: rgba(34,211,238,.13);
+  border: 1px solid rgba(34,211,238,.28) !important;
+  color: #22d3ee;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 8px 20px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background .15s;
+  font-family: 'Noto Sans KR', sans-serif;
+  display: inline-block;
+  margin-top: 14px;
+}
+.btn-secondary:hover, .ub:hover { background: rgba(34,211,238,.22); }
+
+/* 위험 */
+.btn-danger {
+  background: var(--rv-bg);
+  border: 1px solid rgba(248,113,113,.28);
+  color: var(--rv);
+}
+.btn-danger:hover { background: rgba(248,113,113,.22); }
+
+/* 탭 토글 */
+.tg {
+  display: flex;
+  gap: 3px;
+  background: rgba(255,255,255,.05);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 4px;
+  backdrop-filter: blur(14px);
+}
+.tb {
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--t2);
+  font-family: 'Noto Sans KR', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: .15s;
+}
+.tb:hover { background: rgba(255,255,255,.07); color: var(--t1); }
+.tb.a    { background: rgba(255,255,255,.10); color: var(--t0); border: 1px solid var(--border); }
+.tb.rv.a { color: var(--rv); }
+.tb.nm.a { color: var(--nm); }
+.tb.zr.a { color: var(--zr); }
+.tb.al.a { color: var(--ac); }
+
+/* ── 12. KPI 카드 ─────────────────────────────────────────── */
+.kg {
+  display: grid;
+  grid-template-columns: repeat(4,1fr);
+  gap: 13px;
+  margin-bottom: 22px;
+}
+.kp {
+  padding: 20px 22px;
+  position: relative;
+  overflow: hidden;
+}
+.kp::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 3px; height: 100%;
+}
+.kp.rv::before { background: var(--rv); }
+.kp.nm::before { background: var(--nm); }
+.kp.zr::before { background: var(--zr); }
+.kp.to::before { background: var(--ac); }
+.kb { position: absolute; top: 14px; right: 15px; font-size: 22px; opacity: .10; }
+.kl { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .9px; color: var(--t2); margin-bottom: 8px; }
+.kv { font-family: 'JetBrains Mono', monospace; font-size: 27px; font-weight: 700; letter-spacing: -1px; line-height: 1; }
+.kp.rv .kv { color: var(--rv); }
+.kp.nm .kv { color: var(--nm); }
+.kp.zr .kv { color: var(--zr); }
+.kp.to .kv { color: var(--t0); }
+.ks { font-size: 10px; color: var(--t2); font-family: 'JetBrains Mono', monospace; margin-top: 5px; }
+
+/* ── 13. 차트 레이아웃 ───────────────────────────────────── */
+.cr {
+  display: grid;
+  grid-template-columns: 210px 1fr;
+  gap: 13px;
+  margin-bottom: 22px;
+}
+.cp { padding: 18px 22px; }
+.gb { display: flex; flex-direction: column; gap: 10px; }
+.gr { display: flex; align-items: center; gap: 10px; }
+.gn { width: 110px; font-size: 11px; color: var(--t2); text-align: right; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gt { flex: 1; height: 5px; background: rgba(255,255,255,.07); border-radius: 3px; overflow: hidden; }
+.gf { height: 100%; border-radius: 3px; background: var(--rv); transition: width .5s; }
+.gv { width: 130px; font-size: 11px; font-family: 'JetBrains Mono', monospace; color: var(--t2); }
+
+/* ── 14. 컨트롤 바 ───────────────────────────────────────── */
+.ct {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.cb { margin-left: auto; font-size: 11px; color: var(--t2); font-family: 'JetBrains Mono', monospace; }
+
+/* ── 15. 업로드 드롭존 ───────────────────────────────────── */
+.uz {
+  padding: 52px 32px;
+  text-align: center;
+  border: 2px dashed var(--border);
+  border-radius: 14px;
+  transition: .2s;
+  cursor: pointer;
+  background: var(--card-w);
+}
+.uz:hover, .uz.ov {
+  border-color: rgba(34,211,238,.45);
+  background: rgba(34,211,238,.05);
+}
+.ui { font-size: 42px; margin-bottom: 10px; opacity: .45; }
+.ut { font-size: 15px; font-weight: 700; color: var(--t0); margin-bottom: 6px; }
+.us { font-size: 12px; color: var(--t2); }
+
+/* ── 16. 테이블 ──────────────────────────────────────────── */
+.tw { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+thead th {
+  background: var(--tb-hd);
+  padding: 9px 14px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .8px;
+  color: var(--t2);
+  text-align: left;
+  border-bottom: 1px solid var(--tb-br);
+  white-space: nowrap;
+}
+tr.gh td {
+  background: rgba(255,255,255,.025);
+  padding: 6px 14px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .4px;
+  color: var(--t2);
+  border-bottom: 1px solid var(--tb-br);
+  border-top: 1px solid rgba(255,255,255,.05);
+}
+tr.co { border-bottom: 1px solid var(--tb-br); transition: background .1s; }
+tr.co:hover { background: var(--tb-hv); }
+tr.co:last-child { border-bottom: none; }
+
+/* 채권 테이블 복합 셀 */
+.cob { display: grid; grid-template-columns: 178px 154px 1fr; align-items: stretch; }
+.cm  { padding: 12px 14px; border-right: 1px solid var(--tb-br); display: flex; flex-direction: column; justify-content: center; gap: 3px; }
+.cn  { font-weight: 700; font-size: 13px; letter-spacing: -.2px; }
+.cc  { font-size: 10px; color: var(--t2); font-family: 'JetBrains Mono', monospace; }
+.cg  { display: inline-block; margin-top: 4px; font-size: 9px; padding: 2px 7px; border-radius: 20px; background: rgba(255,255,255,.06); color: var(--t2); border: 1px solid var(--border); white-space: nowrap; }
+.cb2 { padding: 12px 14px; border-right: 1px solid var(--tb-br); display: flex; flex-direction: column; justify-content: center; gap: 3px; }
+.ba  { font-family: 'JetBrains Mono', monospace; font-size: 15px; font-weight: 700; letter-spacing: -.5px; }
+.ba.pos { color: var(--rv); }
+.ba.neg { color: var(--nm); }
+.ba.zer { color: var(--zr); }
+.bl  { font-size: 10px; color: var(--t2); }
+
+/* 뱃지/필 */
+.pill { display: inline-block; font-size: 9px; font-weight: 700; padding: 2px 8px; border-radius: 20px; margin-top: 3px; letter-spacing: .3px; }
+.pill.rv { background: var(--rv-bg); color: var(--rv); border: 1px solid rgba(248,113,113,.25); }
+.pill.nm { background: var(--nm-bg); color: var(--nm); border: 1px solid rgba(96,165,250,.25); }
+.pill.zr { background: var(--zr-bg); color: var(--zr); border: 1px solid rgba(74,222,128,.25); }
+
+/* 월별 상세 테이블 */
+.cmd { overflow-x: auto; }
+.mt  { width: 100%; border-collapse: collapse; min-width: 640px; }
+.mt th, .mt td { padding: 3px 10px; font-size: 11px; font-family: 'JetBrains Mono', monospace; border-bottom: 1px solid rgba(255,255,255,.04); white-space: nowrap; color: var(--t1); }
+.mt th { background: rgba(255,255,255,.03); color: var(--t2); font-size: 9px; font-weight: 700; text-align: right; border-bottom: 1px solid rgba(255,255,255,.08); }
+.mt th:first-child, .mt td:first-child { color: var(--t2); font-size: 10px; font-family: 'Noto Sans KR', sans-serif; border-right: 1px solid rgba(255,255,255,.06); width: 58px; background: rgba(255,255,255,.02); font-weight: 600; text-align: left; }
+.mt th:first-child { background: rgba(255,255,255,.04); }
+.mt td { text-align: right; }
+.mt tr:last-child td { border-bottom: none; }
+.mt .rb td { font-weight: 700; color: var(--t0); }
+.mt .rb .pv { color: var(--ac); }
+.mt .rb .nv { color: var(--rv); }
+
+/* ── 17. 빈 상태 ──────────────────────────────────────────── */
+.empty {
+  padding: 52px;
+  text-align: center;
+  color: var(--t2);
+}
+
+/* ── 18. 스크롤바 ─────────────────────────────────────────── */
+::-webkit-scrollbar { width: 7px; height: 7px; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,.14); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.24); }
+
+/* ── 19. 유틸리티 ─────────────────────────────────────────── */
+.mono { font-family: 'JetBrains Mono', monospace; }
+.text-muted   { color: var(--t2); }
+.text-accent  { color: var(--brand-a); }
+.text-danger  { color: var(--rv); }
+.text-success { color: var(--zr); }
+.text-info    { color: var(--nm); }
+.text-warn    { color: var(--ac); }

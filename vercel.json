@@ -10,7 +10,7 @@
         },
         {
             "source": "/bond",
-            "destination": "/dashboard/bond/monthlybond.html"
+            "destination": "/dashboard/monthlybond.html"
         }
     ],
     "headers": [

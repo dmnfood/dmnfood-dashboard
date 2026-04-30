@@ -1,87 +1,94 @@
 <!DOCTYPE html>
 <html lang="ko">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>대시보드 홈 — 들메내식품</title>
-<link rel="stylesheet" href="/style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>대시보드 홈 — 들메내식품</title>
+  <link rel="stylesheet" href="style.css">
 
-<!-- Firebase SDK -->
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  <!-- Firebase SDK -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
-  const firebaseConfig = {
-    apiKey: "AIzaSyBvJ4VsXqP0KBP3JTTVswMfXzLKKnH5iXY",
-    authDomain: "dmnfood-dashboard.firebaseapp.com",
-    projectId: "dmnfood-dashboard",
-    storageBucket: "dmnfood-dashboard.appspot.com",
-    messagingSenderId: "123456789",
-    appId: "1:123456789:web:abcdef"
-  };
+    const firebaseConfig = {
+      apiKey: "AIzaSyBvJ4VsXqP0KBP3JTTVswMfXzLKKnH5iXY",
+      authDomain: "dmnfood-dashboard.firebaseapp.com",
+      projectId: "dmnfood-dashboard",
+      storageBucket: "dmnfood-dashboard.appspot.com",
+      messagingSenderId: "123456789",
+      appId: "1:123456789:web:abcdef"
+    };
 
-  const app  = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
 
-  onAuthStateChanged(auth, user => {
-    if (!user) {
+    onAuthStateChanged(auth, user => {
+      if (!user) {
+        window.location.href = '/loginpage.html';
+        return;
+      }
+      /* 사용자 이름 표시 */
+      const nameEl = document.getElementById('user-name');
+      if (nameEl) nameEl.textContent = user.email.split('@')[0];
+    });
+
+    window.handleLogout = async function () {
+      await signOut(auth);
       window.location.href = '/loginpage.html';
-      return;
-    }
-    /* 사용자 이름 표시 */
-    const nameEl = document.getElementById('user-name');
-    if (nameEl) nameEl.textContent = user.email.split('@')[0];
-  });
-
-  window.handleLogout = async function() {
-    await signOut(auth);
-    window.location.href = '/loginpage.html';
-  };
-</script>
+    };
+  </script>
 </head>
+
 <body>
 
-<!-- 배경 블롭 -->
-<div class="blobs"><div class="b1"></div><div class="b2"></div></div>
-
-<!-- 네비게이션 -->
-<div class="nw">
-  <div class="ngb"><div class="ns">
-    <div class="nl">
-      <div class="nav-logo">들</div>
-      <div>
-        <div class="nav-title">들메내식품 대시보드</div>
-        <div class="nav-sub">주식회사 들메내식품 · 내부 업무 시스템</div>
-      </div>
-    </div>
-    <div class="nav-actions">
-      <span class="nav-meta" id="user-name"></span>
-      <button class="btn btn-danger" style="padding:6px 14px;font-size:11px;margin-top:0;" onclick="handleLogout()">
-        로그아웃
-      </button>
-    </div>
-  </div></div>
-</div>
-
-<!-- 메인 -->
-<div class="main">
-
-  <div class="panel-title" style="margin-bottom:8px;">메뉴</div>
-  <div style="font-size:12px;color:var(--t2);margin-bottom:6px;">
-    사용할 업무 메뉴를 선택하세요.
+  <!-- 배경 블롭 -->
+  <div class="blobs">
+    <div class="b1"></div>
+    <div class="b2"></div>
   </div>
 
-  <!-- 메뉴 카드 그리드 -->
-  <div class="menu-grid">
+  <!-- 네비게이션 -->
+  <div class="nw">
+    <div class="ngb">
+      <div class="ns">
+        <div class="nl">
+          <div class="nav-logo">들</div>
+          <div>
+            <div class="nav-title">들메내식품 대시보드</div>
+            <div class="nav-sub">주식회사 들메내식품 · 내부 업무 시스템</div>
+          </div>
+        </div>
+        <div class="nav-actions">
+          <span class="nav-meta" id="user-name"></span>
+          <button class="btn btn-danger" style="padding:6px 14px;font-size:11px;margin-top:0;" onclick="handleLogout()">
+            로그아웃
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
 
-    <a class="menu-card" href="/bond/monthlybond.html">
-      <div class="menu-icon">📊</div>
-      <div class="menu-name">미청구채권 현황</div>
-      <div class="menu-desc">Ecount ERP 엑셀을 업로드하여 미청구채권을 분류하고 분석합니다.</div>
-    </a>
+  <!-- 메인 -->
+  <div class="main">
 
-    <!-- 추가 메뉴는 아래 패턴으로 복제 -->
-    <!--
+    <div class="panel-title" style="margin-bottom:8px;">메뉴</div>
+    <div style="font-size:12px;color:var(--t2);margin-bottom:6px;">
+      사용할 업무 메뉴를 선택하세요.
+    </div>
+
+    <!-- 메뉴 카드 그리드 -->
+    <div class="menu-grid">
+
+      <a class="menu-card" href="/bond/monthlybond.html">
+        <div class="menu-icon">📊</div>
+        <div class="menu-name">미청구채권 현황</div>
+        <div class="menu-desc">Ecount ERP 엑셀을 업로드하여 미청구채권을 분류하고 분석합니다.</div>
+      </a>
+
+      <!-- 추가 메뉴는 아래 패턴으로 복제 -->
+      <!--
     <a class="menu-card" href="/sales/monthlysales.html">
       <div class="menu-icon">💰</div>
       <div class="menu-name">월별 매출 현황</div>
@@ -89,9 +96,10 @@
     </a>
     -->
 
+    </div>
+
   </div>
 
-</div>
-
 </body>
+
 </html>

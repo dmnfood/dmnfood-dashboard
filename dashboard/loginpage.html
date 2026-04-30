@@ -4,76 +4,85 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>로그인 — 들메내식품 대시보드</title>
+  <title>들메내식품 · 로그인</title>
   <link rel="stylesheet" href="style.css">
+  <style>
+    /* 로그인 전용 추가 스타일 */
+    .company-code-wrap input {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 15px;
+      font-weight: 500;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
 
-  <!-- Firebase SDK -->
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    .btn-login {
+      width: 100%;
+      height: 46px;
+      background: linear-gradient(135deg, #22d3ee, #6366f1);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-family: 'Noto Sans KR', sans-serif;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: opacity .15s;
+      margin-top: 24px;
+    }
 
-    const firebaseConfig = {
-      apiKey: "AIzaSyBvJ4VsXqP0KBP3JTTVswMfXzLKKnH5iXY",
-      authDomain: "dmnfood-dashboard.firebaseapp.com",
-      projectId: "dmnfood-dashboard",
-      storageBucket: "dmnfood-dashboard.appspot.com",
-      messagingSenderId: "123456789",
-      appId: "1:123456789:web:abcdef"
-    };
+    .btn-login:hover {
+      opacity: .88;
+    }
 
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
+    .btn-login:disabled {
+      opacity: .45;
+      cursor: not-allowed;
+    }
 
-    /* ── 회사 코드 → 이메일 접미사 매핑 ── */
-    const COMPANY_DOMAINS = {
-      'DMN': 'dmnfood.co.kr',
-    };
+    .spinner {
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(255, 255, 255, .4);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      display: none;
+    }
 
-    /* ── 로그인 처리 ── */
-    window.handleLogin = async function () {
-      const companyCode = document.getElementById('company-code').value.trim().toUpperCase();
-      const userId = document.getElementById('user-id').value.trim();
-      const password = document.getElementById('password').value;
-      const btn = document.getElementById('login-btn');
-      const errEl = document.getElementById('login-error');
-
-      errEl.classList.remove('show');
-
-      const domain = COMPANY_DOMAINS[companyCode];
-      if (!domain) {
-        errEl.textContent = '유효하지 않은 회사 코드입니다.';
-        errEl.classList.add('show');
-        return;
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
       }
+    }
 
-      const email = `${userId}@${domain}`;
-      btn.disabled = true;
-      btn.textContent = '로그인 중...';
+    .error-msg {
+      display: none;
+      background: var(--rv-bg);
+      border: 1px solid rgba(248, 113, 113, .25);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 13px;
+      color: var(--rv);
+      margin-top: 16px;
+    }
 
-      try {
-        await signInWithEmailAndPassword(auth, email, password);
-        window.location.href = '/home.html';
-      } catch (err) {
-        let msg = '로그인에 실패했습니다.';
-        if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password') {
-          msg = '아이디 또는 비밀번호가 올바르지 않습니다.';
-        } else if (err.code === 'auth/too-many-requests') {
-          msg = '로그인 시도가 너무 많습니다. 잠시 후 다시 시도해 주세요.';
-        }
-        errEl.textContent = msg;
-        errEl.classList.add('show');
-        btn.disabled = false;
-        btn.textContent = '로그인';
-      }
-    };
+    .error-msg.visible {
+      display: block;
+    }
 
-    /* ── Enter 키 처리 ── */
-    document.addEventListener('DOMContentLoaded', () => {
-      document.querySelectorAll('.input').forEach(el => {
-        el.addEventListener('keydown', e => { if (e.key === 'Enter') window.handleLogin(); });
-      });
-    });
-  </script>
+    .footer-note {
+      text-align: center;
+      font-size: 11px;
+      color: var(--t2);
+      margin-top: 28px;
+      line-height: 1.6;
+    }
+  </style>
 </head>
 
 <body>
@@ -84,46 +93,111 @@
     <div class="b2"></div>
   </div>
 
-  <!-- 로그인 폼 -->
+  <!-- 로그인 카드 -->
   <div class="main-center">
     <div class="login-card">
 
-      <!-- 로고 -->
+      <!-- 브랜드 -->
       <div class="login-logo-wrap">
-        <div class="login-logo">들</div>
-        <div class="login-title">들메내식품 대시보드</div>
-        <div class="login-sub">내부 업무 관리 시스템</div>
+        <div class="login-logo">🌿</div>
+        <div class="login-title">들메내식품</div>
+        <div class="login-sub">내부 대시보드 시스템</div>
       </div>
 
-      <!-- 오류 메시지 -->
-      <div class="login-error" id="login-error"></div>
-
-      <!-- 회사 코드 -->
+      <!-- 폼 -->
       <div class="form-group">
-        <label class="form-label" for="company-code">회사 코드</label>
-        <input class="input" id="company-code" type="text" placeholder="예: DMN" autocomplete="off" maxlength="10">
+        <label class="form-label">회사코드</label>
+        <div class="company-code-wrap">
+          <input class="input" type="text" id="companyCode" placeholder="회사코드 입력" autocomplete="off" maxlength="20" />
+        </div>
       </div>
-
-      <!-- 아이디 -->
       <div class="form-group">
-        <label class="form-label" for="user-id">아이디</label>
-        <input class="input" id="user-id" type="text" placeholder="아이디를 입력하세요" autocomplete="username">
+        <label class="form-label">아이디</label>
+        <input class="input" type="text" id="userId" placeholder="Ecount 아이디" autocomplete="username" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">비밀번호</label>
+        <input class="input" type="password" id="password" placeholder="비밀번호" autocomplete="current-password" />
       </div>
 
-      <!-- 비밀번호 -->
-      <div class="form-group" style="margin-bottom:24px;">
-        <label class="form-label" for="password">비밀번호</label>
-        <input class="input" id="password" type="password" placeholder="비밀번호를 입력하세요" autocomplete="current-password">
-      </div>
+      <div class="error-msg" id="errorMsg"></div>
 
-      <!-- 버튼 -->
-      <button class="btn btn-primary" id="login-btn" onclick="handleLogin()">
-        로그인
+      <button class="btn-login" id="loginBtn" onclick="handleLogin()">
+        <div class="spinner" id="spinner"></div>
+        <span id="loginBtnText">로그인</span>
       </button>
 
+      <div class="footer-note">
+        접속 문의: 이승표 대표<br>Ecount 로그인 정보와 동일하게 입력하세요
+      </div>
     </div>
   </div>
 
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+    import { getAuth, signInWithEmailAndPassword, onAuthStateChanged }
+      from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+
+    const FIREBASE_CONFIG = {
+      apiKey: "AIzaSyAlvRWMpYV5Cq2vb0XxpA4t56KuByj8KuE",
+      authDomain: "dmnfood-erp.firebaseapp.com",
+      projectId: "dmnfood-erp",
+      storageBucket: "dmnfood-erp.firebasestorage.app",
+      messagingSenderId: "918686575195",
+      appId: "1:918686575195:web:699d961aa0a092ee9ead7e",
+    };
+    const COMPANY_CODE_EXPECTED = "626882";
+
+    const app = initializeApp(FIREBASE_CONFIG);
+    const auth = getAuth(app);
+
+    onAuthStateChanged(auth, user => {
+      if (user) window.location.href = '/home';
+    });
+
+    document.addEventListener('keydown', e => { if (e.key === 'Enter') handleLogin(); });
+
+    window.handleLogin = async function () {
+      const el = id => document.getElementById(id);
+      el('errorMsg').classList.remove('visible');
+      const companyCode = el('companyCode').value.trim().toUpperCase();
+      const userId = el('userId').value.trim();
+      const password = el('password').value;
+
+      if (!companyCode) return showError('회사코드를 입력해주세요.');
+      if (!userId) return showError('아이디를 입력해주세요.');
+      if (!password) return showError('비밀번호를 입력해주세요.');
+      if (companyCode !== COMPANY_CODE_EXPECTED) return showError('회사코드가 올바르지 않습니다.');
+
+      el('loginBtn').disabled = true;
+      el('spinner').style.display = 'block';
+      el('loginBtnText').textContent = '확인 중...';
+
+      try {
+        const email = `${userId.toLowerCase()}@${companyCode.toLowerCase()}.dmnfood`;
+        await signInWithEmailAndPassword(auth, email, password);
+        window.location.href = '/home';
+      } catch (err) {
+        const msg = {
+          'auth/user-not-found': '등록되지 않은 아이디입니다.',
+          'auth/wrong-password': '비밀번호가 올바르지 않습니다.',
+          'auth/invalid-credential': '아이디 또는 비밀번호가 올바르지 않습니다.',
+          'auth/too-many-requests': '로그인 시도가 너무 많습니다. 잠시 후 다시 시도해주세요.',
+        }[err.code] || `로그인 오류: ${err.message}`;
+        showError(msg);
+      } finally {
+        el('loginBtn').disabled = false;
+        el('spinner').style.display = 'none';
+        el('loginBtnText').textContent = '로그인';
+      }
+    };
+
+    function showError(msg) {
+      const el = document.getElementById('errorMsg');
+      el.textContent = msg;
+      el.classList.add('visible');
+    }
+  </script>
 </body>
 
 </html>

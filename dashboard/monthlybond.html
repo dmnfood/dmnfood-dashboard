@@ -282,6 +282,28 @@
       cursor: not-allowed;
     }
 
+    .btn-upload {
+      height: 36px;
+      padding: 0 20px;
+      background: linear-gradient(135deg, #22c55e, #16a34a);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-family: 'Noto Sans KR', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+      transition: opacity .15s;
+    }
+
+    .btn-upload:hover {
+      opacity: .88;
+    }
+
     .auto-status {
       display: none;
       align-items: center;
@@ -798,6 +820,10 @@
             <div class="date-sep">—</div>
             <div class="field-group"><label>종료 월</label><input type="month" id="endMonth" /></div>
             <button class="btn-fetch" onclick="triggerFetch()">⚡ Ecount에서 가져오기</button>
+            <button class="btn-upload" onclick="document.getElementById('manual-file-input').click()">📂 Excel 직접
+              업로드</button>
+            <input type="file" id="manual-file-input" accept=".xlsx,.xls" style="display:none"
+              onchange="handleFileSelect(this)" />
           </div>
           <div class="auto-status" id="autoStatus"></div>
           <div class="divider">또는 직접 업로드</div>

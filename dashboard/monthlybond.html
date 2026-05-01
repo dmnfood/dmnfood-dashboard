@@ -5,12 +5,89 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>들메내식품 · 미청구채권 현황</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <link rel="stylesheet" href="/dashboard/style.css">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap"
+    rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
-    /* ── monthlybond.html 전용 스타일 ── */
-    .auth-hidden {
-      display: none !important;
+    :root {
+      --bg: radial-gradient(1200px 600px at 20% 0%, #070b14, #0b1220);
+      --card: rgba(255, 255, 255, 0.06);
+      --card-s: rgba(255, 255, 255, 0.09);
+      --card-w: rgba(255, 255, 255, 0.04);
+      --border: rgba(255, 255, 255, 0.10);
+      --shadow: 0 22px 56px rgba(0, 0, 0, .52);
+      --t0: rgba(255, 255, 255, .92);
+      --t1: rgba(255, 255, 255, .62);
+      --t2: rgba(255, 255, 255, .38);
+      --in-bg: rgba(255, 255, 255, .06);
+      --in-br: rgba(255, 255, 255, .14);
+      --in-ph: rgba(255, 255, 255, .35);
+      --tb-br: rgba(255, 255, 255, .08);
+      --tb-hd: rgba(255, 255, 255, .05);
+      --tb-hv: rgba(255, 255, 255, .04);
+      --blob1: linear-gradient(135deg, #22d3ee, #0ea5e9, #d946ef);
+      --blob2: linear-gradient(135deg, #d946ef, #6366f1, #22d3ee);
+      --rv: #f87171;
+      --rv-bg: rgba(248, 113, 113, .12);
+      --nm: #60a5fa;
+      --nm-bg: rgba(96, 165, 250, .12);
+      --zr: #4ade80;
+      --zr-bg: rgba(74, 222, 128, .12);
+      --ac: #fbbf24;
+    }
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      font-size: 93%;
+      scroll-behavior: smooth;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--t0);
+      font-family: 'Noto Sans KR', sans-serif;
+      min-height: 100dvh;
+      overflow-x: hidden;
+    }
+
+    .blobs {
+      pointer-events: none;
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+    }
+
+    .b1,
+    .b2 {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(80px);
+      opacity: .3;
+    }
+
+    .b1 {
+      width: 520px;
+      height: 520px;
+      top: -130px;
+      left: -130px;
+      background-image: var(--blob1);
+    }
+
+    .b2 {
+      width: 580px;
+      height: 580px;
+      bottom: -170px;
+      right: -170px;
+      background-image: var(--blob2);
     }
 
     .loading-screen {
@@ -44,24 +121,6 @@
       }
     }
 
-    .file-loading {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(7, 11, 20, .85);
-      z-index: 500;
-      align-items: center;
-      justify-content: center;
-      flex-direction: column;
-      gap: 12px;
-      backdrop-filter: blur(4px);
-    }
-
-    .file-loading.active {
-      display: flex;
-    }
-
-    /* 헤더 */
     .app-header {
       background: rgba(255, 255, 255, 0.05);
       border-bottom: 1px solid var(--border);
@@ -148,22 +207,23 @@
       color: var(--t0);
     }
 
-    /* 레이아웃 */
     .page-main {
-      max-width: 1200px;
+      max-width: 1360px;
       margin: 0 auto;
       padding: 24px 28px 60px;
       position: relative;
       z-index: 10;
     }
 
-    /* 자동화 패널 */
+    /* Ecount 패널 */
     .auto-panel {
       background: var(--card);
       border: 1px solid var(--border);
-      border-radius: 10px;
-      margin-bottom: 16px;
+      border-radius: 14px;
+      margin-bottom: 20px;
       overflow: hidden;
+      backdrop-filter: blur(20px);
+      box-shadow: var(--shadow);
     }
 
     .panel-header {
@@ -205,7 +265,7 @@
     .auto-row {
       display: flex;
       align-items: flex-end;
-      gap: 16px;
+      gap: 14px;
       flex-wrap: wrap;
     }
 
@@ -237,12 +297,12 @@
       cursor: pointer;
     }
 
-    .field-group select {
-      min-width: 160px;
-    }
-
     .field-group input[type="month"] {
       min-width: 140px;
+    }
+
+    .field-group select {
+      min-width: 160px;
     }
 
     .field-group select option {
@@ -253,6 +313,12 @@
       color: var(--t2);
       font-size: 16px;
       padding-bottom: 8px;
+    }
+
+    .btn-actions {
+      display: flex;
+      gap: 8px;
+      align-items: flex-end;
     }
 
     .btn-fetch {
@@ -271,21 +337,17 @@
       gap: 6px;
       white-space: nowrap;
       transition: opacity .15s;
+      box-shadow: 0 2px 12px rgba(34, 211, 238, .25);
     }
 
     .btn-fetch:hover {
       opacity: .88;
     }
 
-    .btn-fetch:disabled {
-      opacity: .4;
-      cursor: not-allowed;
-    }
-
     .btn-upload {
       height: 36px;
       padding: 0 20px;
-      background: linear-gradient(135deg, #22c55e, #16a34a);
+      background: linear-gradient(135deg, #4ade80, #16a34a);
       color: #fff;
       border: none;
       border-radius: 6px;
@@ -298,6 +360,7 @@
       gap: 6px;
       white-space: nowrap;
       transition: opacity .15s;
+      box-shadow: 0 2px 12px rgba(74, 222, 128, .25);
     }
 
     .btn-upload:hover {
@@ -345,464 +408,555 @@
       flex-shrink: 0;
     }
 
-    .divider {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      margin: 20px 0 18px;
-      color: var(--t2);
-      font-size: 11px;
-      font-weight: 500;
-      letter-spacing: .5px;
-      text-transform: uppercase;
+    /* bond_v4 dashboard */
+    .p {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      backdrop-filter: blur(20px);
+      box-shadow: var(--shadow);
+      overflow: hidden;
     }
 
-    .divider::before,
-    .divider::after {
+    .pt {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .9px;
+      color: var(--t2);
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .pt::after {
       content: '';
       flex: 1;
       height: 1px;
       background: var(--border);
     }
 
-    /* 드롭존 */
-    .drop-zone {
-      border: 2px dashed var(--border);
-      border-radius: 10px;
-      padding: 32px 24px;
-      text-align: center;
-      cursor: pointer;
-      transition: border-color .15s, background .15s;
-      position: relative;
-      background: var(--card-w);
-    }
-
-    .drop-zone:hover,
-    .drop-zone.drag-over {
-      border-color: rgba(34, 211, 238, .45);
-      background: rgba(34, 211, 238, .05);
-    }
-
-    .drop-zone input[type="file"] {
-      position: absolute;
-      inset: 0;
-      opacity: 0;
-      cursor: pointer;
-      width: 100%;
-      height: 100%;
-    }
-
-    .drop-zone-icon {
-      font-size: 32px;
-      margin-bottom: 8px;
-    }
-
-    .drop-zone-text {
-      font-size: 14px;
-      font-weight: 500;
-      color: var(--t1);
-    }
-
-    .drop-zone-sub {
-      font-size: 12px;
-      color: var(--t2);
-      margin-top: 4px;
-    }
-
-    .drop-zone-sub strong {
-      color: #22d3ee;
-    }
-
-    /* 결과 */
-    .results {
-      display: none;
-      margin-top: 20px;
-      animation: fadeIn .3s ease;
-    }
-
-    @keyframes fadeIn {
-      from {
-        opacity: 0;
-        transform: translateY(8px)
-      }
-
-      to {
-        opacity: 1;
-        transform: none
-      }
-    }
-
-    .results.visible {
-      display: block;
-    }
-
-    /* 요약 카드 */
-    .summary-cards {
+    .kg {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
-      gap: 12px;
-      margin-bottom: 16px;
+      gap: 13px;
+      margin-bottom: 22px;
     }
 
-    .s-card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 16px 18px;
+    .kp {
+      padding: 20px 22px;
       position: relative;
       overflow: hidden;
     }
 
-    .s-card::before {
+    .kp::before {
       content: '';
       position: absolute;
       top: 0;
       left: 0;
-      right: 0;
-      height: 3px;
+      width: 3px;
+      height: 100%;
     }
 
-    .s-card.red::before {
+    .kp.rv::before {
       background: var(--rv);
     }
 
-    .s-card.blue::before {
+    .kp.nm::before {
       background: var(--nm);
     }
 
-    .s-card.green::before {
+    .kp.zr::before {
       background: var(--zr);
     }
 
-    .s-card.gray::before {
-      background: rgba(255, 255, 255, .2);
+    .kp.to::before {
+      background: var(--ac);
     }
 
-    .card-label {
-      font-size: 11px;
-      font-weight: 600;
-      color: var(--t2);
+    .kb {
+      position: absolute;
+      top: 14px;
+      right: 15px;
+      font-size: 22px;
+      opacity: .10;
+    }
+
+    .kl {
+      font-size: 10px;
+      font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: .5px;
+      letter-spacing: .9px;
+      color: var(--t2);
       margin-bottom: 8px;
     }
 
-    .card-value {
-      font-size: 24px;
-      font-weight: 700;
+    .kv {
       font-family: 'JetBrains Mono', monospace;
+      font-size: 27px;
+      font-weight: 700;
+      letter-spacing: -1px;
       line-height: 1;
-      margin-bottom: 4px;
     }
 
-    .s-card.red .card-value {
+    .kp.rv .kv {
       color: var(--rv);
     }
 
-    .s-card.blue .card-value {
+    .kp.nm .kv {
       color: var(--nm);
     }
 
-    .s-card.green .card-value {
+    .kp.zr .kv {
       color: var(--zr);
     }
 
-    .card-sub {
-      font-size: 11px;
-      color: var(--t2);
+    .kp.to .kv {
+      color: var(--t0);
     }
 
-    /* 탭 */
-    .tabs {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 10px;
+    .ks {
+      font-size: 10px;
+      color: var(--t2);
+      font-family: 'JetBrains Mono', monospace;
+      margin-top: 5px;
+    }
+
+    .cr {
+      display: grid;
+      grid-template-columns: 210px 1fr;
+      gap: 13px;
+      margin-bottom: 22px;
+    }
+
+    .cp {
+      padding: 18px 22px;
+    }
+
+    .gb {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .gr {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .gn {
+      width: 110px;
+      font-size: 11px;
+      color: var(--t2);
+      text-align: right;
+      flex-shrink: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .gt {
+      flex: 1;
+      height: 5px;
+      background: rgba(255, 255, 255, .07);
+      border-radius: 3px;
       overflow: hidden;
     }
 
-    .tab-nav {
-      display: flex;
-      border-bottom: 1px solid var(--border);
-      background: rgba(255, 255, 255, .03);
-      overflow-x: auto;
+    .gf {
+      height: 100%;
+      border-radius: 3px;
+      background: var(--rv);
+      transition: width .5s;
     }
 
-    .tab-btn {
-      padding: 12px 20px;
-      border: none;
-      background: transparent;
-      font-family: 'Noto Sans KR', sans-serif;
-      font-size: 13px;
-      font-weight: 500;
+    .gv {
+      width: 130px;
+      font-size: 11px;
+      font-family: 'JetBrains Mono', monospace;
       color: var(--t2);
-      cursor: pointer;
-      white-space: nowrap;
-      border-bottom: 2px solid transparent;
+    }
+
+    .ct {
       display: flex;
       align-items: center;
-      gap: 6px;
-      transition: color .15s;
+      gap: 9px;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
     }
 
-    .tab-btn:hover {
+    .tg {
+      display: flex;
+      gap: 3px;
+      background: rgba(255, 255, 255, .05);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 4px;
+      backdrop-filter: blur(14px);
+    }
+
+    .tb {
+      padding: 6px 14px;
+      border-radius: 8px;
+      border: none;
+      background: transparent;
+      color: var(--t2);
+      font-family: 'Noto Sans KR', sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: .15s;
+    }
+
+    .tb:hover {
+      background: rgba(255, 255, 255, .07);
       color: var(--t1);
     }
 
-    .tab-btn.active {
+    .tb.a {
+      background: rgba(255, 255, 255, .10);
       color: var(--t0);
-      border-bottom-color: #22d3ee;
-      background: rgba(255, 255, 255, .03);
+      border: 1px solid var(--border);
     }
 
-    .tab-badge {
-      font-size: 11px;
-      padding: 1px 6px;
-      border-radius: 20px;
-      font-weight: 600;
-    }
-
-    .tab-badge.red {
-      background: var(--rv-bg);
+    .tb.rv.a {
       color: var(--rv);
     }
 
-    .tab-badge.blue {
-      background: var(--nm-bg);
+    .tb.nm.a {
       color: var(--nm);
     }
 
-    .tab-badge.green {
-      background: var(--zr-bg);
+    .tb.zr.a {
       color: var(--zr);
     }
 
-    .tab-badge.gray {
-      background: rgba(255, 255, 255, .07);
+    .tb.al.a {
+      color: var(--ac);
+    }
+
+    .sb {
+      flex: 1;
+      max-width: 210px;
+      background: var(--in-bg);
+      border: 1px solid var(--in-br);
+      border-radius: 10px;
+      padding: 7px 12px;
+      color: var(--t0);
+      font-family: 'Noto Sans KR', sans-serif;
+      font-size: 12px;
+      outline: none;
+      transition: .15s;
+      backdrop-filter: blur(14px);
+    }
+
+    .sb:focus {
+      border-color: rgba(34, 211, 238, .4);
+      box-shadow: 0 0 0 3px rgba(34, 211, 238, .08);
+    }
+
+    .sb::placeholder {
+      color: var(--in-ph);
+    }
+
+    .gs-sel {
+      background: var(--in-bg);
+      border: 1px solid var(--in-br);
+      border-radius: 10px;
+      padding: 7px 12px;
+      color: var(--t0);
+      font-family: 'Noto Sans KR', sans-serif;
+      font-size: 12px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    .gs-sel option {
+      background: #0b1220;
+      color: rgba(255, 255, 255, .92);
+    }
+
+    .cnt-label {
+      margin-left: auto;
+      font-size: 11px;
       color: var(--t2);
+      font-family: 'JetBrains Mono', monospace;
     }
 
-    .tab-pane {
-      display: none;
-    }
-
-    .tab-pane.active {
-      display: block;
-    }
-
-    /* 테이블 */
-    .table-wrap {
+    .tw {
       overflow-x: auto;
-      max-height: 500px;
-      overflow-y: auto;
     }
 
     table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 12.5px;
     }
 
     thead th {
-      position: sticky;
-      top: 0;
-      background: rgba(255, 255, 255, .05);
-      padding: 10px 12px;
-      text-align: right;
-      font-size: 11px;
-      font-weight: 600;
+      background: var(--tb-hd);
+      padding: 9px 14px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .8px;
       color: var(--t2);
-      border-bottom: 1px solid var(--border);
-      white-space: nowrap;
-      z-index: 1;
-    }
-
-    thead th:nth-child(1),
-    thead th:nth-child(2),
-    thead th:nth-child(3) {
       text-align: left;
-    }
-
-    tbody tr {
       border-bottom: 1px solid var(--tb-br);
+      white-space: nowrap;
     }
 
-    tbody tr:hover {
+    tr.gh td {
+      background: rgba(255, 255, 255, .025);
+      padding: 6px 14px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .4px;
+      color: var(--t2);
+      border-bottom: 1px solid var(--tb-br);
+      border-top: 1px solid rgba(255, 255, 255, .05);
+    }
+
+    tr.co {
+      border-bottom: 1px solid var(--tb-br);
+      transition: background .1s;
+    }
+
+    tr.co:hover {
       background: var(--tb-hv);
     }
 
-    tbody td {
-      padding: 9px 12px;
+    tr.co:last-child {
+      border-bottom: none;
+    }
+
+    .cob {
+      display: grid;
+      grid-template-columns: 178px 154px 1fr;
+      align-items: stretch;
+    }
+
+    .cm {
+      padding: 12px 14px;
+      border-right: 1px solid var(--tb-br);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 3px;
+    }
+
+    .cn {
+      font-weight: 700;
+      font-size: 13px;
+      letter-spacing: -.2px;
+    }
+
+    .cc {
+      font-size: 10px;
+      color: var(--t2);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .cg {
+      display: inline-block;
+      margin-top: 4px;
+      font-size: 9px;
+      padding: 2px 7px;
+      border-radius: 20px;
+      background: rgba(255, 255, 255, .06);
+      color: var(--t2);
+      border: 1px solid var(--border);
+      white-space: nowrap;
+    }
+
+    .cb2 {
+      padding: 12px 14px;
+      border-right: 1px solid var(--tb-br);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 3px;
+    }
+
+    .ba {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: -.5px;
+    }
+
+    .ba.pos {
+      color: var(--rv);
+    }
+
+    .ba.neg {
+      color: var(--nm);
+    }
+
+    .ba.zer {
+      color: var(--zr);
+    }
+
+    .bl {
+      font-size: 10px;
+      color: var(--t2);
+    }
+
+    .pill {
+      display: inline-block;
+      font-size: 9px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 20px;
+      margin-top: 3px;
+      letter-spacing: .3px;
+    }
+
+    .pill.rv {
+      background: var(--rv-bg);
+      color: var(--rv);
+      border: 1px solid rgba(248, 113, 113, .25);
+    }
+
+    .pill.nm {
+      background: var(--nm-bg);
+      color: var(--nm);
+      border: 1px solid rgba(96, 165, 250, .25);
+    }
+
+    .pill.zr {
+      background: var(--zr-bg);
+      color: var(--zr);
+      border: 1px solid rgba(74, 222, 128, .25);
+    }
+
+    .cmd {
+      overflow-x: auto;
+    }
+
+    .mt {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 640px;
+    }
+
+    .mt th,
+    .mt td {
+      padding: 3px 10px;
+      font-size: 11px;
+      font-family: 'JetBrains Mono', monospace;
+      border-bottom: 1px solid rgba(255, 255, 255, .04);
       white-space: nowrap;
       color: var(--t1);
     }
 
-    tbody td:nth-child(4),
-    tbody td:nth-child(5) {
+    .mt th {
+      background: rgba(255, 255, 255, .03);
+      color: var(--t2);
+      font-size: 9px;
+      font-weight: 700;
+      text-align: right;
+      border-bottom: 1px solid rgba(255, 255, 255, .08);
+    }
+
+    .mt th:first-child,
+    .mt td:first-child {
+      color: var(--t2);
+      font-size: 10px;
+      font-family: 'Noto Sans KR', sans-serif;
+      border-right: 1px solid rgba(255, 255, 255, .06);
+      width: 58px;
+      background: rgba(255, 255, 255, .02);
+      font-weight: 600;
+      text-align: left;
+    }
+
+    .mt th:first-child {
+      background: rgba(255, 255, 255, .04);
+    }
+
+    .mt td {
       text-align: right;
     }
 
-    .group-hdr td {
-      background: rgba(255, 255, 255, .03) !important;
-      font-size: 11px;
-      font-weight: 700;
-      color: var(--t2);
-      text-transform: uppercase;
-      letter-spacing: .5px;
-      padding: 6px 12px;
-      border-top: 2px solid var(--border);
-    }
-
-    .amt {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 12px;
-    }
-
-    .amt.neg {
-      color: var(--rv);
-    }
-
-    .amt.zero {
-      color: var(--t2);
-    }
-
-    /* 요약 탭 */
-    .summary-grid {
-      padding: 20px;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 16px;
-    }
-
-    .summary-block {
-      background: rgba(255, 255, 255, .03);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 16px;
-    }
-
-    .summary-block h3 {
-      font-size: 12px;
-      font-weight: 700;
-      color: var(--t2);
-      margin-bottom: 12px;
-      text-transform: uppercase;
-      letter-spacing: .5px;
-    }
-
-    .sum-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 6px 0;
-      border-bottom: 1px solid var(--tb-br);
-      font-size: 12.5px;
-    }
-
-    .sum-row:last-child {
+    .mt tr:last-child td {
       border-bottom: none;
     }
 
-    .sum-row .lbl {
-      color: var(--t2);
+    .mt .rb td {
+      font-weight: 700;
+      color: var(--t0);
     }
 
-    .sum-row .val {
-      font-family: 'JetBrains Mono', monospace;
-      font-weight: 600;
-      font-size: 12px;
-      color: var(--t1);
+    .mt .rb .pv {
+      color: var(--ac);
     }
 
-    /* 툴바 */
-    .toolbar {
-      display: flex;
-      justify-content: flex-end;
-      padding: 12px 16px;
-      border-top: 1px solid var(--border);
-      gap: 8px;
+    .mt .rb .nv {
+      color: var(--rv);
     }
 
-    .btn-sm {
-      height: 30px;
-      padding: 0 14px;
-      border-radius: 6px;
-      font-size: 12px;
-      font-family: 'Noto Sans KR', sans-serif;
-      font-weight: 500;
-      cursor: pointer;
-      border: 1px solid var(--border);
-      background: transparent;
-      color: var(--t1);
-      display: flex;
-      align-items: center;
-      gap: 5px;
-      transition: background .15s;
-    }
-
-    .btn-sm:hover {
-      background: rgba(255, 255, 255, .07);
-    }
-
-    .btn-sm.primary {
-      background: rgba(34, 211, 238, .13);
-      color: #22d3ee;
-      border-color: rgba(34, 211, 238, .28);
-    }
-
-    .btn-sm.primary:hover {
-      background: rgba(34, 211, 238, .22);
-    }
-
-    .empty-state {
-      padding: 48px 24px;
+    .empty {
+      padding: 52px;
       text-align: center;
       color: var(--t2);
-      font-size: 13px;
     }
 
-    .empty-state .icon {
-      font-size: 36px;
-      margin-bottom: 10px;
+    ::-webkit-scrollbar {
+      width: 7px;
+      height: 7px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, .14);
+      border-radius: 99px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, .24);
+    }
+
+    .auth-hidden {
+      display: none !important;
     }
   </style>
 </head>
 
 <body>
 
-  <!-- 로딩 스크린 -->
-  <div class="loading-screen" id="loadingScreen">
-    <div class="loading-spinner"></div>
-  </div>
-
-  <!-- 파일 로딩 오버레이 -->
-  <div class="file-loading" id="fileLoading">
-    <div class="loading-spinner"></div>
-    <div style="font-size:14px;color:var(--t1);font-weight:500">파일 분석 중...</div>
-  </div>
-
-  <!-- 배경 블롭 -->
   <div class="blobs">
     <div class="b1"></div>
     <div class="b2"></div>
   </div>
 
-  <!-- 메인 콘텐츠 -->
-  <div class="auth-hidden" id="mainContent">
+  <div class="loading-screen" id="loadingScreen">
+    <div class="loading-spinner"></div>
+    <div style="font-size:12px;color:rgba(255,255,255,.4);">인증 확인 중...</div>
+  </div>
+
+  <div id="mainContent" class="auth-hidden">
+
     <header class="app-header">
       <div class="header-left">
-        <a href="/home" class="back-btn">← 홈</a>
-        <div class="app-title"><span class="dot"></span>미청구채권 현황</div>
+        <a href="/dashboard/home.html" class="back-btn">← 홈</a>
+        <div class="app-title">
+          <div class="dot"></div>미청구채권 현황
+        </div>
       </div>
-      <div style="display:flex;align-items:center;gap:10px">
-        <span class="user-chip" id="userChip">—</span>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div class="user-chip" id="userChip"></div>
+        <div class="user-chip" id="nav-meta" style="display:none;"></div>
         <button class="btn-logout-sm" onclick="handleLogout()">로그아웃</button>
       </div>
     </header>
 
     <main class="page-main">
+
+      <!-- Ecount 패널 -->
       <div class="auto-panel">
         <div class="panel-header">
-          <div class="panel-icon">📥</div>
+          <div class="panel-icon">🔗</div>
           <div class="panel-header-text">
             <h2>Ecount 연동</h2>
             <p>버튼 클릭 한 번으로 Ecount에서 자동 다운로드</p>
@@ -812,132 +966,89 @@
           <div class="auto-row">
             <div class="field-group">
               <label>데이터 소스</label>
-              <select id="dataSource">
-                <option value="bond">월별채권증감내역</option>
+              <select>
+                <option>월별채권증감내역</option>
               </select>
             </div>
-            <div class="field-group"><label>시작 월</label><input type="month" id="startMonth" /></div>
+            <div class="field-group">
+              <label>시작 월</label>
+              <input type="month" id="startMonth">
+            </div>
             <div class="date-sep">—</div>
-            <div class="field-group"><label>종료 월</label><input type="month" id="endMonth" /></div>
-            <button class="btn-fetch" onclick="triggerFetch()">⚡ Ecount에서 가져오기</button>
-            <button class="btn-upload" onclick="document.getElementById('manual-file-input').click()">📂 Excel 직접
-              업로드</button>
-            <input type="file" id="manual-file-input" accept=".xlsx,.xls" style="display:none"
-              onchange="handleFileSelect(this)" />
+            <div class="field-group">
+              <label>종료 월</label>
+              <input type="month" id="endMonth">
+            </div>
+            <div class="btn-actions">
+              <button class="btn-fetch" onclick="triggerFetch()">⚡ Ecount에서 가져오기</button>
+              <button class="btn-upload" onclick="document.getElementById('manual-file-input').click()">📂 Excel 직접
+                업로드</button>
+              <input type="file" id="manual-file-input" accept=".xlsx,.xls" style="display:none"
+                onchange="handleManualFile(this)">
+              <input type="file" id="ecount-file-input" accept=".xlsx,.xls" style="display:none"
+                onchange="handleManualFile(this)">
+            </div>
           </div>
           <div class="auto-status" id="autoStatus"></div>
-          <div class="divider">또는 직접 업로드</div>
-          <div class="drop-zone" id="dropZone">
-            <input type="file" id="ecount-file-input" accept=".xlsx,.xls" onchange="handleFileSelect(this)" />
-            <div class="drop-zone-icon">📂</div>
-            <div class="drop-zone-text">엑셀 파일을 여기에 끌어다 놓거나 클릭해서 선택</div>
-            <div class="drop-zone-sub">Ecount <strong>월별채권증감내역</strong> (.xlsx)</div>
-          </div>
         </div>
       </div>
 
-      <div class="results" id="results">
-        <div class="summary-cards">
-          <div class="s-card red">
-            <div class="card-label">① 검토 필요</div>
-            <div class="card-value" id="cnt1">0</div>
-            <div class="card-sub" id="amt1">잔액 불일치</div>
+      <!-- 대시보드 -->
+      <div id="dash" style="display:none">
+        <div class="kg" id="kg"></div>
+        <div class="cr">
+          <div class="p cp">
+            <div class="pt">분류 현황</div>
+            <div style="height:165px;position:relative;"><canvas id="dc"></canvas></div>
           </div>
-          <div class="s-card blue">
-            <div class="card-label">② 정상 미수금</div>
-            <div class="card-value" id="cnt2">0</div>
-            <div class="card-sub" id="amt2">당월 매출 = 잔액</div>
-          </div>
-          <div class="s-card green">
-            <div class="card-label">③ 정리 완료</div>
-            <div class="card-value" id="cnt3">0</div>
-            <div class="card-sub">잔액 0</div>
-          </div>
-          <div class="s-card gray">
-            <div class="card-label">전체 거래처</div>
-            <div class="card-value" id="cntTotal">0</div>
-            <div class="card-sub" id="periodLabel">—</div>
+          <div class="p cp">
+            <div class="pt">그룹별 검토 필요 잔액</div>
+            <div class="gb" id="gb"></div>
           </div>
         </div>
-
-        <div class="tabs">
-          <div class="tab-nav">
-            <button class="tab-btn active" onclick="switchTab('t1',this)">① 검토 필요 <span class="tab-badge red"
-                id="b1">0</span></button>
-            <button class="tab-btn" onclick="switchTab('t2',this)">② 정상 미수금 <span class="tab-badge blue"
-                id="b2">0</span></button>
-            <button class="tab-btn" onclick="switchTab('t3',this)">③ 정리 완료 <span class="tab-badge green"
-                id="b3">0</span></button>
-            <button class="tab-btn" onclick="switchTab('t4',this)">요약 <span class="tab-badge gray">—</span></button>
+        <div class="ct">
+          <div class="tg">
+            <button class="tb rv a" data-c="rv" onclick="setTab(this)">⚠ 검토 필요</button>
+            <button class="tb nm" data-c="nm" onclick="setTab(this)">✓ 정상 미수금</button>
+            <button class="tb zr" data-c="zr" onclick="setTab(this)">◉ 잔액 없음</button>
+            <button class="tb al" data-c="al" onclick="setTab(this)">전체</button>
           </div>
-          <div class="tab-pane active" id="t1">
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th style="text-align:left">그룹</th>
-                    <th style="text-align:left">거래처</th>
-                    <th style="text-align:left">코드</th>
-                    <th>이월잔액</th>
-                    <th>최종잔액</th>
-                  </tr>
-                </thead>
-                <tbody id="tb1"></tbody>
-              </table>
-            </div>
-            <div class="toolbar"><button class="btn-sm" onclick="copyTable('t1')">📋 복사</button><button
-                class="btn-sm primary" onclick="exportExcel()">📥 엑셀</button></div>
+          <input class="sb" type="text" placeholder="거래처 검색..." oninput="draw()">
+          <select class="gs-sel" id="gsel" onchange="draw()">
+            <option value="">전체 그룹</option>
+          </select>
+          <span class="cnt-label" id="cnt"></span>
+        </div>
+        <div class="p" style="overflow:hidden;">
+          <div class="tw">
+            <table>
+              <thead>
+                <tr>
+                  <th>거래처</th>
+                  <th>잔액</th>
+                  <th id="month-headers"></th>
+                </tr>
+              </thead>
+              <tbody id="tb"></tbody>
+            </table>
           </div>
-          <div class="tab-pane" id="t2">
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th style="text-align:left">그룹</th>
-                    <th style="text-align:left">거래처</th>
-                    <th style="text-align:left">코드</th>
-                    <th>이월잔액</th>
-                    <th>최종잔액</th>
-                  </tr>
-                </thead>
-                <tbody id="tb2"></tbody>
-              </table>
-            </div>
-            <div class="toolbar"><button class="btn-sm" onclick="copyTable('t2')">📋 복사</button><button
-                class="btn-sm primary" onclick="exportExcel()">📥 엑셀</button></div>
-          </div>
-          <div class="tab-pane" id="t3">
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th style="text-align:left">그룹</th>
-                    <th style="text-align:left">거래처</th>
-                    <th style="text-align:left">코드</th>
-                    <th>이월잔액</th>
-                    <th>최종잔액</th>
-                  </tr>
-                </thead>
-                <tbody id="tb3"></tbody>
-              </table>
-            </div>
-            <div class="toolbar"><button class="btn-sm" onclick="copyTable('t3')">📋 복사</button><button
-                class="btn-sm primary" onclick="exportExcel()">📥 엑셀</button></div>
-          </div>
-          <div class="tab-pane" id="t4">
-            <div class="summary-grid" id="summaryGrid"></div>
-            <div class="toolbar"><button class="btn-sm primary" onclick="exportExcel()">📥 엑셀</button></div>
-          </div>
+          <div class="empty" id="emp" style="display:none">검색 결과가 없습니다.</div>
         </div>
       </div>
+
+      <!-- 초기 안내 -->
+      <div class="p empty" id="init">
+        <div style="font-size:38px;opacity:.3;margin-bottom:10px;">📊</div>
+        <div style="font-size:13px;color:var(--t2);">Ecount에서 가져오거나 Excel 파일을 직접 업로드하면 분석이 시작됩니다.</div>
+      </div>
+
     </main>
   </div>
 
+  <!-- Firebase 인증 -->
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-    import { getAuth, onAuthStateChanged, signOut }
-      from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
-
+    import { getAuth, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
     const FIREBASE_CONFIG = {
       apiKey: "AIzaSyAlvRWMpYV5Cq2vb0XxpA4t56KuByj8KuE",
       authDomain: "dmnfood-erp.firebaseapp.com",
@@ -946,10 +1057,8 @@
       messagingSenderId: "918686575195",
       appId: "1:918686575195:web:699d961aa0a092ee9ead7e",
     };
-
     const app = initializeApp(FIREBASE_CONFIG);
     const auth = getAuth(app);
-
     onAuthStateChanged(auth, user => {
       if (!user) { window.location.href = '/'; return; }
       document.getElementById('userChip').textContent = user.email.split('@')[0];
@@ -957,7 +1066,6 @@
       document.getElementById('mainContent').classList.remove('auth-hidden');
       initApp();
     });
-
     window.handleLogout = async () => {
       if (!confirm('로그아웃 하시겠습니까?')) return;
       await signOut(auth);
@@ -966,18 +1074,18 @@
   </script>
 
   <script>
-    const GROUP_ORDER = ['매출처(학교급식)', '매출처(유통)', '매출처(일반)', '매출처(온라인)', '매출처(예식장)', '매출처(일회성)', '매출처(세금계산서X)', '매출처(수출)', '기부단체'];
-    let parsedData = null;
+    const GRP = ['매출처(학교급식)', '매출처(유통)', '매출처(일반)', '매출처(온라인)', '매출처(예식장)', '매출처(일회성)', '매출처(세금계산서X)', '매출처(수출)', '기부단체', '(그룹 미지정)'];
+    const fmt = n => new Intl.NumberFormat('ko-KR').format(n);
+    const gIdx = g => { const i = GRP.indexOf(g); return i < 0 ? 99 : i; };
+    const sortArr = a => [...a].sort((x, y) => { const gi = gIdx(x.그룹) - gIdx(y.그룹); return gi || Math.abs(y.잔액) - Math.abs(x.잔액); });
+
+    let D = null, cat = 'rv', dc = null;
 
     function initApp() {
       const now = new Date();
       const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
       document.getElementById('startMonth').value = ym;
       document.getElementById('endMonth').value = ym;
-      const zone = document.getElementById('dropZone');
-      zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
-      zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
-      zone.addEventListener('drop', e => { e.preventDefault(); zone.classList.remove('drag-over'); const f = e.dataTransfer.files[0]; if (f) processFile(f); });
     }
 
     function triggerFetch() {
@@ -991,141 +1099,205 @@
       else setStatus('error', '⚠️ Claude in Chrome이 연결되지 않았습니다.');
     }
 
+    function handleManualFile(input) {
+      if (input.files[0]) load(input.files[0]);
+      input.value = '';
+    }
+
     function setStatus(type, msg) {
       const el = document.getElementById('autoStatus');
       el.className = 'auto-status ' + type;
       el.innerHTML = type === 'running' ? `<div class="spinner-sm"></div> ${msg}` : msg;
     }
 
-    function handleFileSelect(input) { if (input.files[0]) processFile(input.files[0]); }
-
-    function processFile(file) {
+    function load(file) {
       setStatus('running', `📂 "${file.name}" 읽는 중...`);
-      document.getElementById('fileLoading').classList.add('active');
-      const reader = new FileReader();
-      reader.onload = e => {
+      const r = new FileReader();
+      r.onload = e => {
         try {
           const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
-          const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: null });
-          parsedData = parse(rows);
-          setStatus('done', `✅ "${file.name}" 분석 완료 — ${parsedData.all.length}개 거래처`);
-          render(parsedData);
+          const ws = wb.Sheets[wb.SheetNames[0]];
+          parse(XLSX.utils.sheet_to_json(ws, { header: 1, defval: null, raw: true }));
         } catch (err) {
           setStatus('error', `❌ 파일 처리 오류: ${err.message}`);
-        } finally {
-          document.getElementById('fileLoading').classList.remove('active');
         }
       };
-      reader.readAsArrayBuffer(file);
+      r.readAsArrayBuffer(file);
     }
 
     function parse(rows) {
-      const all = [];
-      let i = 2;
-      while (i < rows.length) {
-        const row = rows[i]; if (!row) { i++; continue; }
-        const code = row[0], name = row[1], group = row[2];
-        if (!code && !name) { i++; continue; }
-        if (String(name || '').includes('[누계]') || String(code || '').includes('[누계]')) { i++; continue; }
-        const balRow = rows[i + 3] || [];
-        const last = findLastCol(balRow);
-        all.push({
-          code: String(code || ''), name: String(name || ''), group: String(group || '(그룹 미지정)'),
-          carryOver: toNum(row[4]), latestSales: toNum(row[last - 1]), finalBal: toNum(balRow[last])
-        });
-        i += 5;
+      const hrow = rows[1] || [];
+      const months = [];
+      for (let c = 4; c < hrow.length; c++) months.push(hrow[c] ? String(hrow[c]).trim() : `M${c}`);
+
+      const companies = []; let cur = null;
+      for (let i = 2; i < rows.length; i++) {
+        const r = rows[i], g = r[3];
+        if (!['매출', '수금', '기타할인등차액', '잔액', '미회수액'].includes(g)) continue;
+        if (g === '매출') {
+          const code = r[0], name = r[1];
+          if ((!code && !name) || String(code) === '[누계]') { cur = null; continue; }
+          cur = { 코드: String(code || ''), 명: String(name || ''), 그룹: r[2] || '(그룹 미지정)', rows: {} };
+        }
+        if (!cur) continue;
+        cur.rows[g] = r.slice(4).map(v => typeof v === 'number' ? v : parseFloat(v) || 0);
+        if (g === '미회수액') {
+          const zr = cur.rows['잔액'] || [], mr = cur.rows['매출'] || [];
+          cur.잔액 = (zr[zr.length - 1]) || 0;
+          cur.apr = (mr[mr.length - 2]) || 0;
+          companies.push(cur); cur = null;
+        }
       }
-      const cat1 = [], cat2 = [], cat3 = [];
-      all.forEach(c => {
-        if (c.finalBal === 0) cat3.push({ ...c, cat: 3 });
-        else if (c.finalBal > 0 && Math.abs(c.finalBal - c.latestSales) < 1) cat2.push({ ...c, cat: 2 });
-        else cat1.push({ ...c, cat: 1 });
+
+      const rv = [], nm = [], zr = [];
+      companies.forEach(c => {
+        if (c.잔액 === 0) { c.cat = 'zr'; zr.push(c); }
+        else if (c.잔액 > 0 && c.apr === c.잔액) { c.cat = 'nm'; nm.push(c); }
+        else { c.cat = 'rv'; rv.push(c); }
       });
-      const sort = arr => arr.sort((a, b) => {
-        const gi = g => { const i = GROUP_ORDER.indexOf(g); return i === -1 ? GROUP_ORDER.length : i; };
-        return gi(a.group) - gi(b.group) || Math.abs(b.finalBal) - Math.abs(a.finalBal);
-      });
-      return { all, cat1: sort(cat1), cat2: sort(cat2), cat3: sort(cat3) };
-    }
 
-    function findLastCol(row) { for (let j = row.length - 1; j >= 0; j--) if (row[j] !== null && row[j] !== undefined && row[j] !== '') return j; return row.length - 1; }
-    function toNum(v) { if (v === null || v === undefined || v === '') return 0; const n = parseFloat(String(v).replace(/,/g, '')); return isNaN(n) ? 0 : n; }
-    function fmt(n) { if (!n) return '0'; return Math.round(n).toLocaleString('ko-KR'); }
-    function esc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
-
-    function render(d) {
-      const { cat1, cat2, cat3, all } = d;
-      document.getElementById('cnt1').textContent = cat1.length;
-      document.getElementById('cnt2').textContent = cat2.length;
-      document.getElementById('cnt3').textContent = cat3.length;
-      document.getElementById('cntTotal').textContent = all.length;
-      const sum = arr => arr.reduce((s, c) => s + c.finalBal, 0);
-      document.getElementById('amt1').textContent = `합계 ${fmt(sum(cat1))}원`;
-      document.getElementById('amt2').textContent = `합계 ${fmt(sum(cat2))}원`;
-      document.getElementById('b1').textContent = cat1.length;
-      document.getElementById('b2').textContent = cat2.length;
-      document.getElementById('b3').textContent = cat3.length;
-      renderTable('tb1', cat1); renderTable('tb2', cat2); renderTable('tb3', cat3);
-      renderSummary(d);
-      document.getElementById('results').classList.add('visible');
-    }
-
-    function renderTable(id, list) {
-      const tb = document.getElementById(id);
-      if (!list.length) { tb.innerHTML = `<tr><td colspan="5"><div class="empty-state"><div class="icon">✅</div>해당 없음</div></td></tr>`; return; }
-      let html = '', last = null;
-      list.forEach(c => {
-        if (c.group !== last) { html += `<tr class="group-hdr"><td colspan="5">${esc(c.group)}</td></tr>`; last = c.group; }
-        const bc = c.finalBal < 0 ? 'neg' : c.finalBal === 0 ? 'zero' : '';
-        html += `<tr><td style="color:var(--t2);font-size:11px">${esc(c.group)}</td><td><strong>${esc(c.name)}</strong></td><td style="color:var(--t2);font-family:'JetBrains Mono',monospace;font-size:11px">${esc(c.code)}</td><td class="amt">${fmt(c.carryOver)}</td><td class="amt ${bc}">${fmt(c.finalBal)}</td></tr>`;
-      });
-      tb.innerHTML = html;
-    }
-
-    function renderSummary(d) {
-      const { cat1, cat2, cat3, all } = d;
       const gs = {};
-      all.forEach(c => {
-        if (!gs[c.group]) gs[c.group] = { check: 0, normal: 0, done: 0, amt: 0 };
-        const g = gs[c.group]; g.amt += c.finalBal;
-        if (c.cat === 1) g.check++; else if (c.cat === 2) g.normal++; else g.done++;
+      rv.forEach(c => { if (!gs[c.그룹]) gs[c.그룹] = { n: 0, b: 0 }; gs[c.그룹].n++; gs[c.그룹].b += c.잔액; });
+
+      const lastMonth = months.length >= 2 ? months[months.length - 2] : months[months.length - 1] || '최신월';
+
+      D = {
+        months, companies, rv: sortArr(rv), nm: sortArr(nm), zr: sortArr(zr), gs, lastMonth,
+        sum: {
+          rv: rv.length, nm: nm.length, zr: zr.length, tot: companies.length,
+          rvb: rv.reduce((s, c) => s + c.잔액, 0), nmb: nm.reduce((s, c) => s + c.잔액, 0)
+        }
+      };
+
+      document.getElementById('init').style.display = 'none';
+      document.getElementById('dash').style.display = 'block';
+      const navMeta = document.getElementById('nav-meta');
+      navMeta.style.display = 'block';
+      navMeta.textContent = '기준일 ' + new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' }) + ' · 총 ' + D.sum.tot + '개사';
+      setStatus('done', `✅ "${D.sum.tot}개 거래처" 분석 완료`);
+
+      buildKPI(); buildDonut(); buildGrpBars(); buildSel(); draw();
+    }
+
+    function buildKPI() {
+      const s = D.sum, lastMon = D.lastMonth;
+      document.getElementById('kg').innerHTML = [
+        { c: 'rv', i: '⚠', l: '검토 필요', v: s.rv, s: fmt(s.rvb) + '원' },
+        { c: 'nm', i: '✓', l: lastMon + ' 미수금 (정상)', v: s.nm, s: fmt(s.nmb) + '원' },
+        { c: 'zr', i: '◉', l: '정리 완료', v: s.zr, s: '잔액 0' },
+        { c: 'to', i: '∑', l: '전체 거래처', v: s.tot, s: '총잔액 ' + fmt(s.rvb + s.nmb) + '원' },
+      ].map(k => `<div class="p kp ${k.c}"><div class="kb">${k.i}</div><div class="kl">${k.l}</div>
+    <div class="kv">${k.v}<span style="font-size:13px;font-weight:400;color:var(--t2)"> 개사</span></div>
+    <div class="ks">${k.s}</div></div>`).join('');
+    }
+
+    function buildDonut() {
+      if (dc) { dc.destroy(); dc = null; }
+      const s = D.sum;
+      dc = new Chart(document.getElementById('dc'), {
+        type: 'doughnut',
+        data: {
+          labels: ['검토 필요', '정상 미수금', '잔액 없음'],
+          datasets: [{
+            data: [s.rv, s.nm, s.zr],
+            backgroundColor: ['rgba(248,113,113,.75)', 'rgba(96,165,250,.75)', 'rgba(74,222,128,.75)'],
+            borderColor: 'rgba(255,255,255,.06)', borderWidth: 2, hoverOffset: 4
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false, cutout: '64%',
+          plugins: {
+            legend: { position: 'bottom', labels: { color: 'rgba(255,255,255,.45)', font: { family: 'Noto Sans KR', size: 11 }, padding: 10, boxWidth: 10 } },
+            tooltip: { callbacks: { label: c => ` ${c.label}: ${c.raw}개사` } }
+          }
+        }
       });
-      const ordered = [...GROUP_ORDER, '(그룹 미지정)'].filter(g => gs[g]);
-      let gHtml = '<div class="summary-block" style="grid-column:1/-1"><h3>그룹별 현황</h3>';
-      ordered.forEach(g => {
-        const s = gs[g];
-        gHtml += `<div class="sum-row"><span class="lbl">${esc(g)}</span><span class="val"><span style="color:var(--rv)">검토${s.check}</span> / <span style="color:var(--nm)">정상${s.normal}</span> / <span style="color:var(--zr)">완료${s.done}</span> &nbsp;${fmt(s.amt)}원</span></div>`;
+    }
+
+    function buildGrpBars() {
+      const gs = D.gs;
+      const order = GRP.filter(g => gs[g]).concat(Object.keys(gs).filter(g => !GRP.includes(g)));
+      const max = Math.max(...order.map(g => Math.abs(gs[g].b || 0)), 1);
+      document.getElementById('gb').innerHTML = order.map(g => {
+        const d = gs[g], bal = d.b || 0, pct = (Math.abs(bal) / max * 100).toFixed(1);
+        const sh = g.replace('매출처', '').replace(/[()]/g, '') || g;
+        return `<div class="gr"><div class="gn" title="${g}">${sh}</div>
+      <div class="gt"><div class="gf" style="width:${pct}%"></div></div>
+      <div class="gv">${d.n}사 · ${fmt(bal)}원</div></div>`;
+      }).join('');
+    }
+
+    function buildSel() {
+      const sel = document.getElementById('gsel');
+      sel.innerHTML = '<option value="">전체 그룹</option>';
+      [...new Set(D.companies.map(c => c.그룹))].sort().forEach(g => {
+        const o = document.createElement('option'); o.value = g; o.textContent = g; sel.appendChild(o);
       });
-      gHtml += '</div>';
-      const sum = arr => arr.reduce((s, c) => s + c.finalBal, 0);
-      const oHtml = `<div class="summary-block"><h3>전체 현황</h3><div class="sum-row"><span class="lbl">전체 거래처</span><span class="val">${all.length}개</span></div><div class="sum-row"><span class="lbl" style="color:var(--rv)">① 검토 필요</span><span class="val" style="color:var(--rv)">${cat1.length}개</span></div><div class="sum-row"><span class="lbl" style="color:var(--nm)">② 정상 미수금</span><span class="val" style="color:var(--nm)">${cat2.length}개</span></div><div class="sum-row"><span class="lbl" style="color:var(--zr)">③ 정리 완료</span><span class="val" style="color:var(--zr)">${cat3.length}개</span></div></div>`;
-      const t5 = `<div class="summary-block"><h3>검토 필요 상위 5개</h3>${cat1.slice(0, 5).map(c => `<div class="sum-row"><span class="lbl">${esc(c.name)}</span><span class="val" style="color:var(--rv)">${fmt(c.finalBal)}원</span></div>`).join('')}</div>`;
-      document.getElementById('summaryGrid').innerHTML = oHtml + t5 + gHtml;
     }
 
-    function exportExcel() {
-      if (!parsedData) return;
-      const { cat1, cat2, cat3, all } = parsedData;
-      const wb = XLSX.utils.book_new();
-      const toSheet = (arr, name) => { const ws = XLSX.utils.aoa_to_sheet([['그룹', '거래처명', '거래처코드', '이월잔액', '최종잔액'], ...arr.map(c => [c.group, c.name, c.code, c.carryOver, c.finalBal])]); XLSX.utils.book_append_sheet(wb, ws, name); };
-      toSheet(cat1, '①검토필요'); toSheet(cat2, '②정상(당월미수금)'); toSheet(cat3, '③정리완료');
-      const sw = XLSX.utils.aoa_to_sheet([['구분', '거래처수', '잔액합계'], ['① 검토 필요', cat1.length, cat1.reduce((s, c) => s + c.finalBal, 0)], ['② 정상 미수금', cat2.length, cat2.reduce((s, c) => s + c.finalBal, 0)], ['③ 정리 완료', cat3.length, 0], ['합계', all.length, all.reduce((s, c) => s + c.finalBal, 0)]]);
-      XLSX.utils.book_append_sheet(wb, sw, '요약');
-      XLSX.writeFile(wb, `월별채권증감내역_${new Date().toISOString().split('T')[0]}.xlsx`);
+    function setTab(btn) {
+      document.querySelectorAll('.tb').forEach(t => t.classList.remove('a'));
+      btn.classList.add('a'); cat = btn.dataset.c; draw();
     }
 
-    function switchTab(id, btn) {
-      document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
-      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-      document.getElementById(id).classList.add('active'); btn.classList.add('active');
-    }
+    function draw() {
+      if (!D) return;
+      const q = document.querySelector('.sb').value.toLowerCase();
+      const gf = document.getElementById('gsel').value;
+      const pool = cat === 'al' ? [...D.rv, ...D.nm, ...D.zr] : D[cat] || [];
+      const list = pool.filter(c => {
+        if (gf && c.그룹 !== gf) return false;
+        if (q && !c.명.toLowerCase().includes(q) && !c.코드.includes(q)) return false;
+        return true;
+      });
+      document.getElementById('cnt').textContent = list.length + '개사';
+      const tb = document.getElementById('tb');
+      tb.innerHTML = '';
+      if (!list.length) { document.getElementById('emp').style.display = 'block'; return; }
+      document.getElementById('emp').style.display = 'none';
 
-    function copyTable(tabId) {
-      const t = document.querySelector(`#${tabId} table`); if (!t) return;
-      const r = document.createRange(); r.selectNode(t);
-      window.getSelection().removeAllRanges(); window.getSelection().addRange(r);
-      document.execCommand('copy'); window.getSelection().removeAllRanges();
-      alert('복사되었습니다.');
+      const CL = { rv: '⚠ 검토필요', nm: '✓ ' + D.lastMonth + ' 정상', zr: '◉ 완료' };
+      let lg = null;
+
+      const mh = document.getElementById('month-headers');
+      if (mh) mh.outerHTML = `<th colspan="${D.months.length + 1}" style="padding-left:8px;">월별 상세</th>`;
+
+      list.forEach(c => {
+        if (c.그룹 !== lg) {
+          lg = c.그룹;
+          const gr = document.createElement('tr'); gr.className = 'gh';
+          gr.innerHTML = `<td colspan="3">▶  ${c.그룹}</td>`; tb.appendChild(gr);
+        }
+        const rows5 = ['매출', '수금', '기타할인등차액', '잔액', '미회수액'];
+        const bc = c.잔액 > 0 ? 'pos' : c.잔액 < 0 ? 'neg' : 'zer';
+
+        const hdrCells = '<td style="background:rgba(255,255,255,.04);font-size:9px;font-weight:700;color:var(--t2);">구분</td>' +
+          D.months.map(m => `<td style="background:rgba(255,255,255,.04);font-size:9px;font-weight:700;color:var(--t2);text-align:right;">${m}</td>`).join('');
+
+        const mk = (l) => {
+          const d = c.rows[l] || [];
+          const ib = l === '잔액';
+          const cells = D.months.map((_, mi) => {
+            const v = d[mi] || 0;
+            let cl = ''; if (ib) { cl = v > 0 ? 'pv' : v < 0 ? 'nv' : ''; }
+            return `<td class="${cl}">${v ? fmt(v) : ''}</td>`;
+          }).join('');
+          return `<tr class="${ib ? 'rb' : ''}"><td>${l}</td>${cells}</tr>`;
+        };
+
+        const tr = document.createElement('tr'); tr.className = 'co';
+        tr.innerHTML = `<td colspan="3"><div class="cob">
+      <div class="cm"><div class="cn">${c.명}</div><div class="cc">${c.코드}</div>
+        <div class="cg" title="${c.그룹}">${c.그룹.replace('매출처', '').replace(/[()]/g, '') || c.그룹}</div></div>
+      <div class="cb2"><div class="ba ${bc}">${fmt(c.잔액)}원</div><div class="bl">최종잔액</div>
+        <div class="pill ${c.cat}">${CL[c.cat]}</div></div>
+      <div class="cmd"><table class="mt">
+        <thead><tr>${hdrCells}</tr></thead>
+        <tbody>${rows5.map(mk).join('')}</tbody>
+      </table></div>
+    </div></td>`;
+        tb.appendChild(tr);
+      });
     }
   </script>
 </body>

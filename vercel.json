@@ -11,6 +11,10 @@
         {
             "source": "/bond",
             "destination": "/dashboard/monthlybond.html"
+        },
+        {
+            "source": "/cashflow",
+            "destination": "/dashboard/cashflow.html"
         }
     ],
     "headers": [

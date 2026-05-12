@@ -25,14 +25,25 @@
     done: '완료',
   };
 
+  const getTaskById = (id) => tasks.find((task) => task.id === id);
+
   const getFiltered = () => {
     const buckets = window.PlanningStore.buckets(tasks);
     const query = $('taskSearch').value.trim().toLowerCase();
     let list = filter === 'all' ? tasks : buckets[filter] || [];
     if (query) {
-      list = list.filter((task) => [task.title, task.notes, task.owner].join(' ').toLowerCase().includes(query));
+      list = list.filter((task) => [task.title, task.notes, task.owner, task.project, task.phase].join(' ').toLowerCase().includes(query));
     }
     return window.PlanningStore.sort(list);
+  };
+
+  const taskTone = (task) => {
+    const diff = task.dueDate ? window.PlanningStore.daysBetween(task.dueDate, window.PlanningStore.todayKey()) : 99;
+    if (task.status === 'done') return 'done';
+    if (diff < 0) return 'overdue';
+    if (task.priority === 'urgent' || task.priority === 'high') return 'urgent';
+    if (task.status === 'doing') return 'doing';
+    return 'normal';
   };
 
   const pillForDate = (task) => {
@@ -45,17 +56,27 @@
     return '<span class="planning-pill">' + escapeHtml(task.dueDate) + '</span>';
   };
 
+  const dependencyText = (task) => {
+    const depends = task.dependsOnTaskIds.map(getTaskById).filter(Boolean).map((item) => item.title);
+    const related = task.relatedTaskIds.map(getTaskById).filter(Boolean).map((item) => item.title);
+    const parts = [];
+    if (depends.length) parts.push('선행: ' + depends.join(', '));
+    if (related.length) parts.push('관련: ' + related.join(', '));
+    return parts.join(' / ');
+  };
+
   const renderStats = () => {
     const buckets = window.PlanningStore.buckets(tasks);
     $('stats').innerHTML = [
-      ['overdue', '지연 업무', buckets.overdue.length],
-      ['today', '오늘 할 일', buckets.today.length],
-      ['upcoming', '예정 업무', buckets.upcoming.length],
-      ['urgent', '긴급 업무', buckets.urgent.length],
-    ].map(([key, label, value]) => `
+      ['overdue', '지연 업무', buckets.overdue.length, '기한 경과'],
+      ['today', '오늘 할 일', buckets.today.length, '당일 처리'],
+      ['upcoming', '예정 업무', buckets.upcoming.length, '7일 내'],
+      ['urgent', '긴급 업무', buckets.urgent.length, '우선 확인'],
+    ].map(([key, label, value, sub]) => `
       <article class="planning-stat ${key}">
         <div class="planning-stat-label">${label}</div>
         <div class="planning-stat-value">${value}</div>
+        <div class="planning-stat-sub">${sub}</div>
       </article>
     `).join('');
     $('listMeta').textContent = '진행 업무 ' + buckets.active.length + '건';
@@ -82,32 +103,135 @@
       return;
     }
 
-    $('taskList').innerHTML = list.map((task) => `
-      <article class="planning-task ${task.status === 'done' ? 'done' : ''}">
-        <input type="checkbox" data-action="toggle" data-id="${task.id}" ${task.status === 'done' ? 'checked' : ''} aria-label="완료 처리">
-        <div class="planning-task-main">
-          <div class="planning-task-title">${escapeHtml(task.title)}</div>
-          ${task.notes ? `<div class="planning-task-notes">${escapeHtml(task.notes)}</div>` : ''}
-          <div class="planning-task-meta">
-            ${pillForDate(task)}
-            ${task.dueTime ? `<span class="planning-pill">${escapeHtml(task.dueTime)}</span>` : ''}
-            <span class="planning-pill ${task.priority === 'urgent' || task.priority === 'high' ? 'urgent' : ''}">${priorityLabel[task.priority]}</span>
-            <span class="planning-pill">${statusLabel[task.status]}</span>
-            ${task.owner ? `<span class="planning-pill">${escapeHtml(task.owner)}</span>` : ''}
+    $('taskList').innerHTML = list.map((task) => {
+      const relation = dependencyText(task);
+      return `
+        <article class="planning-task ${task.status === 'done' ? 'done' : ''} ${taskTone(task)}">
+          <input type="checkbox" data-action="toggle" data-id="${task.id}" ${task.status === 'done' ? 'checked' : ''} aria-label="완료 처리">
+          <div class="planning-task-main">
+            <div class="planning-task-topline">
+              <div class="planning-task-title">${escapeHtml(task.title)}</div>
+              <span class="planning-task-project">${escapeHtml(task.project)}</span>
+            </div>
+            ${task.notes ? `<div class="planning-task-notes">${escapeHtml(task.notes)}</div>` : ''}
+            <div class="planning-task-meta">
+              ${pillForDate(task)}
+              ${task.startDate ? `<span class="planning-pill">시작 ${escapeHtml(task.startDate)}</span>` : ''}
+              ${task.dueTime ? `<span class="planning-pill">${escapeHtml(task.dueTime)}</span>` : ''}
+              <span class="planning-pill ${task.priority === 'urgent' || task.priority === 'high' ? 'urgent' : ''}">${priorityLabel[task.priority]}</span>
+              <span class="planning-pill">${statusLabel[task.status]}</span>
+              ${task.phase ? `<span class="planning-pill">${escapeHtml(task.phase)}</span>` : ''}
+              ${task.owner ? `<span class="planning-pill">${escapeHtml(task.owner)}</span>` : ''}
+            </div>
+            ${relation ? `<div class="planning-task-relations">${escapeHtml(relation)}</div>` : ''}
           </div>
+          <div class="planning-task-actions">
+            <button class="planning-btn compact" data-action="edit" data-id="${task.id}" aria-label="수정">수정</button>
+            <button class="planning-btn compact danger" data-action="delete" data-id="${task.id}" aria-label="삭제">삭제</button>
+          </div>
+        </article>
+      `;
+    }).join('');
+  };
+
+  const formatDay = (dateKey) => {
+    const date = new Date(dateKey + 'T00:00:00');
+    return String(date.getDate()).padStart(2, '0');
+  };
+
+  const formatWeekday = (dateKey) => {
+    const date = new Date(dateKey + 'T00:00:00');
+    return ['일', '월', '화', '수', '목', '금', '토'][date.getDay()];
+  };
+
+  const renderTimeline = () => {
+    const timeline = $('timeline');
+    const activeTasks = window.PlanningStore.sort(tasks);
+    if (!activeTasks.length) {
+      timeline.innerHTML = '<div class="planning-empty">타임라인에 표시할 업무가 없습니다.</div>';
+      return;
+    }
+
+    const dates = window.PlanningStore.timelineDates(activeTasks);
+    const today = window.PlanningStore.todayKey();
+    const groups = window.PlanningStore.groupByProject(activeTasks);
+    const dateIndex = new Map(dates.map((date, index) => [date, index + 1]));
+    const colCount = dates.length;
+
+    const leftRows = [];
+    const timelineRows = [];
+
+    groups.forEach((group) => {
+      leftRows.push(`
+        <div class="timeline-group-row">
+          <strong>${escapeHtml(group.project)}</strong>
+          <span>${group.items.length}건</span>
         </div>
-        <div class="planning-task-actions">
-          <button class="planning-btn icon" data-action="edit" data-id="${task.id}" aria-label="수정">수정</button>
-          <button class="planning-btn icon danger" data-action="delete" data-id="${task.id}" aria-label="삭제">x</button>
+      `);
+      timelineRows.push(`<div class="timeline-grid-row group" style="grid-template-columns: repeat(${colCount}, var(--timeline-day-width));"></div>`);
+
+      group.items.forEach((task) => {
+        const start = dateIndex.get(task.startDate || task.dueDate) || 1;
+        const end = dateIndex.get(task.dueDate || task.startDate) || start;
+        const startCol = Math.min(start, end);
+        const span = Math.max(Math.abs(end - start) + 1, 1);
+        const relation = dependencyText(task);
+        const dependsLabels = task.dependsOnTaskIds.map(getTaskById).filter(Boolean).map((item) => item.title).join(', ');
+
+        leftRows.push(`
+          <div class="timeline-left-row" data-task-id="${task.id}">
+            <div class="timeline-left-title">${escapeHtml(task.title)}</div>
+            <div class="timeline-left-meta">
+              <span class="planning-pill ${taskTone(task)}">${statusLabel[task.status]}</span>
+              <span>${escapeHtml(task.phase || '실행')}</span>
+            </div>
+          </div>
+        `);
+
+        timelineRows.push(`
+          <div class="timeline-grid-row" style="grid-template-columns: repeat(${colCount}, var(--timeline-day-width));" data-task-id="${task.id}">
+            <div class="timeline-bar ${taskTone(task)}"
+              style="grid-column: ${startCol} / span ${span};"
+              data-task-id="${task.id}"
+              data-depends-on="${escapeHtml(task.dependsOnTaskIds.join(','))}"
+              data-related="${escapeHtml(task.relatedTaskIds.join(','))}"
+              title="${escapeHtml(relation || task.title)}">
+              <span class="timeline-bar-title">${escapeHtml(task.title)}</span>
+              <span class="timeline-bar-status">${statusLabel[task.status]}</span>
+              ${task.dependsOnTaskIds.length ? `<span class="timeline-dependency" title="선행 업무: ${escapeHtml(dependsLabels)}">선행 ${task.dependsOnTaskIds.length}</span>` : ''}
+            </div>
+          </div>
+        `);
+      });
+    });
+
+    timeline.innerHTML = `
+      <div class="timeline-left">
+        <div class="timeline-left-head">업무 그룹</div>
+        <div class="timeline-left-body">${leftRows.join('')}</div>
+      </div>
+      <div class="timeline-scroll">
+        <div class="timeline-axis" style="grid-template-columns: repeat(${colCount}, var(--timeline-day-width));">
+          ${dates.map((date) => `
+            <div class="timeline-day ${date === today ? 'today' : ''}">
+              <span>${formatDay(date)}</span>
+              <small>${formatWeekday(date)}</small>
+            </div>
+          `).join('')}
         </div>
-      </article>
-    `).join('');
+        <div class="timeline-grid" style="--timeline-cols: ${colCount};">
+          <div class="timeline-today-marker" style="left: calc(${Math.max((dateIndex.get(today) || 1) - 1, 0)} * var(--timeline-day-width));"></div>
+          ${timelineRows.join('')}
+        </div>
+      </div>
+    `;
   };
 
   const renderAll = () => {
     renderStats();
     renderSummary();
     renderList();
+    renderTimeline();
   };
 
   const resetForm = () => {
@@ -120,6 +244,9 @@
 
   const formValue = () => ({
     title: $('taskTitle').value,
+    project: $('taskProject').value,
+    phase: $('taskPhase').value,
+    startDate: $('taskStartDate').value,
     dueDate: $('taskDueDate').value,
     dueTime: $('taskDueTime').value,
     priority: $('taskPriority').value,
@@ -131,6 +258,9 @@
   const editTask = (task) => {
     $('taskId').value = task.id;
     $('taskTitle').value = task.title;
+    $('taskProject').value = task.project;
+    $('taskPhase').value = task.phase;
+    $('taskStartDate').value = task.startDate;
     $('taskDueDate').value = task.dueDate;
     $('taskDueTime').value = task.dueTime;
     $('taskPriority').value = task.priority;

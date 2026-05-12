@@ -8,10 +8,7 @@
   <link rel="stylesheet" href="/dashboard/style.css">
   <link rel="stylesheet" href="/dashboard/css/planning.css">
   <style>
-    .auth-hidden {
-      display: none !important;
-    }
-
+    .auth-hidden { display: none !important; }
     .loading-screen {
       position: fixed;
       inset: 0;
@@ -23,11 +20,7 @@
       gap: 12px;
       z-index: 999;
     }
-
-    .loading-screen.hidden {
-      display: none;
-    }
-
+    .loading-screen.hidden { display: none; }
     .loading-spinner {
       width: 36px;
       height: 36px;
@@ -36,18 +29,12 @@
       border-radius: 50%;
       animation: spin .8s linear infinite;
     }
-
-    @keyframes spin {
-      to {
-        transform: rotate(360deg);
-      }
-    }
-
+    @keyframes spin { to { transform: rotate(360deg); } }
     .app-header {
       background: rgba(255, 255, 255, 0.05);
       border-bottom: 1px solid var(--border);
       backdrop-filter: blur(20px);
-      padding: 0 28px;
+      padding: 0 clamp(18px, 2.4vw, 34px);
       height: 52px;
       display: flex;
       align-items: center;
@@ -56,16 +43,12 @@
       top: 0;
       z-index: 100;
     }
-
-    .header-left,
-    .header-right {
+    .header-left, .header-right {
       display: flex;
       align-items: center;
       gap: 8px;
     }
-
-    .back-btn,
-    .btn-logout-sm {
+    .back-btn, .btn-logout-sm {
       height: 30px;
       padding: 0 12px;
       border: 1px solid var(--border);
@@ -80,13 +63,10 @@
       align-items: center;
       gap: 5px;
     }
-
-    .back-btn:hover,
-    .btn-logout-sm:hover {
+    .back-btn:hover, .btn-logout-sm:hover {
       background: rgba(255, 255, 255, .07);
       color: var(--t0);
     }
-
     .app-title {
       display: flex;
       align-items: center;
@@ -95,14 +75,12 @@
       font-size: 14px;
       font-weight: 700;
     }
-
     .app-title .dot {
       width: 8px;
       height: 8px;
       border-radius: 50%;
       background: #22d3ee;
     }
-
     .user-chip {
       font-size: 11px;
       color: var(--t2);
@@ -112,11 +90,10 @@
       border-radius: 20px;
       font-family: 'JetBrains Mono', monospace;
     }
-
     .page-main {
-      max-width: 1360px;
+      width: min(100%, 1760px);
       margin: 0 auto;
-      padding: 24px 28px 80px;
+      padding: clamp(18px, 2.2vw, 34px) clamp(16px, 2.4vw, 40px) 80px;
       position: relative;
       z-index: 10;
     }
@@ -148,9 +125,9 @@
     <main class="page-main planning-shell">
       <section class="planning-hero">
         <div>
-          <div class="planning-kicker">계획 MVP</div>
-          <h1 class="planning-title">업무 계획 및 알림</h1>
-          <p class="planning-subtitle">브라우저 로컬 저장소만 사용하며 외부 AI 호출은 없습니다.</p>
+          <div class="planning-kicker">운영 계획</div>
+          <h1 class="planning-title">업무 흐름과 일정 관리</h1>
+          <p class="planning-subtitle">거래처, 생산, 품질, 자금 업무를 한 화면에서 일정 흐름으로 확인합니다.</p>
         </div>
         <button class="planning-btn" id="openSummaryBtn">시작 요약</button>
       </section>
@@ -162,7 +139,7 @@
           <div class="planning-panel-head">
             <div>
               <div class="planning-panel-title" id="formTitle">업무 추가</div>
-              <div class="planning-panel-sub">담당자와 기한이 있는 실행 업무를 등록합니다.</div>
+              <div class="planning-panel-sub">프로젝트, 단계, 시작일, 기한을 기준으로 업무를 등록합니다.</div>
             </div>
           </div>
           <div class="planning-panel-body">
@@ -170,16 +147,36 @@
               <input type="hidden" id="taskId">
               <div class="planning-field">
                 <label for="taskTitle">업무명</label>
-                <input class="planning-input" id="taskTitle" required maxlength="120" placeholder="업무명을 입력하세요">
+                <input class="planning-input" id="taskTitle" required maxlength="120" placeholder="예: 미수금 확인">
               </div>
               <div class="planning-row">
+                <div class="planning-field">
+                  <label for="taskProject">프로젝트</label>
+                  <input class="planning-input" id="taskProject" maxlength="80" placeholder="예: 자금/손익 관리">
+                </div>
+                <div class="planning-field">
+                  <label for="taskPhase">단계</label>
+                  <input class="planning-input" id="taskPhase" maxlength="60" placeholder="예: 확인">
+                </div>
+              </div>
+              <div class="planning-row">
+                <div class="planning-field">
+                  <label for="taskStartDate">시작일</label>
+                  <input class="planning-input" id="taskStartDate" type="date">
+                </div>
                 <div class="planning-field">
                   <label for="taskDueDate">기한 날짜</label>
                   <input class="planning-input" id="taskDueDate" type="date">
                 </div>
+              </div>
+              <div class="planning-row">
                 <div class="planning-field">
                   <label for="taskDueTime">기한 시간</label>
                   <input class="planning-input" id="taskDueTime" type="time">
+                </div>
+                <div class="planning-field">
+                  <label for="taskOwner">담당자</label>
+                  <input class="planning-input" id="taskOwner" maxlength="60" placeholder="예: 생산관리">
                 </div>
               </div>
               <div class="planning-row">
@@ -202,12 +199,8 @@
                 </div>
               </div>
               <div class="planning-field">
-                <label for="taskOwner">담당자</label>
-                <input class="planning-input" id="taskOwner" maxlength="60" placeholder="기획">
-              </div>
-              <div class="planning-field">
                 <label for="taskNotes">메모</label>
-                <textarea class="planning-textarea" id="taskNotes" maxlength="500" placeholder="필요한 내용을 적어두세요"></textarea>
+                <textarea class="planning-textarea" id="taskNotes" maxlength="500" placeholder="필요한 후속 조치나 확인 사항을 적어두세요"></textarea>
               </div>
               <div class="planning-actions">
                 <button class="planning-btn primary" type="submit">업무 저장</button>
@@ -234,11 +227,26 @@
                 <button class="planning-tab" data-filter="urgent">긴급 업무</button>
                 <button class="planning-tab" data-filter="done">완료</button>
               </div>
-              <input class="planning-input" id="taskSearch" style="max-width:220px" placeholder="업무 검색">
+              <input class="planning-input" id="taskSearch" style="max-width:240px" placeholder="업무 검색">
             </div>
             <div class="planning-list" id="taskList"></div>
           </div>
         </section>
+      </section>
+
+      <section class="planning-panel planning-timeline-panel">
+        <div class="planning-panel-head">
+          <div>
+            <div class="planning-panel-title">타임라인 · 업무 흐름</div>
+            <div class="planning-panel-sub">프로젝트별 업무 기간, 기한, 의존 관계를 날짜 축에서 확인합니다.</div>
+          </div>
+          <div class="planning-timeline-legend">
+            <span><i class="legend-dot urgent"></i>긴급/지연</span>
+            <span><i class="legend-dot doing"></i>진행</span>
+            <span><i class="legend-dot done"></i>완료</span>
+          </div>
+        </div>
+        <div class="planning-timeline" id="timeline"></div>
       </section>
     </main>
 

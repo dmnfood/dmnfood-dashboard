@@ -15,6 +15,10 @@
         {
             "source": "/cashflow",
             "destination": "/dashboard/cashflow.html"
+        },
+        {
+            "source": "/planning",
+            "destination": "/dashboard/planning.html"
         }
     ],
     "headers": [

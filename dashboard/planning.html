@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DMN Food - Planning Assistant</title>
+  <link rel="stylesheet" href="/dashboard/style.css">
+  <link rel="stylesheet" href="/dashboard/css/planning.css">
+  <style>
+    .auth-hidden {
+      display: none !important;
+    }
+
+    .loading-screen {
+      position: fixed;
+      inset: 0;
+      background: #070b14;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 12px;
+      z-index: 999;
+    }
+
+    .loading-screen.hidden {
+      display: none;
+    }
+
+    .loading-spinner {
+      width: 36px;
+      height: 36px;
+      border: 3px solid rgba(255, 255, 255, .12);
+      border-top-color: #22d3ee;
+      border-radius: 50%;
+      animation: spin .8s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .app-header {
+      background: rgba(255, 255, 255, 0.05);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(20px);
+      padding: 0 28px;
+      height: 52px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .header-left,
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .back-btn,
+    .btn-logout-sm {
+      height: 30px;
+      padding: 0 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: transparent;
+      color: var(--t2);
+      font-family: 'Noto Sans KR', sans-serif;
+      font-size: 12px;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .back-btn:hover,
+    .btn-logout-sm:hover {
+      background: rgba(255, 255, 255, .07);
+      color: var(--t0);
+    }
+
+    .app-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--t0);
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .app-title .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #22d3ee;
+    }
+
+    .user-chip {
+      font-size: 11px;
+      color: var(--t2);
+      background: rgba(255, 255, 255, .05);
+      border: 1px solid var(--border);
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .page-main {
+      max-width: 1360px;
+      margin: 0 auto;
+      padding: 24px 28px 80px;
+      position: relative;
+      z-index: 10;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="blobs">
+    <div class="b1"></div>
+    <div class="b2"></div>
+  </div>
+
+  <div class="loading-screen" id="loadingScreen">
+    <div class="loading-spinner"></div>
+  </div>
+
+  <div id="mainContent" class="auth-hidden">
+    <header class="app-header">
+      <div class="header-left">
+        <a href="/home" class="back-btn">Back</a>
+        <div class="app-title"><span class="dot"></span>Planning Assistant</div>
+      </div>
+      <div class="header-right">
+        <div class="user-chip" id="userChip"></div>
+        <button class="btn-logout-sm" onclick="handleLogout()">Logout</button>
+      </div>
+    </header>
+
+    <main class="page-main planning-shell">
+      <section class="planning-hero">
+        <div>
+          <div class="planning-kicker">Planning MVP</div>
+          <h1 class="planning-title">Task planning and reminders</h1>
+          <p class="planning-subtitle">Local browser storage only. No external AI calls.</p>
+        </div>
+        <button class="planning-btn" id="openSummaryBtn">Startup summary</button>
+      </section>
+
+      <section class="planning-stats" id="stats"></section>
+
+      <section class="planning-grid">
+        <aside class="planning-panel">
+          <div class="planning-panel-head">
+            <div>
+              <div class="planning-panel-title" id="formTitle">Add task</div>
+              <div class="planning-panel-sub">Create a focused item with an owner and due date.</div>
+            </div>
+          </div>
+          <div class="planning-panel-body">
+            <form class="planning-form" id="taskForm">
+              <input type="hidden" id="taskId">
+              <div class="planning-field">
+                <label for="taskTitle">Task</label>
+                <input class="planning-input" id="taskTitle" required maxlength="120" placeholder="Enter task name">
+              </div>
+              <div class="planning-row">
+                <div class="planning-field">
+                  <label for="taskDueDate">Due date</label>
+                  <input class="planning-input" id="taskDueDate" type="date">
+                </div>
+                <div class="planning-field">
+                  <label for="taskDueTime">Due time</label>
+                  <input class="planning-input" id="taskDueTime" type="time">
+                </div>
+              </div>
+              <div class="planning-row">
+                <div class="planning-field">
+                  <label for="taskPriority">Priority</label>
+                  <select class="planning-select" id="taskPriority">
+                    <option value="normal">Normal</option>
+                    <option value="low">Low</option>
+                    <option value="high">High</option>
+                    <option value="urgent">Urgent</option>
+                  </select>
+                </div>
+                <div class="planning-field">
+                  <label for="taskStatus">Status</label>
+                  <select class="planning-select" id="taskStatus">
+                    <option value="todo">To do</option>
+                    <option value="doing">Doing</option>
+                    <option value="done">Done</option>
+                  </select>
+                </div>
+              </div>
+              <div class="planning-field">
+                <label for="taskOwner">Owner</label>
+                <input class="planning-input" id="taskOwner" maxlength="60" placeholder="Planning">
+              </div>
+              <div class="planning-field">
+                <label for="taskNotes">Notes</label>
+                <textarea class="planning-textarea" id="taskNotes" maxlength="500" placeholder="Optional context"></textarea>
+              </div>
+              <div class="planning-actions">
+                <button class="planning-btn primary" type="submit">Save task</button>
+                <button class="planning-btn" type="button" id="resetFormBtn">Reset</button>
+              </div>
+            </form>
+          </div>
+        </aside>
+
+        <section class="planning-panel">
+          <div class="planning-panel-head">
+            <div>
+              <div class="planning-panel-title">Dashboard panels</div>
+              <div class="planning-panel-sub" id="listMeta">0 active tasks</div>
+            </div>
+          </div>
+          <div class="planning-panel-body">
+            <div class="planning-filterbar">
+              <div class="planning-tabs" id="bucketTabs">
+                <button class="planning-tab active" data-filter="all">All</button>
+                <button class="planning-tab" data-filter="overdue">Overdue</button>
+                <button class="planning-tab" data-filter="today">Today</button>
+                <button class="planning-tab" data-filter="upcoming">Upcoming</button>
+                <button class="planning-tab" data-filter="urgent">Urgent</button>
+                <button class="planning-tab" data-filter="done">Done</button>
+              </div>
+              <input class="planning-input" id="taskSearch" style="max-width:220px" placeholder="Search tasks">
+            </div>
+            <div class="planning-list" id="taskList"></div>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <div class="planning-modal-backdrop" id="summaryModal">
+      <div class="planning-modal">
+        <div class="planning-modal-head">
+          <div class="planning-modal-title">Startup summary</div>
+          <button class="planning-btn icon" id="closeSummaryBtn" aria-label="Close summary">x</button>
+        </div>
+        <div class="planning-summary" id="summaryBody"></div>
+      </div>
+    </div>
+
+    <div class="planning-toast-wrap" id="toastWrap"></div>
+
+    <section class="planning-ai" id="aiPanel">
+      <div class="planning-ai-head">
+        <div class="planning-ai-title">Local planning assistant</div>
+        <div class="planning-ai-sub">Deterministic answers from current local tasks only.</div>
+      </div>
+      <div class="planning-ai-log" id="aiLog"></div>
+      <form class="planning-ai-form" id="aiForm">
+        <input class="planning-input" id="aiInput" placeholder="Ask what to focus on">
+        <button class="planning-btn primary" type="submit">Ask</button>
+      </form>
+    </section>
+    <button class="planning-ai-toggle" id="aiToggle" aria-label="Open planning assistant">AI</button>
+  </div>
+
+  <script src="/dashboard/js/planning-data.js"></script>
+  <script src="/dashboard/js/planning-ai.js"></script>
+  <script src="/dashboard/js/planning-reminders.js"></script>
+  <script src="/dashboard/js/planning-ui.js"></script>
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+    import { getAuth, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+
+    const FIREBASE_CONFIG = {
+      apiKey: "AIzaSyAlvRWMpYV5Cq2vb0XxpA4t56KuByj8KuE",
+      authDomain: "dmnfood-erp.firebaseapp.com",
+      projectId: "dmnfood-erp",
+      storageBucket: "dmnfood-erp.firebasestorage.app",
+      messagingSenderId: "918686575195",
+      appId: "1:918686575195:web:699d961aa0a092ee9ead7e",
+    };
+
+    const app = initializeApp(FIREBASE_CONFIG);
+    const auth = getAuth(app);
+
+    onAuthStateChanged(auth, user => {
+      if (!user) {
+        window.location.href = '/';
+        return;
+      }
+      const emailId = user.email.split('@')[0];
+      document.getElementById('userChip').textContent = emailId;
+      document.getElementById('loadingScreen').classList.add('hidden');
+      document.getElementById('mainContent').classList.remove('auth-hidden');
+      window.PlanningUI.init(user);
+    });
+
+    window.handleLogout = async () => {
+      if (!confirm('Logout?')) return;
+      await signOut(auth);
+      window.location.href = '/';
+    };
+  </script>
+</body>
+
+</html>

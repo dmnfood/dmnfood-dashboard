@@ -1,7 +1,13 @@
 (function () {
   let tasks = [];
+  let taskLookup = new Map();
   let filter = 'all';
   let reminderStop = null;
+  let timelineRenderToken = 0;
+  const timelineCache = {
+    signature: '',
+    model: null,
+  };
 
   const $ = (id) => document.getElementById(id);
   const escapeHtml = (value) => String(value || '').replace(/[&<>"']/g, (char) => ({
@@ -25,7 +31,12 @@
     done: '완료',
   };
 
-  const getTaskById = (id) => tasks.find((task) => task.id === id);
+  const setTasks = (nextTasks) => {
+    tasks = nextTasks;
+    taskLookup = new Map(tasks.map((task) => [task.id, task]));
+  };
+
+  const getTaskById = (id) => taskLookup.get(id);
 
   const getFiltered = () => {
     const buckets = window.PlanningStore.buckets(tasks);
@@ -134,104 +145,290 @@
     }).join('');
   };
 
-  const formatDay = (dateKey) => {
+  const formatDate = (dateKey) => {
     const date = new Date(dateKey + 'T00:00:00');
-    return String(date.getDate()).padStart(2, '0');
+    return date;
   };
 
+  const formatDay = (dateKey) => String(formatDate(dateKey).getDate()).padStart(2, '0');
+
   const formatWeekday = (dateKey) => {
-    const date = new Date(dateKey + 'T00:00:00');
+    const date = formatDate(dateKey);
     return ['일', '월', '화', '수', '목', '금', '토'][date.getDay()];
   };
 
-  const renderTimeline = () => {
+  const monthKey = (dateKey) => dateKey.slice(0, 7);
+  const weekStart = (dateKey) => {
+    const date = formatDate(dateKey);
+    const day = date.getDay();
+    date.setDate(date.getDate() - (day === 0 ? 6 : day - 1));
+    return date.toISOString().slice(0, 10);
+  };
+
+  const makeTimelineSignature = () => tasks.map((task) => [
+    task.id,
+    task.title,
+    task.project,
+    task.phase,
+    task.startDate,
+    task.dueDate,
+    task.status,
+    task.priority,
+    task.updatedAt,
+    task.dependsOnTaskIds.join('|'),
+    task.relatedTaskIds.join('|'),
+  ].join('~')).join('||');
+
+  const rangeDays = (start, end) => Math.max(window.PlanningStore.daysBetween(end, start), 0);
+
+  const addMonths = (dateKey, months) => {
+    const date = formatDate(dateKey);
+    date.setMonth(date.getMonth() + months);
+    return date.toISOString().slice(0, 10);
+  };
+
+  const getTimelineScale = (minDate, maxDate) => {
+    const span = rangeDays(minDate, maxDate);
+    if (span <= 45) return 'day';
+    if (span <= 210) return 'week';
+    return 'month';
+  };
+
+  const buildUnits = (scale, minDate, maxDate) => {
+    const today = window.PlanningStore.todayKey();
+    const units = [];
+    let start;
+    let end;
+
+    if (scale === 'day') {
+      start = window.PlanningStore.addDays(today, -14);
+      end = window.PlanningStore.addDays(today, 28);
+      if (rangeDays(minDate, maxDate) <= 45) {
+        start = window.PlanningStore.addDays(minDate, -2);
+        end = window.PlanningStore.addDays(maxDate, 4);
+      }
+      for (let current = start; current <= end; current = window.PlanningStore.addDays(current, 1)) {
+        units.push({ key: current, start: current, end: current, label: formatDay(current), sub: formatWeekday(current) });
+      }
+    } else if (scale === 'week') {
+      start = weekStart(window.PlanningStore.addDays(today, -35));
+      end = window.PlanningStore.addDays(start, 7 * 15);
+      for (let current = start; current <= end; current = window.PlanningStore.addDays(current, 7)) {
+        units.push({
+          key: current,
+          start: current,
+          end: window.PlanningStore.addDays(current, 6),
+          label: monthKey(current),
+          sub: formatDay(current) + '주',
+        });
+      }
+    } else {
+      start = addMonths(today.slice(0, 7) + '-01', -2);
+      end = addMonths(start, 8);
+      for (let current = start; current <= end; current = addMonths(current, 1)) {
+        const next = addMonths(current, 1);
+        units.push({
+          key: current,
+          start: current,
+          end: window.PlanningStore.addDays(next, -1),
+          label: current.slice(0, 7),
+          sub: '월',
+        });
+      }
+    }
+
+    return { units, start, end };
+  };
+
+  const overlaps = (task, windowStart, windowEnd) => {
+    const start = task.startDate || task.dueDate;
+    const end = task.dueDate || task.startDate;
+    if (!start && !end) return false;
+    return (start || end) <= windowEnd && (end || start) >= windowStart;
+  };
+
+  const getUnitIndex = (units, dateKey, fallback) => {
+    if (!dateKey) return fallback;
+    const index = units.findIndex((unit) => dateKey >= unit.start && dateKey <= unit.end);
+    return index >= 0 ? index + 1 : fallback;
+  };
+
+  const getTimelineModel = () => {
+    const signature = makeTimelineSignature();
+    if (timelineCache.signature === signature && timelineCache.model) return timelineCache.model;
+
+    const sortedTasks = window.PlanningStore.sort(tasks);
+    const dated = sortedTasks.flatMap((task) => [task.startDate, task.dueDate]).filter(Boolean).sort();
+    const today = window.PlanningStore.todayKey();
+    const minDate = dated[0] || today;
+    const maxDate = dated[dated.length - 1] || today;
+    const scale = getTimelineScale(minDate, maxDate);
+    const { units, start, end } = buildUnits(scale, minDate, maxDate);
+    const windowTasks = sortedTasks.filter((task) => overlaps(task, start, end));
+    const maxVisibleTasks = 120;
+    const visibleTasks = windowTasks.slice(0, maxVisibleTasks);
+    const groups = window.PlanningStore.groupByProject(visibleTasks);
+
+    timelineCache.signature = signature;
+    timelineCache.model = {
+      groups,
+      hiddenCount: sortedTasks.length - visibleTasks.length,
+      scale,
+      start,
+      end,
+      today,
+      units,
+      colCount: units.length,
+    };
+    return timelineCache.model;
+  };
+
+  const setTimelineLoading = () => {
     const timeline = $('timeline');
-    const activeTasks = window.PlanningStore.sort(tasks);
-    if (!activeTasks.length) {
-      timeline.innerHTML = '<div class="planning-empty">타임라인에 표시할 업무가 없습니다.</div>';
+    if (!timeline) return;
+    timeline.innerHTML = '<div class="timeline-loading"><div class="loading-spinner small"></div><span>타임라인을 준비하는 중입니다.</span></div>';
+  };
+
+  const appendText = (parent, tag, className, text) => {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    node.textContent = text;
+    parent.appendChild(node);
+    return node;
+  };
+
+  const renderTimelineModel = (model, token) => {
+    if (token !== timelineRenderToken) return;
+    const timeline = $('timeline');
+    if (!timeline) return;
+
+    if (!tasks.length || !model.groups.length) {
+      timeline.innerHTML = '<div class="planning-empty">현재 날짜 창에 표시할 업무가 없습니다.</div>';
       return;
     }
 
-    const dates = window.PlanningStore.timelineDates(activeTasks);
-    const today = window.PlanningStore.todayKey();
-    const groups = window.PlanningStore.groupByProject(activeTasks);
-    const dateIndex = new Map(dates.map((date, index) => [date, index + 1]));
-    const colCount = dates.length;
+    const fragment = document.createDocumentFragment();
+    const left = document.createElement('div');
+    const scroll = document.createElement('div');
+    const leftBody = document.createElement('div');
+    const axis = document.createElement('div');
+    const grid = document.createElement('div');
 
-    const leftRows = [];
-    const timelineRows = [];
+    left.className = 'timeline-left';
+    scroll.className = 'timeline-scroll';
+    leftBody.className = 'timeline-left-body';
+    axis.className = 'timeline-axis';
+    axis.style.gridTemplateColumns = `repeat(${model.colCount}, var(--timeline-unit-width))`;
+    grid.className = 'timeline-grid';
+    grid.style.setProperty('--timeline-cols', model.colCount);
 
-    groups.forEach((group) => {
-      leftRows.push(`
-        <div class="timeline-group-row">
-          <strong>${escapeHtml(group.project)}</strong>
-          <span>${group.items.length}건</span>
-        </div>
-      `);
-      timelineRows.push(`<div class="timeline-grid-row group" style="grid-template-columns: repeat(${colCount}, var(--timeline-day-width));"></div>`);
+    appendText(left, 'div', 'timeline-left-head', '업무 그룹');
+
+    model.units.forEach((unit) => {
+      const day = document.createElement('div');
+      day.className = 'timeline-day' + (model.today >= unit.start && model.today <= unit.end ? ' today' : '');
+      appendText(day, 'span', '', unit.label);
+      appendText(day, 'small', '', unit.sub);
+      axis.appendChild(day);
+    });
+
+    const todayIndex = getUnitIndex(model.units, model.today, 1);
+    const todayMarker = document.createElement('div');
+    todayMarker.className = 'timeline-today-marker';
+    todayMarker.style.left = `calc(${Math.max(todayIndex - 1, 0)} * var(--timeline-unit-width))`;
+    grid.appendChild(todayMarker);
+
+    model.groups.forEach((group) => {
+      const groupRow = document.createElement('div');
+      groupRow.className = 'timeline-group-row';
+      appendText(groupRow, 'strong', '', group.project);
+      appendText(groupRow, 'span', '', group.items.length + '건');
+      leftBody.appendChild(groupRow);
+
+      const groupGridRow = document.createElement('div');
+      groupGridRow.className = 'timeline-grid-row group';
+      groupGridRow.style.gridTemplateColumns = `repeat(${model.colCount}, var(--timeline-unit-width))`;
+      grid.appendChild(groupGridRow);
 
       group.items.forEach((task) => {
-        const start = dateIndex.get(task.startDate || task.dueDate) || 1;
-        const end = dateIndex.get(task.dueDate || task.startDate) || start;
+        const start = getUnitIndex(model.units, task.startDate || task.dueDate, 1);
+        const end = getUnitIndex(model.units, task.dueDate || task.startDate, start);
         const startCol = Math.min(start, end);
         const span = Math.max(Math.abs(end - start) + 1, 1);
         const relation = dependencyText(task);
         const dependsLabels = task.dependsOnTaskIds.map(getTaskById).filter(Boolean).map((item) => item.title).join(', ');
 
-        leftRows.push(`
-          <div class="timeline-left-row" data-task-id="${task.id}">
-            <div class="timeline-left-title">${escapeHtml(task.title)}</div>
-            <div class="timeline-left-meta">
-              <span class="planning-pill ${taskTone(task)}">${statusLabel[task.status]}</span>
-              <span>${escapeHtml(task.phase || '실행')}</span>
-            </div>
-          </div>
-        `);
+        const leftRow = document.createElement('div');
+        leftRow.className = 'timeline-left-row';
+        leftRow.dataset.taskId = task.id;
+        appendText(leftRow, 'div', 'timeline-left-title', task.title);
+        const meta = document.createElement('div');
+        meta.className = 'timeline-left-meta';
+        appendText(meta, 'span', 'planning-pill ' + taskTone(task), statusLabel[task.status]);
+        appendText(meta, 'span', '', task.phase || '실행');
+        leftRow.appendChild(meta);
+        leftBody.appendChild(leftRow);
 
-        timelineRows.push(`
-          <div class="timeline-grid-row" style="grid-template-columns: repeat(${colCount}, var(--timeline-day-width));" data-task-id="${task.id}">
-            <div class="timeline-bar ${taskTone(task)}"
-              style="grid-column: ${startCol} / span ${span};"
-              data-task-id="${task.id}"
-              data-depends-on="${escapeHtml(task.dependsOnTaskIds.join(','))}"
-              data-related="${escapeHtml(task.relatedTaskIds.join(','))}"
-              title="${escapeHtml(relation || task.title)}">
-              <span class="timeline-bar-title">${escapeHtml(task.title)}</span>
-              <span class="timeline-bar-status">${statusLabel[task.status]}</span>
-              ${task.dependsOnTaskIds.length ? `<span class="timeline-dependency" title="선행 업무: ${escapeHtml(dependsLabels)}">선행 ${task.dependsOnTaskIds.length}</span>` : ''}
-            </div>
-          </div>
-        `);
+        const gridRow = document.createElement('div');
+        gridRow.className = 'timeline-grid-row';
+        gridRow.dataset.taskId = task.id;
+        gridRow.style.gridTemplateColumns = `repeat(${model.colCount}, var(--timeline-unit-width))`;
+
+        const bar = document.createElement('div');
+        bar.className = 'timeline-bar ' + taskTone(task);
+        bar.style.gridColumn = `${startCol} / span ${span}`;
+        bar.dataset.taskId = task.id;
+        bar.dataset.dependsOn = task.dependsOnTaskIds.join(',');
+        bar.dataset.related = task.relatedTaskIds.join(',');
+        bar.title = relation || task.title;
+        appendText(bar, 'span', 'timeline-bar-title', task.title);
+        appendText(bar, 'span', 'timeline-bar-status', statusLabel[task.status]);
+        if (task.dependsOnTaskIds.length) {
+          const dep = appendText(bar, 'span', 'timeline-dependency', '선행 ' + task.dependsOnTaskIds.length);
+          dep.title = '선행 업무: ' + dependsLabels;
+        }
+
+        gridRow.appendChild(bar);
+        grid.appendChild(gridRow);
       });
     });
 
-    timeline.innerHTML = `
-      <div class="timeline-left">
-        <div class="timeline-left-head">업무 그룹</div>
-        <div class="timeline-left-body">${leftRows.join('')}</div>
-      </div>
-      <div class="timeline-scroll">
-        <div class="timeline-axis" style="grid-template-columns: repeat(${colCount}, var(--timeline-day-width));">
-          ${dates.map((date) => `
-            <div class="timeline-day ${date === today ? 'today' : ''}">
-              <span>${formatDay(date)}</span>
-              <small>${formatWeekday(date)}</small>
-            </div>
-          `).join('')}
-        </div>
-        <div class="timeline-grid" style="--timeline-cols: ${colCount};">
-          <div class="timeline-today-marker" style="left: calc(${Math.max((dateIndex.get(today) || 1) - 1, 0)} * var(--timeline-day-width));"></div>
-          ${timelineRows.join('')}
-        </div>
-      </div>
-    `;
+    if (model.hiddenCount > 0) {
+      const note = appendText(leftBody, 'div', 'timeline-window-note', '현재 창 밖 업무 ' + model.hiddenCount + '건');
+      note.title = model.start + ' ~ ' + model.end + ' 범위만 표시 중';
+      const blank = document.createElement('div');
+      blank.className = 'timeline-grid-row note';
+      grid.appendChild(blank);
+    }
+
+    left.appendChild(leftBody);
+    scroll.appendChild(axis);
+    scroll.appendChild(grid);
+    fragment.appendChild(left);
+    fragment.appendChild(scroll);
+
+    timeline.replaceChildren(fragment);
+  };
+
+  const scheduleTimelineRender = () => {
+    const token = ++timelineRenderToken;
+    setTimelineLoading();
+    const run = () => {
+      const model = getTimelineModel();
+      renderTimelineModel(model, token);
+    };
+    if ('requestIdleCallback' in window) {
+      window.requestIdleCallback(run, { timeout: 300 });
+    } else {
+      window.setTimeout(run, 40);
+    }
   };
 
   const renderAll = () => {
     renderStats();
     renderSummary();
     renderList();
-    renderTimeline();
+    scheduleTimelineRender();
   };
 
   const resetForm = () => {
@@ -291,8 +488,8 @@
     $('taskForm').addEventListener('submit', (event) => {
       event.preventDefault();
       const id = $('taskId').value;
-      if (id) tasks = window.PlanningStore.update(id, formValue());
-      else tasks = window.PlanningStore.add(formValue());
+      if (id) setTasks(window.PlanningStore.update(id, formValue()));
+      else setTasks(window.PlanningStore.add(formValue()));
       resetForm();
       renderAll();
     });
@@ -316,11 +513,11 @@
       if (!task) return;
       if (target.dataset.action === 'edit') editTask(task);
       if (target.dataset.action === 'delete' && confirm('이 업무를 삭제하시겠습니까?')) {
-        tasks = window.PlanningStore.remove(task.id);
+        setTasks(window.PlanningStore.remove(task.id));
         renderAll();
       }
       if (target.dataset.action === 'toggle') {
-        tasks = window.PlanningStore.update(task.id, { status: target.checked ? 'done' : 'todo' });
+        setTasks(window.PlanningStore.update(task.id, { status: target.checked ? 'done' : 'todo' }));
         renderAll();
       }
     });
@@ -342,7 +539,7 @@
   };
 
   const init = () => {
-    tasks = window.PlanningStore.init();
+    setTasks(window.PlanningStore.init());
     bindEvents();
     renderAll();
     addAiMessage('bot', '로컬 업무 데이터만 기준으로 답변합니다. 예: 오늘 무엇에 집중할까?');

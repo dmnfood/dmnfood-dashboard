@@ -35,18 +35,18 @@
     tomorrow.setDate(tomorrow.getDate() + 1);
     return [
       normalizeTask({
-        title: '구매 일정 확인',
-        notes: '단기 원재료와 거래처 납기 일정을 확인합니다.',
-        owner: '기획',
+        title: '거래처 발주 대응',
+        notes: '오전 발주 내역을 확인하고 출고 가능 수량과 납기 변동 사항을 정리합니다.',
+        owner: '영업관리',
         dueDate: today,
         dueTime: '10:00',
         priority: 'high',
         status: 'todo',
       }),
       normalizeTask({
-        title: '주간 생산 메모 준비',
-        notes: '다음 검토 전 이슈와 후속 조치가 필요한 항목을 정리합니다.',
-        owner: '기획',
+        title: '주간 생산 계획 점검',
+        notes: '원재료 입고 일정, 생산 우선순위, HACCP 점검 일정을 함께 확인합니다.',
+        owner: '생산관리',
         dueDate: asDateKey(tomorrow),
         dueTime: '15:00',
         priority: 'normal',

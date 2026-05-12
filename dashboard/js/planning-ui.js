@@ -13,16 +13,16 @@
   })[char]);
 
   const priorityLabel = {
-    low: 'Low',
-    normal: 'Normal',
-    high: 'High',
-    urgent: 'Urgent',
+    low: '낮음',
+    normal: '보통',
+    high: '높음',
+    urgent: '긴급',
   };
 
   const statusLabel = {
-    todo: 'To do',
-    doing: 'Doing',
-    done: 'Done',
+    todo: '대기',
+    doing: '진행 중',
+    done: '완료',
   };
 
   const getFiltered = () => {
@@ -36,29 +36,29 @@
   };
 
   const pillForDate = (task) => {
-    if (!task.dueDate) return '<span class="planning-pill">No date</span>';
+    if (!task.dueDate) return '<span class="planning-pill">기한 없음</span>';
     const diff = window.PlanningStore.daysBetween(task.dueDate, window.PlanningStore.todayKey());
-    if (task.status === 'done') return '<span class="planning-pill done">Done</span>';
-    if (diff < 0) return '<span class="planning-pill overdue">Overdue</span>';
-    if (diff === 0) return '<span class="planning-pill today">Today</span>';
-    if (diff <= 7) return '<span class="planning-pill">In ' + diff + ' day(s)</span>';
+    if (task.status === 'done') return '<span class="planning-pill done">완료</span>';
+    if (diff < 0) return '<span class="planning-pill overdue">지연</span>';
+    if (diff === 0) return '<span class="planning-pill today">오늘</span>';
+    if (diff <= 7) return '<span class="planning-pill">' + diff + '일 후</span>';
     return '<span class="planning-pill">' + escapeHtml(task.dueDate) + '</span>';
   };
 
   const renderStats = () => {
     const buckets = window.PlanningStore.buckets(tasks);
     $('stats').innerHTML = [
-      ['overdue', 'Overdue', buckets.overdue.length],
-      ['today', 'Today', buckets.today.length],
-      ['upcoming', 'Upcoming', buckets.upcoming.length],
-      ['urgent', 'Urgent', buckets.urgent.length],
+      ['overdue', '지연 업무', buckets.overdue.length],
+      ['today', '오늘 할 일', buckets.today.length],
+      ['upcoming', '예정 업무', buckets.upcoming.length],
+      ['urgent', '긴급 업무', buckets.urgent.length],
     ].map(([key, label, value]) => `
       <article class="planning-stat ${key}">
         <div class="planning-stat-label">${label}</div>
         <div class="planning-stat-value">${value}</div>
       </article>
     `).join('');
-    $('listMeta').textContent = buckets.active.length + ' active tasks';
+    $('listMeta').textContent = '진행 업무 ' + buckets.active.length + '건';
   };
 
   const renderSummary = () => {
@@ -69,22 +69,22 @@
       || window.PlanningStore.sort(buckets.active)[0];
 
     $('summaryBody').innerHTML = `
-      <p><strong>${buckets.active.length}</strong> active task(s), <strong>${buckets.overdue.length}</strong> overdue, <strong>${buckets.today.length}</strong> due today, and <strong>${buckets.upcoming.length}</strong> upcoming within 7 days.</p>
-      <p style="margin-top:10px;">Recommended focus: <strong>${next ? escapeHtml(next.title) : 'Add the first planning task'}</strong></p>
-      <p style="margin-top:10px;color:var(--t2);">This summary is generated locally from browser storage.</p>
+      <p>진행 업무 <strong>${buckets.active.length}</strong>건, 지연 업무 <strong>${buckets.overdue.length}</strong>건, 오늘 할 일 <strong>${buckets.today.length}</strong>건, 7일 내 예정 업무 <strong>${buckets.upcoming.length}</strong>건입니다.</p>
+      <p style="margin-top:10px;">권장 집중 업무: <strong>${next ? escapeHtml(next.title) : '첫 계획 업무를 추가하세요'}</strong></p>
+      <p style="margin-top:10px;color:var(--t2);">이 요약은 브라우저 로컬 저장소 기준으로 생성됩니다.</p>
     `;
   };
 
   const renderList = () => {
     const list = getFiltered();
     if (!list.length) {
-      $('taskList').innerHTML = '<div class="planning-empty">No tasks match this view.</div>';
+      $('taskList').innerHTML = '<div class="planning-empty">이 보기와 일치하는 업무가 없습니다.</div>';
       return;
     }
 
     $('taskList').innerHTML = list.map((task) => `
       <article class="planning-task ${task.status === 'done' ? 'done' : ''}">
-        <input type="checkbox" data-action="toggle" data-id="${task.id}" ${task.status === 'done' ? 'checked' : ''} aria-label="Mark done">
+        <input type="checkbox" data-action="toggle" data-id="${task.id}" ${task.status === 'done' ? 'checked' : ''} aria-label="완료 처리">
         <div class="planning-task-main">
           <div class="planning-task-title">${escapeHtml(task.title)}</div>
           ${task.notes ? `<div class="planning-task-notes">${escapeHtml(task.notes)}</div>` : ''}
@@ -97,8 +97,8 @@
           </div>
         </div>
         <div class="planning-task-actions">
-          <button class="planning-btn icon" data-action="edit" data-id="${task.id}" aria-label="Edit">E</button>
-          <button class="planning-btn icon danger" data-action="delete" data-id="${task.id}" aria-label="Delete">x</button>
+          <button class="planning-btn icon" data-action="edit" data-id="${task.id}" aria-label="수정">수정</button>
+          <button class="planning-btn icon danger" data-action="delete" data-id="${task.id}" aria-label="삭제">x</button>
         </div>
       </article>
     `).join('');
@@ -115,7 +115,7 @@
     $('taskId').value = '';
     $('taskPriority').value = 'normal';
     $('taskStatus').value = 'todo';
-    $('formTitle').textContent = 'Add task';
+    $('formTitle').textContent = '업무 추가';
   };
 
   const formValue = () => ({
@@ -137,7 +137,7 @@
     $('taskStatus').value = task.status;
     $('taskOwner').value = task.owner;
     $('taskNotes').value = task.notes;
-    $('formTitle').textContent = 'Edit task';
+    $('formTitle').textContent = '업무 수정';
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -185,7 +185,7 @@
       const task = tasks.find((item) => item.id === target.dataset.id);
       if (!task) return;
       if (target.dataset.action === 'edit') editTask(task);
-      if (target.dataset.action === 'delete' && confirm('Delete this task?')) {
+      if (target.dataset.action === 'delete' && confirm('이 업무를 삭제하시겠습니까?')) {
         tasks = window.PlanningStore.remove(task.id);
         renderAll();
       }
@@ -205,7 +205,7 @@
     $('aiForm').addEventListener('submit', (event) => {
       event.preventDefault();
       const question = $('aiInput').value.trim();
-      addAiMessage('user', question || 'Summary');
+      addAiMessage('user', question || '요약');
       addAiMessage('bot', window.PlanningAI.answer(question, tasks));
       $('aiInput').value = '';
     });
@@ -215,7 +215,7 @@
     tasks = window.PlanningStore.init();
     bindEvents();
     renderAll();
-    addAiMessage('bot', 'I answer from local task data only. Try: what should I focus on today?');
+    addAiMessage('bot', '로컬 업무 데이터만 기준으로 답변합니다. 예: 오늘 무엇에 집중할까?');
     $('summaryModal').classList.add('open');
 
     if (reminderStop) reminderStop();

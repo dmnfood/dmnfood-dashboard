@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DMN Food - Planning Assistant</title>
+  <title>DMN Food - 계획 비서</title>
   <link rel="stylesheet" href="/dashboard/style.css">
   <link rel="stylesheet" href="/dashboard/css/planning.css">
   <style>
@@ -136,23 +136,23 @@
   <div id="mainContent" class="auth-hidden">
     <header class="app-header">
       <div class="header-left">
-        <a href="/home" class="back-btn">Back</a>
-        <div class="app-title"><span class="dot"></span>Planning Assistant</div>
+        <a href="/home" class="back-btn">뒤로</a>
+        <div class="app-title"><span class="dot"></span>계획 비서</div>
       </div>
       <div class="header-right">
         <div class="user-chip" id="userChip"></div>
-        <button class="btn-logout-sm" onclick="handleLogout()">Logout</button>
+        <button class="btn-logout-sm" onclick="handleLogout()">로그아웃</button>
       </div>
     </header>
 
     <main class="page-main planning-shell">
       <section class="planning-hero">
         <div>
-          <div class="planning-kicker">Planning MVP</div>
-          <h1 class="planning-title">Task planning and reminders</h1>
-          <p class="planning-subtitle">Local browser storage only. No external AI calls.</p>
+          <div class="planning-kicker">계획 MVP</div>
+          <h1 class="planning-title">업무 계획 및 알림</h1>
+          <p class="planning-subtitle">브라우저 로컬 저장소만 사용하며 외부 AI 호출은 없습니다.</p>
         </div>
-        <button class="planning-btn" id="openSummaryBtn">Startup summary</button>
+        <button class="planning-btn" id="openSummaryBtn">시작 요약</button>
       </section>
 
       <section class="planning-stats" id="stats"></section>
@@ -161,57 +161,57 @@
         <aside class="planning-panel">
           <div class="planning-panel-head">
             <div>
-              <div class="planning-panel-title" id="formTitle">Add task</div>
-              <div class="planning-panel-sub">Create a focused item with an owner and due date.</div>
+              <div class="planning-panel-title" id="formTitle">업무 추가</div>
+              <div class="planning-panel-sub">담당자와 기한이 있는 실행 업무를 등록합니다.</div>
             </div>
           </div>
           <div class="planning-panel-body">
             <form class="planning-form" id="taskForm">
               <input type="hidden" id="taskId">
               <div class="planning-field">
-                <label for="taskTitle">Task</label>
-                <input class="planning-input" id="taskTitle" required maxlength="120" placeholder="Enter task name">
+                <label for="taskTitle">업무명</label>
+                <input class="planning-input" id="taskTitle" required maxlength="120" placeholder="업무명을 입력하세요">
               </div>
               <div class="planning-row">
                 <div class="planning-field">
-                  <label for="taskDueDate">Due date</label>
+                  <label for="taskDueDate">기한 날짜</label>
                   <input class="planning-input" id="taskDueDate" type="date">
                 </div>
                 <div class="planning-field">
-                  <label for="taskDueTime">Due time</label>
+                  <label for="taskDueTime">기한 시간</label>
                   <input class="planning-input" id="taskDueTime" type="time">
                 </div>
               </div>
               <div class="planning-row">
                 <div class="planning-field">
-                  <label for="taskPriority">Priority</label>
+                  <label for="taskPriority">우선순위</label>
                   <select class="planning-select" id="taskPriority">
-                    <option value="normal">Normal</option>
-                    <option value="low">Low</option>
-                    <option value="high">High</option>
-                    <option value="urgent">Urgent</option>
+                    <option value="normal">보통</option>
+                    <option value="low">낮음</option>
+                    <option value="high">높음</option>
+                    <option value="urgent">긴급</option>
                   </select>
                 </div>
                 <div class="planning-field">
-                  <label for="taskStatus">Status</label>
+                  <label for="taskStatus">상태</label>
                   <select class="planning-select" id="taskStatus">
-                    <option value="todo">To do</option>
-                    <option value="doing">Doing</option>
-                    <option value="done">Done</option>
+                    <option value="todo">대기</option>
+                    <option value="doing">진행 중</option>
+                    <option value="done">완료</option>
                   </select>
                 </div>
               </div>
               <div class="planning-field">
-                <label for="taskOwner">Owner</label>
-                <input class="planning-input" id="taskOwner" maxlength="60" placeholder="Planning">
+                <label for="taskOwner">담당자</label>
+                <input class="planning-input" id="taskOwner" maxlength="60" placeholder="기획">
               </div>
               <div class="planning-field">
-                <label for="taskNotes">Notes</label>
-                <textarea class="planning-textarea" id="taskNotes" maxlength="500" placeholder="Optional context"></textarea>
+                <label for="taskNotes">메모</label>
+                <textarea class="planning-textarea" id="taskNotes" maxlength="500" placeholder="필요한 내용을 적어두세요"></textarea>
               </div>
               <div class="planning-actions">
-                <button class="planning-btn primary" type="submit">Save task</button>
-                <button class="planning-btn" type="button" id="resetFormBtn">Reset</button>
+                <button class="planning-btn primary" type="submit">업무 저장</button>
+                <button class="planning-btn" type="button" id="resetFormBtn">초기화</button>
               </div>
             </form>
           </div>
@@ -220,21 +220,21 @@
         <section class="planning-panel">
           <div class="planning-panel-head">
             <div>
-              <div class="planning-panel-title">Dashboard panels</div>
-              <div class="planning-panel-sub" id="listMeta">0 active tasks</div>
+              <div class="planning-panel-title">업무 현황</div>
+              <div class="planning-panel-sub" id="listMeta">진행 업무 0건</div>
             </div>
           </div>
           <div class="planning-panel-body">
             <div class="planning-filterbar">
               <div class="planning-tabs" id="bucketTabs">
-                <button class="planning-tab active" data-filter="all">All</button>
-                <button class="planning-tab" data-filter="overdue">Overdue</button>
-                <button class="planning-tab" data-filter="today">Today</button>
-                <button class="planning-tab" data-filter="upcoming">Upcoming</button>
-                <button class="planning-tab" data-filter="urgent">Urgent</button>
-                <button class="planning-tab" data-filter="done">Done</button>
+                <button class="planning-tab active" data-filter="all">전체 업무</button>
+                <button class="planning-tab" data-filter="overdue">지연 업무</button>
+                <button class="planning-tab" data-filter="today">오늘 할 일</button>
+                <button class="planning-tab" data-filter="upcoming">예정 업무</button>
+                <button class="planning-tab" data-filter="urgent">긴급 업무</button>
+                <button class="planning-tab" data-filter="done">완료</button>
               </div>
-              <input class="planning-input" id="taskSearch" style="max-width:220px" placeholder="Search tasks">
+              <input class="planning-input" id="taskSearch" style="max-width:220px" placeholder="업무 검색">
             </div>
             <div class="planning-list" id="taskList"></div>
           </div>
@@ -245,8 +245,8 @@
     <div class="planning-modal-backdrop" id="summaryModal">
       <div class="planning-modal">
         <div class="planning-modal-head">
-          <div class="planning-modal-title">Startup summary</div>
-          <button class="planning-btn icon" id="closeSummaryBtn" aria-label="Close summary">x</button>
+          <div class="planning-modal-title">시작 요약</div>
+          <button class="planning-btn icon" id="closeSummaryBtn" aria-label="요약 닫기">x</button>
         </div>
         <div class="planning-summary" id="summaryBody"></div>
       </div>
@@ -256,16 +256,16 @@
 
     <section class="planning-ai" id="aiPanel">
       <div class="planning-ai-head">
-        <div class="planning-ai-title">Local planning assistant</div>
-        <div class="planning-ai-sub">Deterministic answers from current local tasks only.</div>
+        <div class="planning-ai-title">로컬 계획 비서</div>
+        <div class="planning-ai-sub">현재 로컬 업무 데이터만 기준으로 답변합니다.</div>
       </div>
       <div class="planning-ai-log" id="aiLog"></div>
       <form class="planning-ai-form" id="aiForm">
-        <input class="planning-input" id="aiInput" placeholder="Ask what to focus on">
-        <button class="planning-btn primary" type="submit">Ask</button>
+        <input class="planning-input" id="aiInput" placeholder="무엇에 집중할지 물어보세요">
+        <button class="planning-btn primary" type="submit">질문</button>
       </form>
     </section>
-    <button class="planning-ai-toggle" id="aiToggle" aria-label="Open planning assistant">AI</button>
+    <button class="planning-ai-toggle" id="aiToggle" aria-label="계획 비서 열기">AI</button>
   </div>
 
   <script src="/dashboard/js/planning-data.js"></script>
@@ -301,7 +301,7 @@
     });
 
     window.handleLogout = async () => {
-      if (!confirm('Logout?')) return;
+      if (!confirm('로그아웃 하시겠습니까?')) return;
       await signOut(auth);
       window.location.href = '/';
     };

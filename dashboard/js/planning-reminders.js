@@ -11,8 +11,8 @@
   const messageFor = (task) => {
     const mins = minutesUntil(task);
     if (mins === null) return null;
-    if (mins < 0) return task.title + ' is overdue.';
-    if (mins <= 60) return task.title + ' is due in ' + mins + ' minute(s).';
+    if (mins < 0) return task.title + ' 업무가 지연되었습니다.';
+    if (mins <= 60) return task.title + ' 업무 기한이 ' + mins + '분 남았습니다.';
     return null;
   };
 

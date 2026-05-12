@@ -35,18 +35,18 @@
     tomorrow.setDate(tomorrow.getDate() + 1);
     return [
       normalizeTask({
-        title: 'Check purchase schedule',
-        notes: 'Review near-term ingredients and vendor timing.',
-        owner: 'Planning',
+        title: '구매 일정 확인',
+        notes: '단기 원재료와 거래처 납기 일정을 확인합니다.',
+        owner: '기획',
         dueDate: today,
         dueTime: '10:00',
         priority: 'high',
         status: 'todo',
       }),
       normalizeTask({
-        title: 'Prepare weekly production notes',
-        notes: 'Capture blockers and required follow-ups before the next review.',
-        owner: 'Planning',
+        title: '주간 생산 메모 준비',
+        notes: '다음 검토 전 이슈와 후속 조치가 필요한 항목을 정리합니다.',
+        owner: '기획',
         dueDate: asDateKey(tomorrow),
         dueTime: '15:00',
         priority: 'normal',

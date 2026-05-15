@@ -47,6 +47,7 @@
       relatedTaskIds: toIdList(task.relatedTaskIds),
       notionPageId: String(task.notionPageId || '').trim(),
       notionUrl: String(task.notionUrl || '').trim(),
+      relationRefs: task.relationRefs && typeof task.relationRefs === 'object' ? task.relationRefs : null,
       source: String(task.source || 'local').trim(),
       importedAt: task.importedAt || '',
       createdAt,
@@ -259,6 +260,9 @@
     sort: sortTasks,
     timelineDates,
     groupByProject,
+    normalizePreview(task) {
+      return normalizeTask({ ...task, source: task.source || 'notion-preview' });
+    },
     todayKey,
     addDays,
     daysBetween,

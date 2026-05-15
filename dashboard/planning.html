@@ -234,6 +234,42 @@
         </section>
       </section>
 
+      <section class="planning-panel notion-preview-panel">
+        <div class="planning-panel-head">
+          <div>
+            <div class="planning-panel-title">Notion 미리보기</div>
+            <div class="planning-panel-sub">Notion 작업 데이터를 확인한 뒤 선택한 항목만 내 계획으로 가져옵니다.</div>
+          </div>
+          <div class="notion-preview-actions">
+            <button class="planning-btn" id="loadNotionPreviewBtn" type="button">미리보기 불러오기</button>
+            <button class="planning-btn primary" id="importSelectedNotionBtn" type="button" disabled>선택한 항목 가져오기</button>
+          </div>
+        </div>
+        <div class="planning-panel-body">
+          <div class="notion-date-options" aria-label="가져오기 날짜 처리 방식">
+            <label class="notion-date-option">
+              <input type="radio" name="notionDateMode" value="keep" checked>
+              <span>원본 날짜 유지</span>
+            </label>
+            <label class="notion-date-option">
+              <input type="radio" name="notionDateMode" value="clear">
+              <span>날짜 없이 가져오기</span>
+            </label>
+            <label class="notion-date-option">
+              <input type="radio" name="notionDateMode" value="today">
+              <span>오늘부터 다시 시작</span>
+            </label>
+            <label class="notion-date-option">
+              <input type="radio" name="notionDateMode" value="base">
+              <span>기준일을 선택해서 일정 이동</span>
+            </label>
+            <input class="planning-input notion-base-date" id="notionBaseDate" type="date" disabled aria-label="일정 이동 기준일">
+          </div>
+          <div class="notion-preview-status" id="notionPreviewStatus">아직 불러오지 않았습니다.</div>
+          <div class="notion-preview-list" id="notionPreviewList"></div>
+        </div>
+      </section>
+
     </main>
 
     <div class="planning-modal-backdrop" id="summaryModal">
@@ -263,6 +299,7 @@
   </div>
 
   <script src="/dashboard/js/planning-data.js"></script>
+  <script src="/dashboard/js/planning-notion-preview.js"></script>
   <script src="/dashboard/js/planning-ai.js"></script>
   <script src="/dashboard/js/planning-reminders.js"></script>
   <script src="/dashboard/js/planning-ui.js"></script>

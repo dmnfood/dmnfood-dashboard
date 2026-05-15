@@ -1,5 +1,7 @@
 (function () {
   let tasks = [];
+  let notionPreviewTasks = [];
+  let selectedPreviewIds = new Set();
   let taskLookup = new Map();
   let filter = 'all';
   let reminderStop = null;
@@ -26,12 +28,61 @@
     done: '완료',
   };
 
+  const sourceLabel = {
+    local: '수기 입력',
+    'notion-import': 'Notion 가져옴',
+  };
+
   const setTasks = (nextTasks) => {
     tasks = nextTasks;
     taskLookup = new Map(tasks.map((task) => [task.id, task]));
   };
 
   const getTaskById = (id) => taskLookup.get(id);
+
+  const getPreviewTaskById = (id) => notionPreviewTasks.find((task) => task.id === id);
+
+  const isImportedFromNotion = (task) => task.source === 'notion-import';
+
+  const importedNotionIds = () => new Set(tasks.map((task) => task.notionPageId).filter(Boolean));
+
+  const selectedDateMode = () => {
+    const selected = document.querySelector('input[name="notionDateMode"]:checked');
+    return selected ? selected.value : 'keep';
+  };
+
+  const setBaseDateState = () => {
+    const baseDateInput = $('notionBaseDate');
+    if (!baseDateInput) return;
+    baseDateInput.disabled = selectedDateMode() !== 'base';
+  };
+
+  const dateValuesFor = (items) => items
+    .flatMap((task) => [task.startDate, task.dueDate])
+    .filter(Boolean)
+    .sort();
+
+  const shiftDate = (dateKey, dayOffset) => {
+    if (!dateKey) return '';
+    return window.PlanningStore.addDays(dateKey, dayOffset);
+  };
+
+  const applyImportDateMode = (task, selectedTasks) => {
+    const mode = selectedDateMode();
+    if (mode === 'keep') return { ...task };
+    if (mode === 'clear') return { ...task, startDate: '', dueDate: '', dueTime: '' };
+
+    const baseDate = mode === 'today' ? window.PlanningStore.todayKey() : $('notionBaseDate').value;
+    const originalDates = dateValuesFor(selectedTasks);
+    if (!baseDate || !originalDates.length) return { ...task };
+
+    const dayOffset = window.PlanningStore.daysBetween(baseDate, originalDates[0]);
+    return {
+      ...task,
+      startDate: shiftDate(task.startDate, dayOffset),
+      dueDate: shiftDate(task.dueDate, dayOffset),
+    };
+  };
 
   const getFiltered = () => {
     const buckets = window.PlanningStore.buckets(tasks);
@@ -63,8 +114,9 @@
   };
 
   const dependencyText = (task) => {
-    const depends = task.dependsOnTaskIds.map(getTaskById).filter(Boolean).map((item) => item.title);
-    const related = task.relatedTaskIds.map(getTaskById).filter(Boolean).map((item) => item.title);
+    const lookup = task.source === 'notion-preview' ? getPreviewTaskById : getTaskById;
+    const depends = task.dependsOnTaskIds.map(lookup).filter(Boolean).map((item) => item.title);
+    const related = task.relatedTaskIds.map(lookup).filter(Boolean).map((item) => item.title);
     const parts = [];
     if (depends.length) parts.push('선행: ' + depends.join(', '));
     if (related.length) parts.push('관련: ' + related.join(', '));
@@ -128,6 +180,7 @@
               <span class="planning-pill">${statusLabel[task.status]}</span>
               ${task.phase ? `<span class="planning-pill">${escapeHtml(task.phase)}</span>` : ''}
               ${task.owner ? `<span class="planning-pill">${escapeHtml(task.owner)}</span>` : ''}
+              <span class="planning-pill ${isImportedFromNotion(task) ? 'imported' : 'local'}">${sourceLabel[task.source] || '수기 입력'}</span>
             </div>
             ${relation ? `<div class="planning-task-relations">${escapeHtml(relation)}</div>` : ''}
           </div>
@@ -138,6 +191,126 @@
         </article>
       `;
     }).join('');
+  };
+
+  const renderNotionPreview = () => {
+    const statusNode = $('notionPreviewStatus');
+    const listNode = $('notionPreviewList');
+    if (!statusNode || !listNode) return;
+
+    if (!notionPreviewTasks.length) {
+      listNode.innerHTML = '';
+      statusNode.textContent = '아직 불러오지 않았습니다.';
+      $('importSelectedNotionBtn').disabled = true;
+      return;
+    }
+
+    const importedIds = importedNotionIds();
+    const availableCount = notionPreviewTasks.filter((task) => !importedIds.has(task.notionPageId)).length;
+    const selectedCount = [...selectedPreviewIds].filter((id) => !importedIds.has(getPreviewTaskById(id)?.notionPageId)).length;
+    statusNode.textContent = 'Notion 작업 ' + notionPreviewTasks.length + '건 중 ' + availableCount + '건을 가져올 수 있습니다. 선택 ' + selectedCount + '건.';
+    $('importSelectedNotionBtn').disabled = selectedCount === 0;
+    listNode.innerHTML = window.PlanningStore.sort(notionPreviewTasks).map((task) => {
+      const relation = dependencyText(task);
+      const rawRefs = task.relationRefs || {};
+      const relationCount = (rawRefs.dependsOnUrls || []).length + (rawRefs.relatedUrls || []).length;
+      const imported = importedIds.has(task.notionPageId);
+      const checked = selectedPreviewIds.has(task.id) && !imported;
+      return `
+        <article class="planning-task notion-preview-task ${imported ? 'already-imported' : ''} ${taskTone(task)}">
+          <label class="notion-preview-check">
+            <input type="checkbox" data-action="select-preview" data-id="${task.id}" ${checked ? 'checked' : ''} ${imported ? 'disabled' : ''} aria-label="가져올 항목 선택">
+            <span>${imported ? '가져옴' : '선택'}</span>
+          </label>
+          <div class="planning-task-main">
+            <div class="planning-task-topline">
+              <div class="planning-task-title">${escapeHtml(task.title)}</div>
+              <span class="planning-task-project">${escapeHtml(task.project)}</span>
+            </div>
+            ${task.notes ? `<div class="planning-task-notes">${escapeHtml(task.notes)}</div>` : ''}
+            <div class="planning-task-meta">
+              ${pillForDate(task)}
+              ${task.startDate ? `<span class="planning-pill">시작 ${escapeHtml(task.startDate)}</span>` : ''}
+              <span class="planning-pill ${task.priority === 'urgent' || task.priority === 'high' ? 'urgent' : ''}">${priorityLabel[task.priority]}</span>
+              <span class="planning-pill">${statusLabel[task.status]}</span>
+              <span class="planning-pill notion">Notion 미리보기</span>
+              ${imported ? '<span class="planning-pill imported">이미 가져온 항목</span>' : ''}
+              ${relationCount ? `<span class="planning-pill">관계 ${relationCount}건</span>` : ''}
+            </div>
+            ${relation ? `<div class="planning-task-relations">${escapeHtml(relation)}</div>` : ''}
+          </div>
+          <div class="planning-task-actions">
+            <a class="planning-btn compact" href="${escapeHtml(task.notionUrl)}" target="_blank" rel="noopener">Notion 열기</a>
+          </div>
+        </article>
+      `;
+    }).join('');
+  };
+
+  const loadNotionPreview = async () => {
+    const statusNode = $('notionPreviewStatus');
+    const button = $('loadNotionPreviewBtn');
+    if (!window.PlanningNotionPreview || !statusNode || !button) return;
+
+    statusNode.innerHTML = '<span class="loading-spinner small"></span> Notion 미리보기를 준비 중입니다.';
+    button.disabled = true;
+    try {
+      notionPreviewTasks = await window.PlanningNotionPreview.load();
+      selectedPreviewIds = new Set();
+      renderNotionPreview();
+    } catch (error) {
+      console.warn('Notion preview load failed', error);
+      statusNode.textContent = 'Notion 미리보기를 불러오지 못했습니다. 연결 상태를 확인해 주세요.';
+    } finally {
+      button.disabled = false;
+    }
+  };
+
+  const importSelectedNotionTasks = () => {
+    if (!notionPreviewTasks.length) {
+      toast('먼저 Notion 미리보기를 불러와 주세요.');
+      return;
+    }
+
+    const importedIds = importedNotionIds();
+    const selectedTasks = notionPreviewTasks.filter((task) => selectedPreviewIds.has(task.id));
+    if (!selectedTasks.length) {
+      toast('가져올 항목을 선택해 주세요.');
+      return;
+    }
+    if (selectedDateMode() === 'base' && !$('notionBaseDate').value) {
+      toast('일정을 이동할 기준일을 선택해 주세요.');
+      return;
+    }
+
+    let importedCount = 0;
+    let skippedCount = 0;
+    let nextTasks = tasks;
+    selectedTasks.forEach((task) => {
+      if (importedIds.has(task.notionPageId)) {
+        skippedCount += 1;
+        return;
+      }
+      const adjustedTask = applyImportDateMode(task, selectedTasks);
+      nextTasks = window.PlanningStore.add({
+        ...adjustedTask,
+        id: task.id,
+        owner: task.owner === 'Notion' ? '' : task.owner,
+        source: 'notion-import',
+        importedAt: new Date().toISOString(),
+      });
+      importedIds.add(task.notionPageId);
+      importedCount += 1;
+    });
+
+    setTasks(nextTasks);
+    selectedPreviewIds = new Set();
+    renderAll();
+    renderNotionPreview();
+
+    if (importedCount && skippedCount) toast(importedCount + '건을 가져왔고, ' + skippedCount + '건은 이미 가져온 항목입니다.');
+    else if (importedCount) toast('선택한 Notion 항목 ' + importedCount + '건을 내 계획으로 가져왔습니다.');
+    else toast('이미 가져온 항목입니다.');
   };
 
   const renderAll = () => {
@@ -211,6 +384,11 @@
 
     $('resetFormBtn').addEventListener('click', resetForm);
     $('taskSearch').addEventListener('input', renderList);
+    $('loadNotionPreviewBtn').addEventListener('click', loadNotionPreview);
+    $('importSelectedNotionBtn').addEventListener('click', importSelectedNotionTasks);
+    document.querySelectorAll('input[name="notionDateMode"]').forEach((node) => {
+      node.addEventListener('change', setBaseDateState);
+    });
 
     $('bucketTabs').addEventListener('click', (event) => {
       const tab = event.target.closest('.planning-tab');
@@ -237,6 +415,14 @@
       }
     });
 
+    $('notionPreviewList').addEventListener('change', (event) => {
+      const target = event.target.closest('[data-action="select-preview"]');
+      if (!target) return;
+      if (target.checked) selectedPreviewIds.add(target.dataset.id);
+      else selectedPreviewIds.delete(target.dataset.id);
+      renderNotionPreview();
+    });
+
     $('openSummaryBtn').addEventListener('click', () => $('summaryModal').classList.add('open'));
     $('closeSummaryBtn').addEventListener('click', () => $('summaryModal').classList.remove('open'));
     $('summaryModal').addEventListener('click', (event) => {
@@ -256,7 +442,9 @@
   const init = () => {
     setTasks(window.PlanningStore.init());
     bindEvents();
+    setBaseDateState();
     renderAll();
+    renderNotionPreview();
     addAiMessage('bot', '로컬 업무 데이터만 기준으로 답변합니다. 예: 오늘 무엇에 집중할까?');
     $('summaryModal').classList.add('open');
 

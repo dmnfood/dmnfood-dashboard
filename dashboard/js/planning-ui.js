@@ -3,6 +3,7 @@
   let notionPreviewTasks = [];
   let selectedPreviewIds = new Set();
   let taskLookup = new Map();
+  let activeWorkArea = '전체';
   let filter = 'all';
   let reminderStop = null;
 
@@ -23,8 +24,9 @@
   };
 
   const statusLabel = {
-    todo: '대기',
+    todo: '시작 전',
     doing: '진행 중',
+    review: '확인 필요',
     done: '완료',
   };
 
@@ -45,6 +47,37 @@
   const isImportedFromNotion = (task) => task.source === 'notion-import';
 
   const importedNotionIds = () => new Set(tasks.map((task) => task.notionPageId).filter(Boolean));
+
+  const workAreaMatches = (task) => activeWorkArea === '전체' || task.workArea === activeWorkArea;
+
+  const currentBaseTasks = () => tasks.filter(workAreaMatches);
+
+  const selectedFilterValue = (id) => ($(id) ? $(id).value : 'all');
+
+  const applyStructuredFilters = (items) => {
+    const project = selectedFilterValue('projectFilter');
+    const status = selectedFilterValue('statusFilter');
+    const priority = selectedFilterValue('priorityFilter');
+    return items.filter((task) => {
+      if (project !== 'all' && task.project !== project) return false;
+      if (status !== 'all' && task.status !== status) return false;
+      if (priority !== 'all' && task.priority !== priority) return false;
+      return true;
+    });
+  };
+
+  const visibleTasks = () => applyStructuredFilters(currentBaseTasks());
+
+  const updateProjectFilter = () => {
+    const projectFilter = $('projectFilter');
+    if (!projectFilter) return;
+    const current = projectFilter.value;
+    const projects = [...new Set(currentBaseTasks().map((task) => task.project).filter(Boolean))].sort();
+    projectFilter.innerHTML = '<option value="all">전체 프로젝트</option>' + projects.map((project) => (
+      `<option value="${escapeHtml(project)}">${escapeHtml(project)}</option>`
+    )).join('');
+    projectFilter.value = projects.includes(current) ? current : 'all';
+  };
 
   const selectedDateMode = () => {
     const selected = document.querySelector('input[name="notionDateMode"]:checked');
@@ -85,9 +118,9 @@
   };
 
   const getFiltered = () => {
-    const buckets = window.PlanningStore.buckets(tasks);
+    const buckets = window.PlanningStore.buckets(visibleTasks());
     const query = $('taskSearch').value.trim().toLowerCase();
-    let list = filter === 'all' ? tasks : buckets[filter] || [];
+    let list = filter === 'all' ? visibleTasks() : buckets[filter] || [];
     if (query) {
       list = list.filter((task) => [task.title, task.notes, task.owner, task.project, task.phase].join(' ').toLowerCase().includes(query));
     }
@@ -99,7 +132,7 @@
     if (task.status === 'done') return 'done';
     if (diff < 0) return 'overdue';
     if (task.priority === 'urgent' || task.priority === 'high') return 'urgent';
-    if (task.status === 'doing') return 'doing';
+    if (task.status === 'doing' || task.status === 'review') return 'doing';
     return 'normal';
   };
 
@@ -124,12 +157,12 @@
   };
 
   const renderStats = () => {
-    const buckets = window.PlanningStore.buckets(tasks);
+    const buckets = window.PlanningStore.buckets(visibleTasks());
     $('stats').innerHTML = [
       ['overdue', '지연 업무', buckets.overdue.length, '기한 경과'],
       ['today', '오늘 할 일', buckets.today.length, '당일 처리'],
       ['upcoming', '예정 업무', buckets.upcoming.length, '7일 내'],
-      ['urgent', '긴급 업무', buckets.urgent.length, '우선 확인'],
+      ['urgent', '주간 집중 업무', buckets.urgent.length, '우선 확인'],
     ].map(([key, label, value, sub]) => `
       <article class="planning-stat ${key}">
         <div class="planning-stat-label">${label}</div>
@@ -137,18 +170,18 @@
         <div class="planning-stat-sub">${sub}</div>
       </article>
     `).join('');
-    $('listMeta').textContent = '진행 업무 ' + buckets.active.length + '건';
+    $('listMeta').textContent = activeWorkArea + ' 업무 ' + visibleTasks().length + '건';
   };
 
   const renderSummary = () => {
-    const buckets = window.PlanningStore.buckets(tasks);
+    const buckets = window.PlanningStore.buckets(visibleTasks());
     const next = window.PlanningStore.sort(buckets.overdue)[0]
       || window.PlanningStore.sort(buckets.urgent)[0]
       || window.PlanningStore.sort(buckets.today)[0]
       || window.PlanningStore.sort(buckets.active)[0];
 
     $('summaryBody').innerHTML = `
-      <p>진행 업무 <strong>${buckets.active.length}</strong>건, 지연 업무 <strong>${buckets.overdue.length}</strong>건, 오늘 할 일 <strong>${buckets.today.length}</strong>건, 7일 내 예정 업무 <strong>${buckets.upcoming.length}</strong>건입니다.</p>
+      <p><strong>${escapeHtml(activeWorkArea)}</strong> 기준 진행 업무 <strong>${buckets.active.length}</strong>건, 지연 업무 <strong>${buckets.overdue.length}</strong>건, 오늘 할 일 <strong>${buckets.today.length}</strong>건, 7일 내 예정 업무 <strong>${buckets.upcoming.length}</strong>건입니다.</p>
       <p style="margin-top:10px;">권장 집중 업무: <strong>${next ? escapeHtml(next.title) : '첫 계획 업무를 추가하세요'}</strong></p>
       <p style="margin-top:10px;color:var(--t2);">이 요약은 브라우저 로컬 저장소 기준으로 생성됩니다.</p>
     `;
@@ -197,6 +230,10 @@
     const statusNode = $('notionPreviewStatus');
     const listNode = $('notionPreviewList');
     if (!statusNode || !listNode) return;
+    const sourceNote = $('notionSourceNote');
+    if (sourceNote) {
+      sourceNote.textContent = '현재 브라우저 미리보기 소스: ERP Notion 작업 데이터베이스. 다른 업무영역은 향후 live 연결 시 소스 선택으로 확장됩니다.';
+    }
 
     if (!notionPreviewTasks.length) {
       listNode.innerHTML = '';
@@ -205,12 +242,21 @@
       return;
     }
 
+    const scopedPreviewTasks = notionPreviewTasks.filter((task) => activeWorkArea === '전체' || task.workArea === activeWorkArea);
+    if (!scopedPreviewTasks.length) {
+      listNode.innerHTML = '';
+      statusNode.textContent = activeWorkArea + ' 영역에서 표시할 Notion 미리보기 항목이 없습니다. 현재 내장 미리보기 데이터는 ERP 기준입니다.';
+      $('importSelectedNotionBtn').disabled = true;
+      return;
+    }
+
     const importedIds = importedNotionIds();
-    const availableCount = notionPreviewTasks.filter((task) => !importedIds.has(task.notionPageId)).length;
-    const selectedCount = [...selectedPreviewIds].filter((id) => !importedIds.has(getPreviewTaskById(id)?.notionPageId)).length;
-    statusNode.textContent = 'Notion 작업 ' + notionPreviewTasks.length + '건 중 ' + availableCount + '건을 가져올 수 있습니다. 선택 ' + selectedCount + '건.';
+    const availableCount = scopedPreviewTasks.filter((task) => !importedIds.has(task.notionPageId)).length;
+    const scopedPreviewIds = new Set(scopedPreviewTasks.map((task) => task.id));
+    const selectedCount = [...selectedPreviewIds].filter((id) => scopedPreviewIds.has(id) && !importedIds.has(getPreviewTaskById(id)?.notionPageId)).length;
+    statusNode.textContent = 'Notion 작업 ' + scopedPreviewTasks.length + '건 중 ' + availableCount + '건을 가져올 수 있습니다. 선택 ' + selectedCount + '건.';
     $('importSelectedNotionBtn').disabled = selectedCount === 0;
-    listNode.innerHTML = window.PlanningStore.sort(notionPreviewTasks).map((task) => {
+    listNode.innerHTML = window.PlanningStore.sort(scopedPreviewTasks).map((task) => {
       const relation = dependencyText(task);
       const rawRefs = task.relationRefs || {};
       const relationCount = (rawRefs.dependsOnUrls || []).length + (rawRefs.relatedUrls || []).length;
@@ -247,6 +293,78 @@
     }).join('');
   };
 
+  const dependencyCount = (task) => task.dependsOnTaskIds.length + task.relatedTaskIds.length;
+
+  const compactTaskCard = (task) => `
+    <article class="flow-card ${taskTone(task)}">
+      <div class="flow-card-title">${escapeHtml(task.title)}</div>
+      <div class="flow-card-project">${escapeHtml(task.project || '일반 업무')}</div>
+      <div class="planning-task-meta">
+        ${task.phase ? `<span class="planning-pill">${escapeHtml(task.phase)}</span>` : ''}
+        ${task.dueDate ? `<span class="planning-pill">${escapeHtml(task.dueDate)}</span>` : '<span class="planning-pill">기한 없음</span>'}
+        <span class="planning-pill ${task.priority === 'urgent' || task.priority === 'high' ? 'urgent' : ''}">${priorityLabel[task.priority]}</span>
+        <span class="planning-pill ${isImportedFromNotion(task) ? 'imported' : 'local'}">${sourceLabel[task.source] || '수기 입력'}</span>
+        ${dependencyCount(task) ? `<span class="planning-pill">관계 ${dependencyCount(task)}건</span>` : ''}
+      </div>
+    </article>
+  `;
+
+  const renderFlowBoard = () => {
+    const board = $('flowBoard');
+    if (!board) return;
+    const items = window.PlanningStore.sort(visibleTasks());
+    const columns = [
+      ['todo', '시작 전'],
+      ['doing', '진행 중'],
+      ['review', '확인 필요'],
+      ['done', '완료'],
+    ];
+
+    board.innerHTML = columns.map(([status, label]) => {
+      const columnTasks = items.filter((task) => task.status === status).slice(0, 8);
+      return `
+        <section class="flow-column">
+          <div class="flow-column-head">
+            <span>${label}</span>
+            <b>${items.filter((task) => task.status === status).length}</b>
+          </div>
+          <div class="flow-column-body">
+            ${columnTasks.length ? columnTasks.map(compactTaskCard).join('') : '<div class="planning-empty compact">업무 없음</div>'}
+          </div>
+        </section>
+      `;
+    }).join('');
+  };
+
+  const renderDependencyFlow = () => {
+    const container = $('dependencyFlow');
+    if (!container) return;
+    const items = window.PlanningStore.sort(visibleTasks());
+    const byId = new Map(tasks.map((task) => [task.id, task]));
+    const blocked = items.filter((task) => task.dependsOnTaskIds.some((id) => byId.get(id)?.status !== 'done')).slice(0, 5);
+    const ready = items.filter((task) => task.status !== 'done' && !task.dependsOnTaskIds.some((id) => byId.get(id)?.status !== 'done')).slice(0, 5);
+    const next = items.filter((task) => task.status !== 'done' && task.relatedTaskIds.length).slice(0, 5);
+    const groups = [
+      ['선행 업무', blocked],
+      ['지금 해야 할 업무', ready],
+      ['다음 업무', next],
+    ];
+
+    container.innerHTML = groups.map(([label, list]) => `
+      <section class="relationship-column">
+        <div class="relationship-title">${label}</div>
+        <div class="relationship-list">
+          ${list.length ? list.map((task) => `
+            <div class="relationship-item">
+              <strong>${escapeHtml(task.title)}</strong>
+              <span>${escapeHtml(task.project)} · ${task.dueDate ? escapeHtml(task.dueDate) : '기한 없음'}</span>
+            </div>
+          `).join('') : '<div class="planning-empty compact">표시할 업무 없음</div>'}
+        </div>
+      </section>
+    `).join('');
+  };
+
   const loadNotionPreview = async () => {
     const statusNode = $('notionPreviewStatus');
     const button = $('loadNotionPreviewBtn');
@@ -273,7 +391,7 @@
     }
 
     const importedIds = importedNotionIds();
-    const selectedTasks = notionPreviewTasks.filter((task) => selectedPreviewIds.has(task.id));
+    const selectedTasks = notionPreviewTasks.filter((task) => selectedPreviewIds.has(task.id) && workAreaMatches(task));
     if (!selectedTasks.length) {
       toast('가져올 항목을 선택해 주세요.');
       return;
@@ -314,14 +432,18 @@
   };
 
   const renderAll = () => {
+    updateProjectFilter();
     renderStats();
     renderSummary();
+    renderFlowBoard();
+    renderDependencyFlow();
     renderList();
   };
 
   const resetForm = () => {
     $('taskForm').reset();
     $('taskId').value = '';
+    $('taskWorkArea').value = activeWorkArea === '전체' ? '경영지원' : activeWorkArea;
     $('taskPriority').value = 'normal';
     $('taskStatus').value = 'todo';
     $('formTitle').textContent = '업무 추가';
@@ -329,6 +451,7 @@
 
   const formValue = () => ({
     title: $('taskTitle').value,
+    workArea: $('taskWorkArea').value,
     project: $('taskProject').value,
     phase: $('taskPhase').value,
     startDate: $('taskStartDate').value,
@@ -343,6 +466,7 @@
   const editTask = (task) => {
     $('taskId').value = task.id;
     $('taskTitle').value = task.title;
+    $('taskWorkArea').value = task.workArea || '경영지원';
     $('taskProject').value = task.project;
     $('taskPhase').value = task.phase;
     $('taskStartDate').value = task.startDate;
@@ -384,6 +508,9 @@
 
     $('resetFormBtn').addEventListener('click', resetForm);
     $('taskSearch').addEventListener('input', renderList);
+    $('projectFilter').addEventListener('change', renderAll);
+    $('statusFilter').addEventListener('change', renderAll);
+    $('priorityFilter').addEventListener('change', renderAll);
     $('loadNotionPreviewBtn').addEventListener('click', loadNotionPreview);
     $('importSelectedNotionBtn').addEventListener('click', importSelectedNotionTasks);
     document.querySelectorAll('input[name="notionDateMode"]').forEach((node) => {
@@ -397,6 +524,18 @@
       document.querySelectorAll('.planning-tab').forEach((node) => node.classList.remove('active'));
       tab.classList.add('active');
       renderList();
+    });
+
+    $('workAreaTabs').addEventListener('click', (event) => {
+      const tab = event.target.closest('.workarea-tab');
+      if (!tab) return;
+      activeWorkArea = tab.dataset.workArea;
+      document.querySelectorAll('.workarea-tab').forEach((node) => node.classList.remove('active'));
+      tab.classList.add('active');
+      selectedPreviewIds = new Set();
+      resetForm();
+      renderAll();
+      renderNotionPreview();
     });
 
     $('taskList').addEventListener('click', (event) => {

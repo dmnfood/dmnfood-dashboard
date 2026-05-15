@@ -132,7 +132,69 @@
         <button class="planning-btn" id="openSummaryBtn">시작 요약</button>
       </section>
 
+      <section class="planning-control-panel">
+        <div class="workarea-tabs" id="workAreaTabs" aria-label="업무 영역 선택">
+          <button class="workarea-tab active" data-work-area="전체">전체</button>
+          <button class="workarea-tab" data-work-area="경영지원">경영지원</button>
+          <button class="workarea-tab" data-work-area="ERP">ERP</button>
+          <button class="workarea-tab" data-work-area="브랜딩">브랜딩</button>
+          <button class="workarea-tab" data-work-area="해외수출">해외수출</button>
+        </div>
+        <div class="planning-filter-grid">
+          <label class="planning-field compact">
+            <span>프로젝트</span>
+            <select class="planning-select" id="projectFilter">
+              <option value="all">전체 프로젝트</option>
+            </select>
+          </label>
+          <label class="planning-field compact">
+            <span>상태</span>
+            <select class="planning-select" id="statusFilter">
+              <option value="all">전체 상태</option>
+              <option value="todo">시작 전</option>
+              <option value="doing">진행 중</option>
+              <option value="review">확인 필요</option>
+              <option value="done">완료</option>
+            </select>
+          </label>
+          <label class="planning-field compact">
+            <span>우선순위</span>
+            <select class="planning-select" id="priorityFilter">
+              <option value="all">전체 우선순위</option>
+              <option value="urgent">긴급</option>
+              <option value="high">높음</option>
+              <option value="normal">보통</option>
+              <option value="low">낮음</option>
+            </select>
+          </label>
+        </div>
+      </section>
+
       <section class="planning-stats" id="stats"></section>
+
+      <section class="planning-panel flow-panel">
+        <div class="planning-panel-head">
+          <div>
+            <div class="planning-panel-title">업무 흐름 보드</div>
+            <div class="planning-panel-sub">선택한 업무 영역의 진행 흐름을 가볍게 확인합니다.</div>
+          </div>
+        </div>
+        <div class="planning-panel-body">
+          <div class="flow-board" id="flowBoard"></div>
+        </div>
+      </section>
+
+      <section class="planning-panel relationship-panel">
+        <div class="planning-panel-head">
+          <div>
+            <div class="planning-panel-title">선후관계</div>
+            <div class="planning-panel-sub">선행 업무와 다음 업무를 간단히 분리해서 봅니다.</div>
+          </div>
+        </div>
+        <div class="planning-panel-body">
+          <div class="relationship-grid" id="dependencyFlow"></div>
+        </div>
+      </section>
 
       <section class="planning-grid">
         <aside class="planning-panel">
@@ -148,6 +210,16 @@
               <div class="planning-field">
                 <label for="taskTitle">업무명</label>
                 <input class="planning-input" id="taskTitle" required maxlength="120" placeholder="예: 미수금 확인">
+              </div>
+              <div class="planning-field">
+                <label for="taskWorkArea">업무 영역</label>
+                <select class="planning-select" id="taskWorkArea">
+                  <option value="경영지원">경영지원</option>
+                  <option value="ERP">ERP</option>
+                  <option value="브랜딩">브랜딩</option>
+                  <option value="해외수출">해외수출</option>
+                  <option value="미분류">미분류</option>
+                </select>
               </div>
               <div class="planning-row">
                 <div class="planning-field">
@@ -192,8 +264,9 @@
                 <div class="planning-field">
                   <label for="taskStatus">상태</label>
                   <select class="planning-select" id="taskStatus">
-                    <option value="todo">대기</option>
+                    <option value="todo">시작 전</option>
                     <option value="doing">진행 중</option>
+                    <option value="review">확인 필요</option>
                     <option value="done">완료</option>
                   </select>
                 </div>
@@ -213,7 +286,7 @@
         <section class="planning-panel">
           <div class="planning-panel-head">
             <div>
-              <div class="planning-panel-title">업무 현황</div>
+              <div class="planning-panel-title">전체 업무</div>
               <div class="planning-panel-sub" id="listMeta">진행 업무 0건</div>
             </div>
           </div>
@@ -224,7 +297,7 @@
                 <button class="planning-tab" data-filter="overdue">지연 업무</button>
                 <button class="planning-tab" data-filter="today">오늘 할 일</button>
                 <button class="planning-tab" data-filter="upcoming">예정 업무</button>
-                <button class="planning-tab" data-filter="urgent">긴급 업무</button>
+                <button class="planning-tab" data-filter="urgent">주간 집중 업무</button>
                 <button class="planning-tab" data-filter="done">완료</button>
               </div>
               <input class="planning-input" id="taskSearch" style="max-width:240px" placeholder="업무 검색">
@@ -234,18 +307,20 @@
         </section>
       </section>
 
-      <section class="planning-panel notion-preview-panel">
-        <div class="planning-panel-head">
-          <div>
-            <div class="planning-panel-title">Notion 미리보기</div>
-            <div class="planning-panel-sub">Notion 작업 데이터를 확인한 뒤 선택한 항목만 내 계획으로 가져옵니다.</div>
-          </div>
+      <details class="planning-panel notion-preview-panel">
+        <summary class="notion-preview-summary">
+          <span>
+            <strong>데이터 이관</strong>
+            <small>Notion에서 가져오기</small>
+          </span>
+          <span class="planning-pill notion">초기 이전 도구</span>
+        </summary>
+        <div class="planning-panel-body notion-preview-body">
+          <div class="notion-source-note" id="notionSourceNote">현재 브라우저 미리보기 소스: ERP Notion 작업 데이터베이스</div>
           <div class="notion-preview-actions">
             <button class="planning-btn" id="loadNotionPreviewBtn" type="button">미리보기 불러오기</button>
             <button class="planning-btn primary" id="importSelectedNotionBtn" type="button" disabled>선택한 항목 가져오기</button>
           </div>
-        </div>
-        <div class="planning-panel-body">
           <div class="notion-date-options" aria-label="가져오기 날짜 처리 방식">
             <label class="notion-date-option">
               <input type="radio" name="notionDateMode" value="keep" checked>
@@ -268,7 +343,7 @@
           <div class="notion-preview-status" id="notionPreviewStatus">아직 불러오지 않았습니다.</div>
           <div class="notion-preview-list" id="notionPreviewList"></div>
         </div>
-      </section>
+      </details>
 
     </main>
 

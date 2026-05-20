@@ -417,6 +417,39 @@
     }
   };
 
+  const renderBriefingText = (text) => {
+    const output = $('aiBriefingOutput');
+    if (!output) return;
+    output.className = 'ai-briefing-output';
+    output.textContent = text;
+  };
+
+  const generateAiBriefing = async () => {
+    const output = $('aiBriefingOutput');
+    const button = $('generateBriefingBtn');
+    if (!window.PlanningBriefing || !output || !button) return;
+
+    const briefingTasks = visibleTasks();
+    if (!briefingTasks.length) {
+      renderBriefingText('현재 선택한 조건에 해당하는 업무가 없습니다. 업무영역이나 필터를 확인해 주세요.');
+      return;
+    }
+
+    output.className = 'ai-briefing-output loading';
+    output.innerHTML = '<span class="loading-spinner small"></span> AI 운영 브리핑을 생성 중입니다.';
+    button.disabled = true;
+    try {
+      const briefing = await window.PlanningBriefing.createBriefing(briefingTasks);
+      renderBriefingText(briefing);
+    } catch (error) {
+      console.warn('AI briefing failed', error);
+      output.className = 'ai-briefing-output error';
+      output.textContent = error.message || 'AI 브리핑을 생성하지 못했습니다.';
+    } finally {
+      button.disabled = false;
+    }
+  };
+
   const analyzeExportZip = async () => {
     const statusNode = $('notionPreviewStatus');
     const button = $('analyzeExportZipBtn');
@@ -576,6 +609,7 @@
     $('projectFilter').addEventListener('change', renderAll);
     $('statusFilter').addEventListener('change', renderAll);
     $('priorityFilter').addEventListener('change', renderAll);
+    $('generateBriefingBtn').addEventListener('click', generateAiBriefing);
     $('loadNotionPreviewBtn').addEventListener('click', loadNotionPreview);
     $('analyzeExportZipBtn').addEventListener('click', analyzeExportZip);
     $('notionExportZipInput').addEventListener('change', () => {

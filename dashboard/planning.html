@@ -170,6 +170,21 @@
         </div>
       </section>
 
+      <section class="planning-panel ai-briefing-panel">
+        <div class="planning-panel-head">
+          <div>
+            <div class="planning-panel-title">오늘의 AI 운영 브리핑</div>
+            <div class="planning-panel-sub">현재 업무 데이터를 기준으로 실행 우선순위와 병목을 요약합니다.</div>
+          </div>
+          <button class="planning-btn primary" id="generateBriefingBtn" type="button">AI 브리핑 생성</button>
+        </div>
+        <div class="planning-panel-body">
+          <div class="ai-briefing-output" id="aiBriefingOutput">
+            아직 생성된 브리핑이 없습니다. 업무 현황을 확인한 뒤 AI 브리핑을 생성하세요.
+          </div>
+        </div>
+      </section>
+
       <section class="planning-stats" id="stats"></section>
 
       <section class="planning-panel flow-panel">
@@ -389,6 +404,7 @@
   <script src="/dashboard/js/planning-notion-preview.js"></script>
   <script src="/dashboard/js/planning-export-import.js"></script>
   <script src="/dashboard/js/planning-ai.js"></script>
+  <script src="/dashboard/js/planning-briefing.js"></script>
   <script src="/dashboard/js/planning-reminders.js"></script>
   <script src="/dashboard/js/planning-ui.js"></script>
   <script type="module">

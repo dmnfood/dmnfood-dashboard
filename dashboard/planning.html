@@ -316,9 +316,21 @@
           <span class="planning-pill notion">초기 이전 도구</span>
         </summary>
         <div class="planning-panel-body notion-preview-body">
-          <div class="notion-source-note" id="notionSourceNote">현재 브라우저 미리보기 소스: ERP Notion 작업 데이터베이스</div>
+          <div class="export-import-box">
+            <div>
+              <div class="export-import-title">Notion Export 가져오기</div>
+              <div class="export-import-sub">ERP/생산관리/원가관리/손익분석/기초 등록 관련 항목만 선별합니다.</div>
+            </div>
+            <div class="export-import-controls">
+              <label class="planning-btn export-file-label" for="notionExportZipInput">ZIP 선택</label>
+              <input id="notionExportZipInput" class="export-file-input" type="file" accept=".zip,application/zip,application/x-zip-compressed">
+              <button class="planning-btn primary" id="analyzeExportZipBtn" type="button">업로드 ZIP 분석</button>
+            </div>
+          </div>
+          <div class="export-import-summary" id="exportImportSummary">Notion에서 내보낸 ZIP 파일을 선택하면 가져오기 후보를 미리 확인합니다.</div>
+          <div class="notion-source-note" id="notionSourceNote">현재 소스: Notion Export ZIP</div>
           <div class="notion-preview-actions">
-            <button class="planning-btn" id="loadNotionPreviewBtn" type="button">미리보기 불러오기</button>
+            <button class="planning-btn" id="loadNotionPreviewBtn" type="button">내장 ERP 미리보기 불러오기</button>
             <button class="planning-btn primary" id="importSelectedNotionBtn" type="button" disabled>선택한 항목 가져오기</button>
           </div>
           <div class="notion-date-options" aria-label="가져오기 날짜 처리 방식">
@@ -375,6 +387,7 @@
 
   <script src="/dashboard/js/planning-data.js"></script>
   <script src="/dashboard/js/planning-notion-preview.js"></script>
+  <script src="/dashboard/js/planning-export-import.js"></script>
   <script src="/dashboard/js/planning-ai.js"></script>
   <script src="/dashboard/js/planning-reminders.js"></script>
   <script src="/dashboard/js/planning-ui.js"></script>

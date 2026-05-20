@@ -2,6 +2,7 @@
   let tasks = [];
   let notionPreviewTasks = [];
   let selectedPreviewIds = new Set();
+  let exportAnalysis = null;
   let taskLookup = new Map();
   let activeWorkArea = '전체';
   let filter = 'all';
@@ -33,6 +34,7 @@
   const sourceLabel = {
     local: '수기 입력',
     'notion-import': 'Notion 가져옴',
+    'notion-export-import': 'Export 가져옴',
   };
 
   const setTasks = (nextTasks) => {
@@ -44,7 +46,7 @@
 
   const getPreviewTaskById = (id) => notionPreviewTasks.find((task) => task.id === id);
 
-  const isImportedFromNotion = (task) => task.source === 'notion-import';
+  const isImportedFromNotion = (task) => task.source === 'notion-import' || task.source === 'notion-export-import';
 
   const importedNotionIds = () => new Set(tasks.map((task) => task.notionPageId).filter(Boolean));
 
@@ -115,6 +117,33 @@
       startDate: shiftDate(task.startDate, dayOffset),
       dueDate: shiftDate(task.dueDate, dayOffset),
     };
+  };
+
+  const selectedZipFile = () => {
+    const input = $('notionExportZipInput');
+    return input && input.files && input.files[0] ? input.files[0] : null;
+  };
+
+  const renderExportSummary = () => {
+    const summaryNode = $('exportImportSummary');
+    if (!summaryNode) return;
+    if (!exportAnalysis) {
+      summaryNode.textContent = 'Notion에서 내보낸 ZIP 파일을 선택하면 가져오기 후보를 미리 확인합니다.';
+      return;
+    }
+    summaryNode.innerHTML = [
+      '분석 파일: ' + escapeHtml(selectedZipFile()?.name || 'Notion Export ZIP'),
+      '작업 CSV ' + exportAnalysis.totalTaskRows + '건 중 ERP 후보 ' + exportAnalysis.importedTaskCandidates + '건',
+      '프로젝트 ' + exportAnalysis.projectCount + '건, 관련 프로젝트 ' + exportAnalysis.erpProjectCount + '건',
+      'markdown 문서 ' + exportAnalysis.markdownCount + '개 연결',
+      exportAnalysis.ignoredTaskRows ? '제외된 비 ERP 후보 ' + exportAnalysis.ignoredTaskRows + '건' : '제외된 항목 없음',
+    ].map((item) => `<span>${item}</span>`).join(' · ');
+  };
+
+  const updateExportFileLabel = () => {
+    const file = selectedZipFile();
+    const label = document.querySelector('.export-file-label');
+    if (label) label.textContent = file ? file.name : 'ZIP 선택';
   };
 
   const getFiltered = () => {
@@ -232,12 +261,14 @@
     if (!statusNode || !listNode) return;
     const sourceNote = $('notionSourceNote');
     if (sourceNote) {
-      sourceNote.textContent = '현재 브라우저 미리보기 소스: ERP Notion 작업 데이터베이스. 다른 업무영역은 향후 live 연결 시 소스 선택으로 확장됩니다.';
+      sourceNote.textContent = exportAnalysis
+        ? '현재 소스: 업로드한 Notion Export ZIP. ERP/운영 계획 항목만 로컬 가져오기 후보로 표시합니다.'
+        : '현재 소스: Notion Export ZIP. 내장 ERP 미리보기는 테스트용 보조 데이터입니다.';
     }
 
     if (!notionPreviewTasks.length) {
       listNode.innerHTML = '';
-      statusNode.textContent = '아직 불러오지 않았습니다.';
+      statusNode.textContent = '아직 분석된 가져오기 후보가 없습니다.';
       $('importSelectedNotionBtn').disabled = true;
       return;
     }
@@ -245,7 +276,7 @@
     const scopedPreviewTasks = notionPreviewTasks.filter((task) => activeWorkArea === '전체' || task.workArea === activeWorkArea);
     if (!scopedPreviewTasks.length) {
       listNode.innerHTML = '';
-      statusNode.textContent = activeWorkArea + ' 영역에서 표시할 Notion 미리보기 항목이 없습니다. 현재 내장 미리보기 데이터는 ERP 기준입니다.';
+      statusNode.textContent = activeWorkArea + ' 영역에서 표시할 Export 가져오기 후보가 없습니다. 이번 가져오기는 ERP 업무영역 기준입니다.';
       $('importSelectedNotionBtn').disabled = true;
       return;
     }
@@ -254,7 +285,7 @@
     const availableCount = scopedPreviewTasks.filter((task) => !importedIds.has(task.notionPageId)).length;
     const scopedPreviewIds = new Set(scopedPreviewTasks.map((task) => task.id));
     const selectedCount = [...selectedPreviewIds].filter((id) => scopedPreviewIds.has(id) && !importedIds.has(getPreviewTaskById(id)?.notionPageId)).length;
-    statusNode.textContent = 'Notion 작업 ' + scopedPreviewTasks.length + '건 중 ' + availableCount + '건을 가져올 수 있습니다. 선택 ' + selectedCount + '건.';
+    statusNode.textContent = '가져오기 후보 ' + scopedPreviewTasks.length + '건 중 ' + availableCount + '건을 가져올 수 있습니다. 선택 ' + selectedCount + '건.';
     $('importSelectedNotionBtn').disabled = selectedCount === 0;
     listNode.innerHTML = window.PlanningStore.sort(scopedPreviewTasks).map((task) => {
       const relation = dependencyText(task);
@@ -279,14 +310,14 @@
               ${task.startDate ? `<span class="planning-pill">시작 ${escapeHtml(task.startDate)}</span>` : ''}
               <span class="planning-pill ${task.priority === 'urgent' || task.priority === 'high' ? 'urgent' : ''}">${priorityLabel[task.priority]}</span>
               <span class="planning-pill">${statusLabel[task.status]}</span>
-              <span class="planning-pill notion">Notion 미리보기</span>
+              <span class="planning-pill notion">${task.source === 'notion-export-preview' ? 'Export 미리보기' : 'Notion 미리보기'}</span>
               ${imported ? '<span class="planning-pill imported">이미 가져온 항목</span>' : ''}
               ${relationCount ? `<span class="planning-pill">관계 ${relationCount}건</span>` : ''}
             </div>
             ${relation ? `<div class="planning-task-relations">${escapeHtml(relation)}</div>` : ''}
           </div>
           <div class="planning-task-actions">
-            <a class="planning-btn compact" href="${escapeHtml(task.notionUrl)}" target="_blank" rel="noopener">Notion 열기</a>
+            ${task.notionUrl ? `<a class="planning-btn compact" href="${escapeHtml(task.notionUrl)}" target="_blank" rel="noopener">Notion 열기</a>` : '<span class="planning-pill notion">ZIP 원본</span>'}
           </div>
         </article>
       `;
@@ -373,8 +404,10 @@
     statusNode.innerHTML = '<span class="loading-spinner small"></span> Notion 미리보기를 준비 중입니다.';
     button.disabled = true;
     try {
+      exportAnalysis = null;
       notionPreviewTasks = await window.PlanningNotionPreview.load();
       selectedPreviewIds = new Set();
+      renderExportSummary();
       renderNotionPreview();
     } catch (error) {
       console.warn('Notion preview load failed', error);
@@ -384,9 +417,41 @@
     }
   };
 
+  const analyzeExportZip = async () => {
+    const statusNode = $('notionPreviewStatus');
+    const button = $('analyzeExportZipBtn');
+    const file = selectedZipFile();
+    if (!window.PlanningExportImport || !statusNode || !button) return;
+    if (!file) {
+      toast('가져올 Notion Export ZIP 파일을 선택해 주세요.');
+      return;
+    }
+
+    statusNode.innerHTML = '<span class="loading-spinner small"></span> Notion Export ZIP을 분석 중입니다.';
+    button.disabled = true;
+    try {
+      exportAnalysis = await window.PlanningExportImport.analyze(file);
+      notionPreviewTasks = exportAnalysis.tasks;
+      selectedPreviewIds = new Set(notionPreviewTasks.map((task) => task.id));
+      renderExportSummary();
+      renderNotionPreview();
+      toast('ERP 가져오기 후보 ' + notionPreviewTasks.length + '건을 찾았습니다.');
+    } catch (error) {
+      console.warn('Notion export analyze failed', error);
+      exportAnalysis = null;
+      notionPreviewTasks = [];
+      selectedPreviewIds = new Set();
+      renderExportSummary();
+      renderNotionPreview();
+      statusNode.textContent = error.message || 'Notion Export ZIP을 분석하지 못했습니다.';
+    } finally {
+      button.disabled = false;
+    }
+  };
+
   const importSelectedNotionTasks = () => {
     if (!notionPreviewTasks.length) {
-      toast('먼저 Notion 미리보기를 불러와 주세요.');
+      toast('먼저 Notion Export ZIP을 분석해 주세요.');
       return;
     }
 
@@ -414,7 +479,7 @@
         ...adjustedTask,
         id: task.id,
         owner: task.owner === 'Notion' ? '' : task.owner,
-        source: 'notion-import',
+        source: task.source === 'notion-export-preview' ? 'notion-export-import' : 'notion-import',
         importedAt: new Date().toISOString(),
       });
       importedIds.add(task.notionPageId);
@@ -512,6 +577,15 @@
     $('statusFilter').addEventListener('change', renderAll);
     $('priorityFilter').addEventListener('change', renderAll);
     $('loadNotionPreviewBtn').addEventListener('click', loadNotionPreview);
+    $('analyzeExportZipBtn').addEventListener('click', analyzeExportZip);
+    $('notionExportZipInput').addEventListener('change', () => {
+      updateExportFileLabel();
+      exportAnalysis = null;
+      notionPreviewTasks = [];
+      selectedPreviewIds = new Set();
+      renderExportSummary();
+      renderNotionPreview();
+    });
     $('importSelectedNotionBtn').addEventListener('click', importSelectedNotionTasks);
     document.querySelectorAll('input[name="notionDateMode"]').forEach((node) => {
       node.addEventListener('change', setBaseDateState);
@@ -582,6 +656,8 @@
     setTasks(window.PlanningStore.init());
     bindEvents();
     setBaseDateState();
+    updateExportFileLabel();
+    renderExportSummary();
     renderAll();
     renderNotionPreview();
     addAiMessage('bot', '로컬 업무 데이터만 기준으로 답변합니다. 예: 오늘 무엇에 집중할까?');

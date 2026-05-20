@@ -603,6 +603,57 @@
   border-top: 1px solid var(--border);
 }
 
+.export-import-box {
+  align-items: center;
+  background: rgba(255, 255, 255, .035);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  padding: 12px;
+}
+
+.export-import-title {
+  color: var(--t0);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.export-import-sub,
+.export-import-summary {
+  color: var(--t2);
+  font-size: 11px;
+  line-height: 1.5;
+  margin-top: 3px;
+}
+
+.export-import-controls {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.export-file-input {
+  display: none;
+}
+
+.export-file-label {
+  align-items: center;
+  display: inline-flex;
+}
+
+.export-import-summary {
+  background: rgba(34, 211, 238, .06);
+  border: 1px solid rgba(34, 211, 238, .18);
+  border-radius: 10px;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+}
+
 .notion-preview-actions {
   display: flex;
   flex-wrap: wrap;
@@ -1178,7 +1229,13 @@
   }
 
   .notion-preview-actions,
-  .notion-date-options {
+  .notion-date-options,
+  .export-import-box {
     grid-template-columns: 1fr;
+  }
+
+  .export-import-box {
+    align-items: stretch;
+    flex-direction: column;
   }
 }

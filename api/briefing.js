@@ -16,6 +16,36 @@ const sendJson = (response, statusCode, payload) => {
   response.end(JSON.stringify(payload));
 };
 
+const safeOpenAiError = async (openaiResponse) => {
+  const rawText = await openaiResponse.text();
+  let parsed = null;
+  try {
+    parsed = JSON.parse(rawText);
+  } catch (error) {
+    parsed = null;
+  }
+
+  const openaiError = parsed?.error || {};
+  const code = String(openaiError.code || openaiError.type || '').slice(0, 80);
+  const message = String(openaiError.message || rawText || 'OpenAI 오류 응답이 비어 있습니다.').slice(0, 500);
+  const type = String(openaiError.type || '').slice(0, 80);
+
+  let hint = 'OpenAI API 응답을 확인해 주세요.';
+  if (openaiResponse.status === 401) hint = 'OPENAI_API_KEY가 없거나 잘못되었을 가능성이 큽니다.';
+  else if (openaiResponse.status === 429) hint = '사용량 한도, rate limit, 결제 상태를 확인해 주세요.';
+  else if (openaiResponse.status === 400 && /model/i.test(message + code)) hint = '모델명 또는 계정의 모델 접근 권한을 확인해 주세요.';
+  else if (openaiResponse.status >= 500) hint = 'OpenAI 일시 장애일 수 있습니다. 잠시 후 다시 시도해 주세요.';
+
+  return {
+    error: 'OpenAI API 요청에 실패했습니다.',
+    status: openaiResponse.status,
+    code,
+    type,
+    message,
+    hint,
+  };
+};
+
 const readBody = (request) => new Promise((resolve, reject) => {
   let body = '';
   request.on('data', (chunk) => {
@@ -39,6 +69,8 @@ module.exports = async function handler(request, response) {
   if (!apiKey) {
     return sendJson(response, 500, {
       error: 'OPENAI_API_KEY 환경 변수가 설정되지 않았습니다.',
+      status: 500,
+      code: 'missing_openai_api_key',
       setup: 'Vercel Dashboard > Project > Settings > Environment Variables에서 OPENAI_API_KEY를 추가하세요.',
     });
   }
@@ -49,11 +81,21 @@ module.exports = async function handler(request, response) {
     const parsed = JSON.parse(rawBody || '{}');
     briefingPayload = parsed.briefingPayload;
   } catch (error) {
-    return sendJson(response, 400, { error: '요청 본문을 읽지 못했습니다.' });
+    return sendJson(response, 400, {
+      error: '요청 본문을 읽지 못했습니다.',
+      status: 400,
+      code: 'invalid_request_body',
+      hint: '브라우저에서 /api/briefing으로 보내는 JSON 형식을 확인해 주세요.',
+    });
   }
 
   if (!briefingPayload || typeof briefingPayload !== 'object') {
-    return sendJson(response, 400, { error: '브리핑 데이터가 없습니다.' });
+    return sendJson(response, 400, {
+      error: '브리핑 데이터가 없습니다.',
+      status: 400,
+      code: 'missing_briefing_payload',
+      hint: '프론트엔드가 briefingPayload를 보내는지 확인해 주세요.',
+    });
   }
 
   const controller = new AbortController();
@@ -84,25 +126,48 @@ module.exports = async function handler(request, response) {
     clearTimeout(timeout);
 
     if (!openaiResponse.ok) {
-      const errorText = await openaiResponse.text();
-      return sendJson(response, openaiResponse.status >= 500 ? 502 : 400, {
-        error: 'OpenAI API 요청에 실패했습니다.',
-        detail: errorText.slice(0, 500),
+      const errorPayload = await safeOpenAiError(openaiResponse);
+      return sendJson(response, openaiResponse.status >= 500 ? 502 : openaiResponse.status, errorPayload);
+    }
+
+    let data;
+    try {
+      data = await openaiResponse.json();
+    } catch (error) {
+      return sendJson(response, 502, {
+        error: 'OpenAI 응답을 JSON으로 해석하지 못했습니다.',
+        status: 502,
+        code: 'invalid_openai_response',
+        hint: 'OpenAI 응답 형식 또는 네트워크 중간 오류를 확인해 주세요.',
       });
     }
 
-    const data = await openaiResponse.json();
     const briefing = data.choices?.[0]?.message?.content?.trim();
     if (!briefing) {
-      return sendJson(response, 502, { error: 'OpenAI 응답에 브리핑 내용이 없습니다.' });
+      return sendJson(response, 502, {
+        error: 'OpenAI 응답에 브리핑 내용이 없습니다.',
+        status: 502,
+        code: 'empty_openai_message',
+        hint: '모델 응답 구조가 예상과 다른지 확인해 주세요.',
+      });
     }
 
     return sendJson(response, 200, { briefing });
   } catch (error) {
     clearTimeout(timeout);
     if (error.name === 'AbortError') {
-      return sendJson(response, 504, { error: 'AI 브리핑 요청 시간이 초과되었습니다.' });
+      return sendJson(response, 504, {
+        error: 'AI 브리핑 요청 시간이 초과되었습니다.',
+        status: 504,
+        code: 'openai_timeout',
+        hint: 'OpenAI 응답 지연 또는 Vercel 함수 제한 시간을 확인해 주세요.',
+      });
     }
-    return sendJson(response, 500, { error: 'AI 브리핑 생성 중 오류가 발생했습니다.' });
+    return sendJson(response, 500, {
+      error: 'AI 브리핑 생성 중 서버 오류가 발생했습니다.',
+      status: 500,
+      code: 'serverless_runtime_error',
+      hint: 'Vercel Function 로그에서 런타임 오류를 확인해 주세요.',
+    });
   }
 };

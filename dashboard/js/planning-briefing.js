@@ -57,17 +57,30 @@
 
   const createBriefing = async (tasks) => {
     const payload = summarizeTasks(tasks);
-    const response = await fetch('/api/briefing', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ briefingPayload: payload }),
-    });
+    let response;
+    try {
+      response = await fetch('/api/briefing', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ briefingPayload: payload }),
+      });
+    } catch (error) {
+      throw new Error('네트워크 오류: /api/briefing에 연결하지 못했습니다. 로컬 실행 방식이나 Vercel 배포 상태를 확인해 주세요.');
+    }
 
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
-      throw new Error(data.error || 'AI 브리핑 요청에 실패했습니다.');
+      const parts = [
+        'AI 브리핑 오류',
+        'HTTP ' + response.status,
+        data.code ? '코드: ' + data.code : '',
+        data.error || '요청에 실패했습니다.',
+        data.message ? '상세: ' + data.message : '',
+        data.hint || data.setup || '',
+      ].filter(Boolean);
+      throw new Error(parts.join('\n'));
     }
 
     return String(data.briefing || '').trim() || '브리핑 결과가 비어 있습니다.';

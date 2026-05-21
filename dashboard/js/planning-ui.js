@@ -3,6 +3,9 @@
   let notionPreviewTasks = [];
   let selectedPreviewIds = new Set();
   let exportAnalysis = null;
+  let lastBriefingSections = null;
+  let mermaidPromise = null;
+  let mermaidRenderSeq = 0;
   let taskLookup = new Map();
   let activeWorkArea = '전체';
   let filter = 'all';
@@ -165,6 +168,20 @@
     return 'normal';
   };
 
+  const labelForTask = (task) => task
+    ? [task.project, task.phase, task.dueDate || '기한 없음'].filter(Boolean).join(' · ')
+    : '표시할 업무 없음';
+
+  const topFocusTask = (items) => {
+    const buckets = window.PlanningStore.buckets(items);
+    return window.PlanningStore.sort(buckets.overdue)[0]
+      || window.PlanningStore.sort(buckets.urgent)[0]
+      || window.PlanningStore.sort(buckets.today)[0]
+      || window.PlanningStore.sort(buckets.active)[0]
+      || window.PlanningStore.sort(items)[0]
+      || null;
+  };
+
   const pillForDate = (task) => {
     if (!task.dueDate) return '<span class="planning-pill">기한 없음</span>';
     const diff = window.PlanningStore.daysBetween(task.dueDate, window.PlanningStore.todayKey());
@@ -214,6 +231,39 @@
       <p style="margin-top:10px;">권장 집중 업무: <strong>${next ? escapeHtml(next.title) : '첫 계획 업무를 추가하세요'}</strong></p>
       <p style="margin-top:10px;color:var(--t2);">이 요약은 브라우저 로컬 저장소 기준으로 생성됩니다.</p>
     `;
+  };
+
+  const renderMissionControl = () => {
+    const container = $('missionControl');
+    if (!container) return;
+    const items = visibleTasks();
+    const buckets = window.PlanningStore.buckets(items);
+    const byId = new Map(tasks.map((task) => [task.id, task]));
+    const focus = topFocusTask(items);
+    const bottleneck = window.PlanningStore.sort(items.filter((task) => (
+      task.status !== 'done'
+      && (taskTone(task) === 'overdue' || task.priority === 'urgent' || task.dependsOnTaskIds.some((id) => byId.get(id)?.status !== 'done'))
+    )))[0] || focus;
+    const prereq = focus
+      ? focus.dependsOnTaskIds.map((id) => byId.get(id)).find((task) => task && task.status !== 'done')
+      : null;
+    const aiAction = lastBriefingSections?.['추천 행동']?.[0]
+      || (buckets.overdue.length ? '지연 업무를 먼저 분해하고 담당/기한을 재확정하세요.' : '오늘 처리할 핵심 업무 1건을 완료 상태로 만드는 데 집중하세요.');
+
+    const cards = [
+      ['지금 해야 할 핵심 업무', focus?.title || '업무 없음', labelForTask(focus), 'primary'],
+      ['가장 위험한 병목', bottleneck?.title || '병목 없음', bottleneck ? labelForTask(bottleneck) : '현재 조건에서 위험 병목이 없습니다.', 'risk'],
+      ['다음 선행 필요 작업', prereq?.title || '선행 업무 없음', prereq ? labelForTask(prereq) : '바로 착수 가능한 업무 흐름입니다.', ''],
+      ['AI 추천 행동', aiAction.replace(/^[-•]\s*/, ''), lastBriefingSections ? '최근 AI 브리핑 기준' : '로컬 업무 현황 기준', 'action'],
+    ];
+
+    container.innerHTML = cards.map(([label, title, meta, tone]) => `
+      <article class="mission-card ${tone}">
+        <div class="mission-label">${escapeHtml(label)}</div>
+        <div class="mission-title">${escapeHtml(title)}</div>
+        <div class="mission-meta">${escapeHtml(meta)}</div>
+      </article>
+    `).join('');
   };
 
   const renderList = () => {
@@ -396,6 +446,137 @@
     `).join('');
   };
 
+  const mermaidSafeLabel = (value) => String(value || '')
+    .replace(/[<>{}[\]|"]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 28);
+
+  const loadMermaid = () => {
+    if (!mermaidPromise) {
+      mermaidPromise = import('https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs')
+        .then((module) => {
+          const mermaid = module.default;
+          mermaid.initialize({
+            startOnLoad: false,
+            theme: 'dark',
+            securityLevel: 'strict',
+            flowchart: { curve: 'basis', nodeSpacing: 34, rankSpacing: 42 },
+            themeVariables: {
+              darkMode: true,
+              primaryColor: '#111827',
+              primaryTextColor: '#e5e7eb',
+              primaryBorderColor: '#22d3ee',
+              lineColor: '#64748b',
+              fontFamily: 'Noto Sans KR, sans-serif',
+            },
+          });
+          return mermaid;
+        });
+    }
+    return mermaidPromise;
+  };
+
+  const flowNodeClass = (task, focus) => {
+    if (focus && task.id === focus.id) return 'focus';
+    if (task.status === 'done') return 'done';
+    if (taskTone(task) === 'overdue') return 'overdue';
+    if (task.priority === 'urgent' || task.priority === 'high') return 'urgent';
+    if (task.status === 'doing' || task.status === 'review') return 'doing';
+    return 'normal';
+  };
+
+  const buildFlowGraph = (items) => {
+    const active = window.PlanningStore.sort(items.filter((task) => task.status !== 'done')).slice(0, 18);
+    const focus = topFocusTask(items);
+    const idToTask = new Map(tasks.map((task) => [task.id, task]));
+    const graphTasks = new Map();
+    const edges = [];
+
+    active.forEach((task) => {
+      task.dependsOnTaskIds.forEach((dependencyId) => {
+        const dependency = idToTask.get(dependencyId);
+        if (!dependency || !workAreaMatches(dependency)) return;
+        graphTasks.set(dependency.id, dependency);
+        graphTasks.set(task.id, task);
+        edges.push([dependency.id, task.id]);
+      });
+    });
+
+    if (!edges.length) {
+      const projectGroups = new Map();
+      active.forEach((task) => {
+        const key = task.project || '일반 업무';
+        if (!projectGroups.has(key)) projectGroups.set(key, []);
+        projectGroups.get(key).push(task);
+      });
+      const group = [...projectGroups.values()].sort((a, b) => b.length - a.length)[0] || [];
+      group.slice(0, 10).forEach((task, index, list) => {
+        graphTasks.set(task.id, task);
+        if (index > 0) edges.push([list[index - 1].id, task.id]);
+      });
+    }
+
+    if (focus) graphTasks.set(focus.id, focus);
+    const limitedTasks = [...graphTasks.values()].slice(0, 12);
+    const limitedIds = new Set(limitedTasks.map((task) => task.id));
+    const nodeIds = new Map(limitedTasks.map((task, index) => [task.id, 'n' + index]));
+    const visibleEdges = edges.filter(([from, to]) => limitedIds.has(from) && limitedIds.has(to)).slice(0, 14);
+
+    if (!limitedTasks.length) return '';
+
+    const lines = [
+      'flowchart LR',
+      'classDef normal fill:#111827,stroke:#22d3ee,color:#e5e7eb',
+      'classDef focus fill:#164e63,stroke:#fbbf24,color:#ffffff,stroke-width:2px',
+      'classDef overdue fill:#3f1d24,stroke:#f87171,color:#fecaca,stroke-width:2px',
+      'classDef urgent fill:#312e81,stroke:#a5b4fc,color:#e0e7ff',
+      'classDef doing fill:#172554,stroke:#60a5fa,color:#dbeafe',
+      'classDef done fill:#052e16,stroke:#4ade80,color:#bbf7d0',
+    ];
+
+    limitedTasks.forEach((task) => {
+      const id = nodeIds.get(task.id);
+      const label = mermaidSafeLabel(task.title) + '<br/>' + (statusLabel[task.status] || task.status);
+      lines.push(`${id}["${label}"]`);
+      lines.push(`class ${id} ${flowNodeClass(task, focus)}`);
+    });
+
+    visibleEdges.forEach(([from, to]) => lines.push(`${nodeIds.get(from)} --> ${nodeIds.get(to)}`));
+    if (!visibleEdges.length && limitedTasks.length > 1) {
+      limitedTasks.slice(1).forEach((task, index) => lines.push(`${nodeIds.get(limitedTasks[index].id)} --> ${nodeIds.get(task.id)}`));
+    }
+
+    return lines.join('\n');
+  };
+
+  const renderFlowCanvas = () => {
+    const container = $('flowCanvas');
+    if (!container) return;
+    const graph = buildFlowGraph(visibleTasks());
+    if (!graph) {
+      container.innerHTML = '<div class="planning-empty compact">표시할 실행 흐름이 없습니다.</div>';
+      return;
+    }
+
+    const seq = ++mermaidRenderSeq;
+    const pre = document.createElement('pre');
+    pre.className = 'mermaid';
+    pre.textContent = graph;
+    container.innerHTML = '';
+    container.appendChild(pre);
+
+    window.requestIdleCallback ? window.requestIdleCallback(() => {
+      loadMermaid()
+        .then((mermaid) => seq === mermaidRenderSeq && mermaid.run({ nodes: [pre], suppressErrors: true }))
+        .catch(() => { if (seq === mermaidRenderSeq) container.innerHTML = '<div class="planning-empty compact">Flow Canvas를 불러오지 못했습니다.</div>'; });
+    }) : window.setTimeout(() => {
+      loadMermaid()
+        .then((mermaid) => seq === mermaidRenderSeq && mermaid.run({ nodes: [pre], suppressErrors: true }))
+        .catch(() => { if (seq === mermaidRenderSeq) container.innerHTML = '<div class="planning-empty compact">Flow Canvas를 불러오지 못했습니다.</div>'; });
+    }, 0);
+  };
+
   const loadNotionPreview = async () => {
     const statusNode = $('notionPreviewStatus');
     const button = $('loadNotionPreviewBtn');
@@ -417,11 +598,52 @@
     }
   };
 
+  const parseBriefingSections = (text) => {
+    const sectionNames = ['오늘 가장 중요한 업무', '병목 업무', '지연 위험', '추천 행동'];
+    const sections = {};
+    let current = '';
+    String(text || '').split('\n').forEach((rawLine) => {
+      const line = rawLine.trim().replace(/^#+\s*/, '').replace(/\*\*/g, '');
+      const matched = sectionNames.find((name) => line.includes(name));
+      if (matched) {
+        current = matched;
+        if (!sections[current]) sections[current] = [];
+        const remainder = line.replace(matched, '').replace(/^[:：\-\s]+/, '').trim();
+        if (remainder) sections[current].push(remainder);
+        return;
+      }
+      if (!current || !line) return;
+      sections[current].push(line.replace(/^[-•*]\s*/, ''));
+    });
+    return sections;
+  };
+
   const renderBriefingText = (text) => {
     const output = $('aiBriefingOutput');
     if (!output) return;
     output.className = 'ai-briefing-output';
-    output.textContent = text;
+    const sections = parseBriefingSections(text);
+    const sectionNames = ['오늘 가장 중요한 업무', '병목 업무', '지연 위험', '추천 행동'];
+    const hasStructuredContent = sectionNames.some((name) => sections[name]?.length);
+    if (!hasStructuredContent) {
+      lastBriefingSections = null;
+      output.textContent = text;
+      renderMissionControl();
+      return;
+    }
+
+    lastBriefingSections = sections;
+    output.innerHTML = '<div class="ai-briefing-grid">' + sectionNames.map((name) => {
+      const tone = name.includes('위험') || name.includes('병목') ? 'risk' : name.includes('추천') ? 'action' : '';
+      const items = (sections[name] || ['확인 필요']).slice(0, 4);
+      return `
+        <article class="ai-briefing-card ${tone}">
+          <div class="ai-briefing-card-title">${escapeHtml(name)}</div>
+          <ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>
+        </article>
+      `;
+    }).join('') + '</div>';
+    renderMissionControl();
   };
 
   const generateAiBriefing = async () => {
@@ -531,8 +753,10 @@
 
   const renderAll = () => {
     updateProjectFilter();
+    renderMissionControl();
     renderStats();
     renderSummary();
+    renderFlowCanvas();
     renderFlowBoard();
     renderDependencyFlow();
     renderList();

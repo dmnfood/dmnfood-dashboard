@@ -228,6 +228,60 @@
   margin-bottom: clamp(14px, 1.5vw, 20px);
 }
 
+.mission-control {
+  display: grid;
+  gap: clamp(10px, 1vw, 14px);
+  grid-template-columns: minmax(260px, 1.35fr) repeat(3, minmax(190px, 1fr));
+  margin-bottom: clamp(14px, 1.5vw, 20px);
+}
+
+.mission-card {
+  background: rgba(255, 255, 255, .045);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--brand-a);
+  border-radius: 12px;
+  min-width: 0;
+  padding: 14px;
+}
+
+.mission-card.primary {
+  background: linear-gradient(135deg, rgba(34, 211, 238, .12), rgba(99, 102, 241, .09));
+  border-color: rgba(34, 211, 238, .24);
+}
+
+.mission-card.risk {
+  border-left-color: var(--rv);
+}
+
+.mission-card.action {
+  border-left-color: var(--ac);
+}
+
+.mission-label {
+  color: var(--t2);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .8px;
+  text-transform: uppercase;
+}
+
+.mission-title {
+  color: var(--t0);
+  font-size: 15px;
+  font-weight: 700;
+  margin-top: 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mission-meta {
+  color: var(--t2);
+  font-size: 11px;
+  line-height: 1.5;
+  margin-top: 7px;
+}
+
 .ai-briefing-panel {
   border-color: rgba(34, 211, 238, .22);
   margin-bottom: clamp(14px, 1.5vw, 20px);
@@ -243,6 +297,51 @@
   min-height: 92px;
   padding: 14px;
   white-space: pre-wrap;
+}
+
+.ai-briefing-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+}
+
+.ai-briefing-card {
+  background: rgba(255, 255, 255, .045);
+  border: 1px solid var(--border);
+  border-top: 2px solid var(--brand-a);
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.ai-briefing-card.risk {
+  border-top-color: var(--rv);
+}
+
+.ai-briefing-card.action {
+  border-top-color: var(--ac);
+}
+
+.ai-briefing-card-title {
+  color: var(--t0);
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.ai-briefing-card ul {
+  color: var(--t1);
+  display: grid;
+  font-size: 11px;
+  gap: 6px;
+  line-height: 1.45;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.ai-briefing-card li {
+  border-left: 2px solid rgba(255, 255, 255, .14);
+  padding-left: 8px;
 }
 
 .ai-briefing-output.loading {
@@ -264,6 +363,27 @@
   border-radius: 12px;
   padding: 14px;
   border-top: 2px solid var(--nm);
+}
+
+.flow-canvas-panel {
+  margin-bottom: clamp(14px, 1.6vw, 22px);
+}
+
+.flow-canvas {
+  background: rgba(255, 255, 255, .03);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  min-height: 220px;
+  overflow-x: auto;
+  padding: 14px;
+}
+
+.flow-canvas .mermaid {
+  min-width: 680px;
+}
+
+.flow-canvas svg {
+  max-width: 100%;
 }
 
 .planning-stat.overdue {
@@ -1238,6 +1358,10 @@
     grid-template-columns: 1fr 1fr;
   }
 
+  .mission-control {
+    grid-template-columns: 1fr 1fr;
+  }
+
   .notion-date-options {
     grid-template-columns: 1fr 1fr;
   }
@@ -1255,6 +1379,10 @@
 
   .flow-board,
   .relationship-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .mission-control {
     grid-template-columns: 1fr;
   }
 

@@ -448,6 +448,18 @@
         font-weight: 900;
         background: #e6e6e6 !important;
       }
+      #printHost tr.total-row,
+      #printHost tr.total-row th,
+      #printHost tr.total-row td,
+      #printHost tr.print-total-row,
+      #printHost tr.print-total-row th,
+      #printHost tr.print-total-row td {
+        background: #e5e7eb !important;
+        color: #111827 !important;
+        font-weight: 800 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
       .group-tag { display: none !important; }
     }
   </style>
@@ -951,7 +963,7 @@
         <table class="status-table">
           ${header}
           <tbody>${body}</tbody>
-          <tfoot><tr><td>합계</td>${foot}</tr></tfoot>
+          <tfoot><tr class="total-row print-total-row"><td>합계</td>${foot}</tr></tfoot>
         </table>
       </div>`;
       wrap.innerHTML = boardHtml;

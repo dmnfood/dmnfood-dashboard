@@ -158,13 +158,14 @@
       border: 2px dashed var(--border);
       border-radius: 14px;
       background: var(--card-w);
-      min-height: 70px;
+      min-height: 62px;
+      height: 100%;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       text-align: center;
-      padding: 10px 16px;
+      padding: 7px 14px;
       cursor: pointer;
       transition: border-color .15s, background .15s;
     }
@@ -172,9 +173,9 @@
       border-color: rgba(34, 211, 238, .45);
       background: rgba(34, 211, 238, .05);
     }
-    .upload-icon { font-size: 22px; opacity: .45; margin-bottom: 4px; }
-    .upload-title { font-size: 14px; font-weight: 700; color: var(--t0); }
-    .upload-sub { font-size: 11px; color: var(--t2); margin-top: 5px; }
+    .upload-icon { font-size: 18px; opacity: .45; margin-bottom: 2px; line-height: 1; }
+    .upload-title { font-size: 13px; font-weight: 700; color: var(--t0); line-height: 1.2; }
+    .upload-sub { font-size: 10.5px; color: var(--t2); margin-top: 3px; line-height: 1.25; }
     .upload-sub.ok { color: var(--zr); }
     .upload-sub.err { color: var(--rv); }
     .meta-grid {
@@ -187,7 +188,10 @@
       border-radius: 10px;
       background: rgba(255,255,255,.04);
       padding: 10px 14px;
-      min-height: 70px;
+      min-height: 62px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
     }
     .meta-label {
       font-size: 10px;
@@ -280,8 +284,8 @@
     }
     .status-table th {
       background: #0b1220;
-      color: var(--t2);
-      font-weight: 800;
+      color: rgba(255,255,255,.76);
+      font-weight: 850;
       text-align: center;
     }
     .status-table th:first-child, .status-table td:first-child {
@@ -301,26 +305,27 @@
     }
     .status-table tbody tr:hover td { background: var(--tb-hv); }
     .status-table tfoot td {
-      color: var(--t0);
-      font-weight: 800;
-      background: rgba(255,255,255,.05);
+      color: rgba(255,255,255,.96);
+      font-weight: 900;
+      background: rgba(255,255,255,.135) !important;
+      border-top: 1px solid rgba(255,255,255,.24);
     }
-    .status-table .col-sesame-kr { background: rgba(34,211,238,.045); }
-    .status-table .col-sesame-cn { background: rgba(96,165,250,.055); }
-    .status-table .col-roasted-kr { background: rgba(74,222,128,.045); }
-    .status-table .col-roasted-kr-peeled { background: rgba(251,191,36,.045); }
-    .status-table .col-roasted-cn { background: rgba(217,70,239,.045); }
-    .status-table .col-roasted-cn-peeled { background: rgba(99,102,241,.06); }
-    .status-table .col-black-kr { background: rgba(255,255,255,.04); }
-    .status-table .col-black-cn { background: rgba(248,113,113,.045); }
-    .status-table th.col-sesame-kr { background: rgba(34,211,238,.10); }
-    .status-table th.col-sesame-cn { background: rgba(96,165,250,.12); }
-    .status-table th.col-roasted-kr { background: rgba(74,222,128,.10); }
-    .status-table th.col-roasted-kr-peeled { background: rgba(251,191,36,.10); }
-    .status-table th.col-roasted-cn { background: rgba(217,70,239,.10); }
-    .status-table th.col-roasted-cn-peeled { background: rgba(99,102,241,.13); }
-    .status-table th.col-black-kr { background: rgba(255,255,255,.08); }
-    .status-table th.col-black-cn { background: rgba(248,113,113,.10); }
+    .status-table .col-sesame-kr,
+    .status-table .col-roasted-kr,
+    .status-table .col-roasted-cn,
+    .status-table .col-black-kr { background: rgba(34,211,238,.045); }
+    .status-table .col-sesame-cn,
+    .status-table .col-roasted-kr-peeled,
+    .status-table .col-roasted-cn-peeled,
+    .status-table .col-black-cn { background: rgba(255,255,255,.055); }
+    .status-table th.col-sesame-kr,
+    .status-table th.col-roasted-kr,
+    .status-table th.col-roasted-cn,
+    .status-table th.col-black-kr { background: rgba(34,211,238,.115); }
+    .status-table th.col-sesame-cn,
+    .status-table th.col-roasted-kr-peeled,
+    .status-table th.col-roasted-cn-peeled,
+    .status-table th.col-black-cn { background: rgba(255,255,255,.105); }
     .status-table tbody tr:hover td:not(:first-child) {
       filter: brightness(1.18);
     }
@@ -431,17 +436,17 @@
         text-align: center;
         width: 15%;
       }
-      .status-table .col-sesame-kr { background: #eaf8fb !important; }
-      .status-table .col-sesame-cn { background: #edf3ff !important; }
-      .status-table .col-roasted-kr { background: #eef9f0 !important; }
-      .status-table .col-roasted-kr-peeled { background: #fff7df !important; }
-      .status-table .col-roasted-cn { background: #fbecfb !important; }
-      .status-table .col-roasted-cn-peeled { background: #efefff !important; }
-      .status-table .col-black-kr { background: #f4f4f4 !important; }
-      .status-table .col-black-cn { background: #fff0f0 !important; }
+      .status-table .col-sesame-kr,
+      .status-table .col-roasted-kr,
+      .status-table .col-roasted-cn,
+      .status-table .col-black-kr { background: #eef7fa !important; }
+      .status-table .col-sesame-cn,
+      .status-table .col-roasted-kr-peeled,
+      .status-table .col-roasted-cn-peeled,
+      .status-table .col-black-cn { background: #f5f5f5 !important; }
       .status-table tfoot td {
-        font-weight: 800;
-        background: #f2f2f2 !important;
+        font-weight: 900;
+        background: #e6e6e6 !important;
       }
       .group-tag { display: none !important; }
     }
@@ -531,8 +536,8 @@
           </div>
           <div class="board-actions">
             <div class="view-toggle" aria-label="현황표 보기 방식">
-              <button class="active" type="button" data-view-mode="ordered">발주 업체만</button>
               <button type="button" data-view-mode="all">전체 업체</button>
+              <button class="active" type="button" data-view-mode="ordered">발주 업체만</button>
             </div>
           </div>
         </div>

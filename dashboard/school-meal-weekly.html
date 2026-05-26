@@ -144,7 +144,10 @@
       color: var(--t2);
       margin-top: 2px;
     }
-    .panel-body { padding: 18px 20px; }
+    .panel-body {
+      padding: 18px 20px;
+      position: relative;
+    }
     .upload-row {
       display: grid;
       grid-template-columns: minmax(260px, 420px) 1fr;
@@ -155,13 +158,13 @@
       border: 2px dashed var(--border);
       border-radius: 14px;
       background: var(--card-w);
-      min-height: 150px;
+      min-height: 82px;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       text-align: center;
-      padding: 24px;
+      padding: 14px 18px;
       cursor: pointer;
       transition: border-color .15s, background .15s;
     }
@@ -169,7 +172,7 @@
       border-color: rgba(34, 211, 238, .45);
       background: rgba(34, 211, 238, .05);
     }
-    .upload-icon { font-size: 34px; opacity: .45; margin-bottom: 8px; }
+    .upload-icon { font-size: 26px; opacity: .45; margin-bottom: 6px; }
     .upload-title { font-size: 14px; font-weight: 700; color: var(--t0); }
     .upload-sub { font-size: 11px; color: var(--t2); margin-top: 5px; }
     .meta-grid {
@@ -181,7 +184,8 @@
       border: 1px solid var(--border);
       border-radius: 10px;
       background: rgba(255,255,255,.04);
-      padding: 14px;
+      padding: 12px 14px;
+      min-height: 82px;
     }
     .meta-label {
       font-size: 10px;
@@ -205,7 +209,7 @@
       align-items: center;
       flex-wrap: wrap;
     }
-    .btn-export {
+    .btn-export, .btn-print {
       height: 34px;
       padding: 0 16px;
       border: 1px solid rgba(34,211,238,.28);
@@ -217,46 +221,82 @@
       font-weight: 700;
       cursor: pointer;
     }
-    .btn-export:disabled { opacity: .45; cursor: not-allowed; }
-    .status-line {
-      margin-top: 12px;
-      font-size: 12px;
-      color: var(--t2);
+    .btn-print {
+      border-color: var(--border);
+      background: rgba(255,255,255,.05);
+      color: var(--t1);
     }
-    .status-line.ok { color: var(--zr); }
+    .btn-export:disabled, .btn-print:disabled { opacity: .45; cursor: not-allowed; }
+    .status-line {
+      position: absolute;
+      right: 20px;
+      bottom: 5px;
+      font-size: 11px;
+      color: var(--t2);
+      white-space: nowrap;
+      pointer-events: none;
+    }
+    .status-line.ok { color: var(--t2); }
     .status-line.err { color: var(--rv); }
-    .table-wrap { overflow-x: auto; }
+    .board-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .view-toggle {
+      display: inline-flex;
+      gap: 3px;
+      background: rgba(255,255,255,.05);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 3px;
+    }
+    .view-toggle button {
+      border: 0;
+      border-radius: 7px;
+      background: transparent;
+      color: var(--t2);
+      font-family: 'Noto Sans KR', sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 6px 11px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .view-toggle button.active {
+      background: rgba(255,255,255,.10);
+      color: var(--t0);
+      border: 1px solid var(--border);
+    }
+    .print-title { display: none; }
+    .table-wrap { overflow-x: visible; }
     .status-table {
-      min-width: 1180px;
       width: 100%;
       border-collapse: collapse;
+      table-layout: fixed;
     }
     .status-table th, .status-table td {
       border-bottom: 1px solid var(--tb-br);
-      padding: 8px 9px;
-      font-size: 11px;
-      white-space: nowrap;
+      border-right: 1px solid rgba(255,255,255,.045);
+      padding: 5px 4px;
+      font-size: clamp(9px, .66vw, 11px);
+      line-height: 1.25;
     }
     .status-table th {
-      position: sticky;
-      top: 0;
       background: #0b1220;
       color: var(--t2);
       font-weight: 800;
-      text-align: right;
-      z-index: 1;
+      text-align: center;
     }
     .status-table th:first-child, .status-table td:first-child {
-      position: sticky;
-      left: 0;
       background: #0b1220;
       text-align: left;
-      min-width: 210px;
-      z-index: 2;
+      width: 15%;
     }
     .status-table td {
       color: var(--t1);
-      text-align: right;
+      text-align: center;
       font-family: 'JetBrains Mono', monospace;
     }
     .status-table td:first-child {
@@ -269,6 +309,11 @@
       color: var(--t0);
       font-weight: 800;
       background: rgba(255,255,255,.05);
+    }
+    .status-table .total-col {
+      width: 5%;
+      color: var(--t0);
+      font-weight: 800;
     }
     .group-tag {
       display: inline-block;
@@ -312,6 +357,65 @@
       .upload-row { grid-template-columns: 1fr; }
       .meta-grid { grid-template-columns: repeat(2, minmax(120px, 1fr)); }
       .page-main { padding-inline: 16px; }
+      .status-line {
+        position: static;
+        margin-top: 10px;
+      }
+      .table-wrap { overflow-x: auto; }
+      .status-table { min-width: 920px; }
+    }
+    @media print {
+      @page { size: A4 landscape; margin: 10mm; }
+      body {
+        background: #fff !important;
+        color: #000 !important;
+        min-height: auto;
+      }
+      body * { visibility: hidden !important; }
+      #printArea, #printArea * { visibility: visible !important; }
+      #printArea {
+        position: absolute;
+        inset: 0;
+        display: block !important;
+        background: #fff !important;
+        color: #000 !important;
+      }
+      .print-title {
+        display: block;
+        text-align: center;
+        margin: 0 0 8px;
+      }
+      .print-title h1 {
+        font-size: 18px;
+        margin: 0 0 4px;
+        color: #000;
+      }
+      .print-title div {
+        font-size: 11px;
+        color: #000;
+      }
+      .status-table {
+        width: 100% !important;
+        table-layout: fixed;
+        border-collapse: collapse;
+      }
+      .status-table th, .status-table td {
+        border: 1px solid #333 !important;
+        background: #fff !important;
+        color: #000 !important;
+        padding: 3px 2px;
+        font-size: 8.5px;
+        text-align: center;
+      }
+      .status-table th:first-child, .status-table td:first-child {
+        text-align: left;
+        width: 15%;
+      }
+      .status-table tfoot td {
+        font-weight: 800;
+        background: #f2f2f2 !important;
+      }
+      .group-tag { display: none !important; }
     }
   </style>
 </head>
@@ -346,6 +450,7 @@
         </div>
         <div class="action-row">
           <button class="btn-export" id="exportBtn" type="button" disabled>Excel 내보내기</button>
+          <button class="btn-print" id="printBtn" type="button" disabled>인쇄</button>
         </div>
       </section>
 
@@ -394,6 +499,12 @@
           <div>
             <div class="panel-title">현황표</div>
             <div class="panel-sub">거래처명은 ERP 표시명을 그대로 사용하며, 동일 거래처 + 동일 품목 수량은 합산됩니다.</div>
+          </div>
+          <div class="board-actions">
+            <div class="view-toggle" aria-label="현황표 보기 방식">
+              <button class="active" type="button" data-view-mode="ordered">발주 업체만</button>
+              <button type="button" data-view-mode="all">전체 업체</button>
+            </div>
           </div>
         </div>
         <div class="table-wrap" id="boardWrap">
@@ -463,18 +574,46 @@
       '중국산 볶음통깨_흑임자',
     ];
 
-    const PRODUCT_RULES = [
-      { column: '국산 참기름 500ml', tests: ['국산', '참기름'], any: ['500', '0.5'] },
-      { column: '국산 참기름 1L', tests: ['국산', '참기름'], any: ['1l', '1000'], reject: ['1.8', '1800'] },
-      { column: '국산 참기름 1.8L', tests: ['국산', '참기름'], any: ['1.8', '1800'] },
-      { column: '중국산 참기름 1L', tests: ['중국산', '참기름'], any: ['1l', '1000'], reject: ['1.8', '1800'] },
-      { column: '중국산 참기름 1.8L', tests: ['중국산', '참기름'], any: ['1.8', '1800'] },
-      { column: '국산 볶음통깨 1kg', tests: ['국산', '볶음통깨', '1kg'], reject: ['거피', '흑임자'] },
-      { column: '국산 볶음통깨_거피', tests: ['국산', '볶음통깨', '거피'] },
-      { column: '중국산 볶음통깨 1kg', tests: ['중국산', '볶음통깨', '1kg'], reject: ['거피', '흑임자'] },
-      { column: '중국산 볶음통깨_거피', tests: ['중국산', '볶음통깨', '거피'] },
-      { column: '국산 볶음통깨_흑임자', tests: ['국산', '볶음통깨', '흑임자'] },
-      { column: '중국산 볶음통깨_흑임자', tests: ['중국산', '볶음통깨', '흑임자'] },
+    const PRODUCT_HEADER_ROWS = {
+      group: [
+        { label: '거래처명', rowspan: 3 },
+        { label: '참기름', colspan: 5 },
+        { label: '볶음통깨', colspan: 4 },
+        { label: '볶음흑임자', colspan: 2 },
+        { label: '합계', rowspan: 3 },
+      ],
+      origin: [
+        { label: '국산', colspan: 3 },
+        { label: '중국산', colspan: 2 },
+        { label: '국산' },
+        { label: '국산거피' },
+        { label: '중국산' },
+        { label: '중국산(거피)' },
+        { label: '국산' },
+        { label: '중국산' },
+      ],
+      size: ['500ml', '1L', '1.8L', '1L', '1.8L', '1KG', '1KG', '1KG', '1KG', '1KG', '1KG'],
+    };
+
+    const KNOWN_SCHOOL_CUSTOMERS = [
+      '주식회사 태화에프에스',
+      '동진푸드',
+      '참팜',
+      '진장푸드',
+      '푸드랜드',
+      '(주)수영농산',
+      '샵원푸드',
+      '신대동유통',
+      '우일푸드',
+      '번성 주식회사',
+      '샬롬푸드',
+      '다누리푸드',
+      '정푸드',
+      '동방유통',
+      '(주)정안',
+      '파워푸드',
+      '원진DF',
+      '친환경급식센터',
     ];
 
     const PRIORITY_GROUPS = [
@@ -491,16 +630,27 @@
       unmatched: [],
       deliveryDate: '-',
       validCount: 0,
+      viewMode: 'ordered',
     };
 
     const fmt = n => Number(n || 0).toLocaleString('ko-KR');
     const esc = v => String(v ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
     const norm = v => String(v ?? '').trim();
     const normKey = v => norm(v).toLowerCase().replace(/\s+/g, '').replace(/㎖/g, 'ml').replace(/ℓ/g, 'l');
+    const normalizeProductName = v => norm(v)
+      .normalize('NFKC')
+      .replace(/[ℓ]/g, 'L')
+      .replace(/[㎖]/g, 'ml')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toLowerCase();
+    const PRODUCT_LOOKUP = new Map(PRODUCT_COLUMNS.map(col => [normalizeProductName(col), col]));
+    const emptyValues = () => Object.fromEntries(PRODUCT_COLUMNS.map(c => [c, 0]));
 
     const excelInput = document.getElementById('excelInput');
     const uploadZone = document.getElementById('uploadZone');
     const exportBtn = document.getElementById('exportBtn');
+    const printBtn = document.getElementById('printBtn');
 
     excelInput.addEventListener('change', e => {
       if (e.target.files[0]) loadFile(e.target.files[0]);
@@ -517,6 +667,18 @@
       if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]);
     });
     exportBtn.addEventListener('click', exportBoard);
+    printBtn.addEventListener('click', () => {
+      if (state.board.length) window.print();
+    });
+    document.querySelectorAll('[data-view-mode]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        state.viewMode = btn.dataset.viewMode;
+        document.querySelectorAll('[data-view-mode]').forEach(el => {
+          el.classList.toggle('active', el === btn);
+        });
+        drawBoard();
+      });
+    });
 
     function setStatus(message, type = '') {
       const el = document.getElementById('statusLine');
@@ -590,7 +752,7 @@
 
         if (!customerOrder.has(customer)) customerOrder.set(customer, customerOrder.size);
         if (!matrix.has(customer)) {
-          matrix.set(customer, Object.fromEntries(PRODUCT_COLUMNS.map(c => [c, 0])));
+          matrix.set(customer, emptyValues());
         }
         matrix.get(customer)[column] += quantity;
         totals[column] += quantity;
@@ -618,7 +780,8 @@
 
       draw();
       exportBtn.disabled = board.length === 0;
-      setStatus(`"${fileName}" 분석 완료: 유효 행 ${salesRows.length}건, 현황표 ${board.length}개 거래처`, 'ok');
+      printBtn.disabled = board.length === 0;
+      setStatus(`파일 분석 완료 · 유효 행 ${salesRows.length}건`, 'ok');
     }
 
     function findHeaderIndex(rows) {
@@ -665,14 +828,7 @@
     }
 
     function matchProductColumn(item) {
-      const key = normKey(item);
-      const rule = PRODUCT_RULES.find(rule => {
-        if (!rule.tests.every(test => key.includes(normKey(test)))) return false;
-        if (rule.any && !rule.any.some(test => key.includes(normKey(test)))) return false;
-        if (rule.reject && rule.reject.some(test => key.includes(normKey(test)))) return false;
-        return true;
-      });
-      return rule ? rule.column : '';
+      return PRODUCT_LOOKUP.get(normalizeProductName(item)) || '';
     }
 
     function getPriority(customer) {
@@ -719,22 +875,74 @@
 
     function drawBoard() {
       const wrap = document.getElementById('boardWrap');
-      if (!state.board.length) {
+      if (!state.board.length && state.viewMode === 'ordered') {
         wrap.innerHTML = '<div class="empty">현황표에 포함된 행이 없습니다.</div>';
         return;
       }
-      const head = PRODUCT_COLUMNS.map(col => `<th>${esc(col)}</th>`).join('');
-      const body = state.board.map(row => {
+      const displayRows = getDisplayRows();
+      if (!displayRows.length) {
+        wrap.innerHTML = '<div class="empty">표시할 업체가 없습니다.</div>';
+        return;
+      }
+      const header = renderGroupedHeader();
+      const body = displayRows.map(row => {
         const tag = priorityLabel(row.customer);
         const cells = PRODUCT_COLUMNS.map(col => `<td>${row.values[col] ? fmt(row.values[col]) : ''}</td>`).join('');
-        return `<tr><td>${esc(row.customer)}${tag ? `<span class="group-tag">${esc(tag)}</span>` : ''}</td>${cells}<td>${fmt(row.total)}</td></tr>`;
+        return `<tr><td>${esc(row.customer)}${tag ? `<span class="group-tag">${esc(tag)}</span>` : ''}</td>${cells}<td class="total-col">${row.total ? fmt(row.total) : ''}</td></tr>`;
       }).join('');
       const foot = PRODUCT_COLUMNS.map(col => `<td>${state.totals[col] ? fmt(state.totals[col]) : ''}</td>`).join('');
-      wrap.innerHTML = `<table class="status-table">
-        <thead><tr><th>거래처명</th>${head}<th>합계</th></tr></thead>
-        <tbody>${body}</tbody>
-        <tfoot><tr><td>합계</td>${foot}<td>${fmt(PRODUCT_COLUMNS.reduce((sum, col) => sum + state.totals[col], 0))}</td></tr></tfoot>
-      </table>`;
+      wrap.innerHTML = `<div id="printArea">
+        <div class="print-title">
+          <h1>학교급식 주간현황표</h1>
+          <div>납품일: ${esc(state.deliveryDate)}</div>
+        </div>
+        <table class="status-table">
+          ${header}
+          <tbody>${body}</tbody>
+          <tfoot><tr><td>합계</td>${foot}<td class="total-col">${fmt(PRODUCT_COLUMNS.reduce((sum, col) => sum + state.totals[col], 0))}</td></tr></tfoot>
+        </table>
+      </div>`;
+    }
+
+    function renderGroupedHeader() {
+      const group = PRODUCT_HEADER_ROWS.group.map(cell => {
+        const attrs = [
+          cell.colspan ? `colspan="${cell.colspan}"` : '',
+          cell.rowspan ? `rowspan="${cell.rowspan}"` : '',
+        ].filter(Boolean).join(' ');
+        return `<th ${attrs}>${esc(cell.label)}</th>`;
+      }).join('');
+      const origin = PRODUCT_HEADER_ROWS.origin.map(cell => {
+        const attrs = cell.colspan ? ` colspan="${cell.colspan}"` : '';
+        return `<th${attrs}>${esc(cell.label)}</th>`;
+      }).join('');
+      const size = PRODUCT_HEADER_ROWS.size.map(label => `<th>${esc(label)}</th>`).join('');
+      return `<thead><tr>${group}</tr><tr>${origin}</tr><tr>${size}</tr></thead>`;
+    }
+
+    function getDisplayRows() {
+      if (state.viewMode === 'ordered') return state.board;
+      const byName = new Map(state.board.map(row => [row.customer, row]));
+      const knownOrder = new Map(KNOWN_SCHOOL_CUSTOMERS.map((name, i) => [name, i]));
+      const rows = KNOWN_SCHOOL_CUSTOMERS.map(customer => {
+        const existing = byName.get(customer);
+        return existing || {
+          customer,
+          values: emptyValues(),
+          total: 0,
+          order: 1000 + knownOrder.get(customer),
+          priority: getPriority(customer),
+          knownOrder: knownOrder.get(customer),
+        };
+      });
+      state.board.forEach(row => {
+        if (!knownOrder.has(row.customer)) rows.push({ ...row, knownOrder: 999 });
+      });
+      return rows.sort((a, b) => {
+        if (a.priority !== b.priority) return a.priority - b.priority;
+        if ((a.knownOrder ?? 999) !== (b.knownOrder ?? 999)) return (a.knownOrder ?? 999) - (b.knownOrder ?? 999);
+        return (a.order ?? 0) - (b.order ?? 0);
+      });
     }
 
     function drawUnmatched() {
@@ -763,7 +971,7 @@
         ['납품일', state.deliveryDate],
         [],
         ['거래처명', ...PRODUCT_COLUMNS, '합계'],
-        ...state.board.map(row => [row.customer, ...PRODUCT_COLUMNS.map(col => row.values[col] || ''), row.total]),
+        ...getDisplayRows().map(row => [row.customer, ...PRODUCT_COLUMNS.map(col => row.values[col] || ''), row.total || '']),
         ['합계', ...PRODUCT_COLUMNS.map(col => state.totals[col] || ''), PRODUCT_COLUMNS.reduce((sum, col) => sum + state.totals[col], 0)],
       ];
       const unmatchedRows = [

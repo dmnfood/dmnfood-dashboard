@@ -191,6 +191,52 @@
       border-radius: 20px;
     }
 
+    .category-tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 18px;
+      background: rgba(255, 255, 255, .05);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 4px;
+      width: fit-content;
+      max-width: 100%;
+      overflow-x: auto;
+    }
+
+    .category-tab {
+      border: 0;
+      background: transparent;
+      color: var(--t2);
+      font-family: 'Noto Sans KR', sans-serif;
+      font-size: 12px;
+      font-weight: 700;
+      border-radius: 8px;
+      padding: 8px 16px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background .15s, color .15s;
+    }
+
+    .category-tab:hover {
+      background: rgba(255, 255, 255, .07);
+      color: var(--t1);
+    }
+
+    .category-tab.active {
+      background: rgba(255, 255, 255, .10);
+      color: var(--t0);
+      border: 1px solid var(--border);
+    }
+
+    .category-panel {
+      display: none;
+    }
+
+    .category-panel.active {
+      display: block;
+    }
+
     /* 카드 그리드 */
     .card-grid {
       display: grid;
@@ -392,70 +438,72 @@
       </div>
 
       <div class="section">
-        <div class="section-header">
-          <span class="section-title">운영 중</span>
-          <span class="section-count">3</span>
+        <div class="category-tabs" role="tablist" aria-label="대시보드 분류">
+          <button class="category-tab active" type="button" role="tab" aria-selected="true" data-category="finance">회계 재무</button>
+          <button class="category-tab" type="button" role="tab" aria-selected="false" data-category="management">경영관리</button>
+          <button class="category-tab" type="button" role="tab" aria-selected="false" data-category="office">일반 사무</button>
         </div>
-        <div class="card-grid">
-          <a href="/bond" class="dashboard-card card-active">
-            <div class="card-icon">📋</div>
-            <div class="card-title">미청구채권 현황</div>
-            <div class="card-desc">거래처별 채권 잔액을 3가지 유형으로 분류하고 검토 우선순위를 파악합니다.</div>
-            <div class="card-meta">
-              <span class="badge badge-live"><span class="badge-dot"></span> 운영 중</span>
-              <span class="card-arrow">→</span>
-            </div>
-          </a>
-          <a href="/cashflow" class="dashboard-card card-active">
-            <div class="card-icon">💰</div>
-            <div class="card-title">자금 분석</div>
-            <div class="card-desc">통장 거래내역과 카드 이용명세서를 업로드해 월별 지출 패턴과 고정비 구조를 분석합니다.</div>
-            <div class="card-meta">
-              <span class="badge badge-live"><span class="badge-dot"></span> 운영 중</span>
-              <span class="card-arrow">→</span>
-            </div>
-          </a>
-          <a href="/planning" class="dashboard-card card-active">
-            <div class="card-icon card-icon-planning">PA</div>
-            <div class="card-title">계획 비서</div>
-            <div class="card-desc">업무 일정, 지연 항목, 긴급 업무, 알림을 로컬 저장소 기준으로 관리하고 후속 조치를 정리합니다.</div>
-            <div class="card-meta">
-              <span class="badge badge-live"><span class="badge-dot"></span> 운영 중</span>
-              <span class="card-arrow">→</span>
-            </div>
-          </a>
-        </div>
-      </div>
 
-      <div class="section">
-        <div class="section-header">
-          <span class="section-title">준비 중</span>
-          <span class="section-count">4</span>
+        <div class="category-panel active" id="category-finance" role="tabpanel">
+          <div class="section-header">
+            <span class="section-title">회계 재무</span>
+            <span class="section-count">2</span>
+          </div>
+          <div class="card-grid">
+            <a href="/bond" class="dashboard-card card-active">
+              <div class="card-icon">📋</div>
+              <div class="card-title">미청구채권 현황</div>
+              <div class="card-desc">거래처별 채권 잔액을 3가지 유형으로 분류하고 검토 우선순위를 파악합니다.</div>
+              <div class="card-meta">
+                <span class="badge badge-live"><span class="badge-dot"></span> 운영 중</span>
+                <span class="card-arrow">→</span>
+              </div>
+            </a>
+            <a href="/cashflow" class="dashboard-card card-active">
+              <div class="card-icon">💰</div>
+              <div class="card-title">자금 분석</div>
+              <div class="card-desc">통장 거래내역과 카드 이용명세서를 업로드해 월별 지출 패턴과 고정비 구조를 분석합니다.</div>
+              <div class="card-meta">
+                <span class="badge badge-live"><span class="badge-dot"></span> 운영 중</span>
+                <span class="card-arrow">→</span>
+              </div>
+            </a>
+          </div>
         </div>
-        <div class="card-grid">
-          <div class="dashboard-card card-placeholder">
-            <div class="card-icon">📈</div>
-            <div class="card-title">월별 매출 현황</div>
-            <div class="card-desc">거래처 및 품목별 월별 매출 추이와 목표 대비 실적을 확인합니다.</div>
-            <div class="card-meta"><span class="badge badge-soon">준비 중</span></div>
+
+        <div class="category-panel" id="category-management" role="tabpanel">
+          <div class="section-header">
+            <span class="section-title">경영관리</span>
+            <span class="section-count">1</span>
           </div>
-          <div class="dashboard-card card-placeholder">
-            <div class="card-icon">📦</div>
-            <div class="card-title">재고 현황</div>
-            <div class="card-desc">원재료 및 완제품 재고 수량과 입출고 내역을 실시간으로 파악합니다.</div>
-            <div class="card-meta"><span class="badge badge-soon">준비 중</span></div>
+          <div class="card-grid">
+            <a href="/planning" class="dashboard-card card-active">
+              <div class="card-icon card-icon-planning">PA</div>
+              <div class="card-title">계획 비서</div>
+              <div class="card-desc">업무 일정, 지연 항목, 긴급 업무, 알림을 로컬 저장소 기준으로 관리하고 후속 조치를 정리합니다.</div>
+              <div class="card-meta">
+                <span class="badge badge-live"><span class="badge-dot"></span> 운영 중</span>
+                <span class="card-arrow">→</span>
+              </div>
+            </a>
           </div>
-          <div class="dashboard-card card-placeholder">
-            <div class="card-icon">🏭</div>
-            <div class="card-title">생산 현황</div>
-            <div class="card-desc">일별·월별 생산 실적과 수율 데이터를 확인하고 관리합니다.</div>
-            <div class="card-meta"><span class="badge badge-soon">준비 중</span></div>
+        </div>
+
+        <div class="category-panel" id="category-office" role="tabpanel">
+          <div class="section-header">
+            <span class="section-title">일반 사무</span>
+            <span class="section-count">1</span>
           </div>
-          <div class="dashboard-card card-placeholder">
-            <div class="card-icon">🧹</div>
-            <div class="card-title">청결 점검 현황</div>
-            <div class="card-desc">구역별 청결 점검 결과와 부적합 이력을 관리합니다.</div>
-            <div class="card-meta"><span class="badge badge-soon">준비 중</span></div>
+          <div class="card-grid">
+            <a href="/school-meal-weekly" class="dashboard-card card-active">
+              <div class="card-icon">🏫</div>
+              <div class="card-title">학교급식 주간현황표</div>
+              <div class="card-desc">Ecount ERP 매출 엑셀을 업로드해 학교급식 납품 현황표를 자동 생성하고 엑셀로 내보냅니다.</div>
+              <div class="card-meta">
+                <span class="badge badge-live"><span class="badge-dot"></span> 운영 중</span>
+                <span class="card-arrow">→</span>
+              </div>
+            </a>
           </div>
         </div>
       </div>
@@ -498,6 +546,20 @@
       const el = document.getElementById('clockDisplay');
       if (el) el.textContent = s;
     }, 1000);
+
+    document.querySelectorAll('.category-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        const category = tab.dataset.category;
+        document.querySelectorAll('.category-tab').forEach(btn => {
+          const isActive = btn === tab;
+          btn.classList.toggle('active', isActive);
+          btn.setAttribute('aria-selected', String(isActive));
+        });
+        document.querySelectorAll('.category-panel').forEach(panel => {
+          panel.classList.toggle('active', panel.id === `category-${category}`);
+        });
+      });
+    });
 
     window.handleLogout = async () => {
       if (!confirm('로그아웃 하시겠습니까?')) return;

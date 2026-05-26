@@ -19,6 +19,10 @@
         {
             "source": "/planning",
             "destination": "/dashboard/planning.html"
+        },
+        {
+            "source": "/school-meal-weekly",
+            "destination": "/dashboard/school-meal-weekly.html"
         }
     ],
     "headers": [

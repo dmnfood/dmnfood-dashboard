@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>들메내식품 · 학교급식 주간현황표</title>
+  <link rel="stylesheet" href="/dashboard/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    .auth-hidden { display: none !important; }
+    .loading-screen {
+      position: fixed;
+      inset: 0;
+      background: #070b14;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 12px;
+      z-index: 999;
+    }
+    .loading-screen.hidden { display: none; }
+    .loading-spinner {
+      width: 36px;
+      height: 36px;
+      border: 3px solid rgba(255, 255, 255, .12);
+      border-top-color: #22d3ee;
+      border-radius: 50%;
+      animation: spin .8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .app-header {
+      background: rgba(255, 255, 255, 0.05);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(20px);
+      padding: 0 28px;
+      height: 52px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .header-left, .header-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .back-btn, .btn-logout-sm {
+      height: 30px;
+      padding: 0 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: transparent;
+      color: var(--t2);
+      font-family: 'Noto Sans KR', sans-serif;
+      font-size: 12px;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: background .15s, color .15s;
+    }
+    .back-btn:hover, .btn-logout-sm:hover {
+      background: rgba(255, 255, 255, .07);
+      color: var(--t0);
+    }
+    .app-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--t0);
+      font-size: 14px;
+      font-weight: 700;
+    }
+    .app-title .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #22d3ee;
+    }
+    .user-chip {
+      font-size: 11px;
+      color: var(--t2);
+      background: rgba(255, 255, 255, .05);
+      border: 1px solid var(--border);
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .page-main {
+      max-width: 1500px;
+      margin: 0 auto;
+      padding: 24px 28px 64px;
+      position: relative;
+      z-index: 10;
+    }
+    .hero {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 18px;
+    }
+    .hero h1 {
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--t0);
+      margin-bottom: 6px;
+    }
+    .hero p {
+      font-size: 12px;
+      color: var(--t2);
+      line-height: 1.6;
+    }
+    .upload-panel, .board-panel {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      backdrop-filter: blur(20px);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      margin-bottom: 18px;
+    }
+    .panel-head {
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(255, 255, 255, .03);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .panel-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--t0);
+    }
+    .panel-sub {
+      font-size: 11px;
+      color: var(--t2);
+      margin-top: 2px;
+    }
+    .panel-body { padding: 18px 20px; }
+    .upload-row {
+      display: grid;
+      grid-template-columns: minmax(260px, 420px) 1fr;
+      gap: 18px;
+      align-items: stretch;
+    }
+    .upload-zone {
+      border: 2px dashed var(--border);
+      border-radius: 14px;
+      background: var(--card-w);
+      min-height: 150px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 24px;
+      cursor: pointer;
+      transition: border-color .15s, background .15s;
+    }
+    .upload-zone:hover, .upload-zone.over {
+      border-color: rgba(34, 211, 238, .45);
+      background: rgba(34, 211, 238, .05);
+    }
+    .upload-icon { font-size: 34px; opacity: .45; margin-bottom: 8px; }
+    .upload-title { font-size: 14px; font-weight: 700; color: var(--t0); }
+    .upload-sub { font-size: 11px; color: var(--t2); margin-top: 5px; }
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(120px, 1fr));
+      gap: 10px;
+    }
+    .meta-card {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: rgba(255,255,255,.04);
+      padding: 14px;
+    }
+    .meta-label {
+      font-size: 10px;
+      color: var(--t2);
+      font-weight: 700;
+      letter-spacing: .6px;
+      text-transform: uppercase;
+      margin-bottom: 7px;
+    }
+    .meta-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--t0);
+    }
+    .meta-value.good { color: var(--zr); }
+    .meta-value.warn { color: var(--ac); }
+    .action-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .btn-export {
+      height: 34px;
+      padding: 0 16px;
+      border: 1px solid rgba(34,211,238,.28);
+      border-radius: 8px;
+      background: rgba(34,211,238,.13);
+      color: #22d3ee;
+      font-family: 'Noto Sans KR', sans-serif;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .btn-export:disabled { opacity: .45; cursor: not-allowed; }
+    .status-line {
+      margin-top: 12px;
+      font-size: 12px;
+      color: var(--t2);
+    }
+    .status-line.ok { color: var(--zr); }
+    .status-line.err { color: var(--rv); }
+    .table-wrap { overflow-x: auto; }
+    .status-table {
+      min-width: 1180px;
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .status-table th, .status-table td {
+      border-bottom: 1px solid var(--tb-br);
+      padding: 8px 9px;
+      font-size: 11px;
+      white-space: nowrap;
+    }
+    .status-table th {
+      position: sticky;
+      top: 0;
+      background: #0b1220;
+      color: var(--t2);
+      font-weight: 800;
+      text-align: right;
+      z-index: 1;
+    }
+    .status-table th:first-child, .status-table td:first-child {
+      position: sticky;
+      left: 0;
+      background: #0b1220;
+      text-align: left;
+      min-width: 210px;
+      z-index: 2;
+    }
+    .status-table td {
+      color: var(--t1);
+      text-align: right;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .status-table td:first-child {
+      color: var(--t0);
+      font-family: 'Noto Sans KR', sans-serif;
+      font-weight: 700;
+    }
+    .status-table tbody tr:hover td { background: var(--tb-hv); }
+    .status-table tfoot td {
+      color: var(--t0);
+      font-weight: 800;
+      background: rgba(255,255,255,.05);
+    }
+    .group-tag {
+      display: inline-block;
+      margin-left: 7px;
+      padding: 2px 6px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      color: var(--t2);
+      font-size: 9px;
+      font-weight: 700;
+    }
+    .empty {
+      padding: 38px;
+      text-align: center;
+      color: var(--t2);
+      font-size: 13px;
+    }
+    .unmatched-table {
+      min-width: 860px;
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .unmatched-table th, .unmatched-table td {
+      border-bottom: 1px solid var(--tb-br);
+      padding: 8px 10px;
+      font-size: 11px;
+      color: var(--t1);
+      text-align: left;
+    }
+    .unmatched-table th {
+      background: var(--tb-hd);
+      color: var(--t2);
+      font-weight: 800;
+    }
+    .unmatched-table td.qty {
+      font-family: 'JetBrains Mono', monospace;
+      text-align: right;
+    }
+    @media (max-width: 900px) {
+      .hero { align-items: flex-start; flex-direction: column; }
+      .upload-row { grid-template-columns: 1fr; }
+      .meta-grid { grid-template-columns: repeat(2, minmax(120px, 1fr)); }
+      .page-main { padding-inline: 16px; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="blobs">
+    <div class="b1"></div>
+    <div class="b2"></div>
+  </div>
+
+  <div class="loading-screen" id="loadingScreen">
+    <div class="loading-spinner"></div>
+  </div>
+
+  <div id="mainContent" class="auth-hidden">
+    <header class="app-header">
+      <div class="header-left">
+        <a href="/home" class="back-btn">← 홈</a>
+        <div class="app-title"><span class="dot"></span>학교급식 주간현황표</div>
+      </div>
+      <div class="header-right">
+        <div class="user-chip" id="userChip"></div>
+        <button class="btn-logout-sm" onclick="handleLogout()">로그아웃</button>
+      </div>
+    </header>
+
+    <main class="page-main">
+      <section class="hero">
+        <div>
+          <h1>학교급식 주간현황표</h1>
+          <p>Ecount ERP 매출현황 엑셀을 업로드하면 거래처명과 품목명 기준으로 수량을 합산해 현황표를 생성합니다.</p>
+        </div>
+        <div class="action-row">
+          <button class="btn-export" id="exportBtn" type="button" disabled>Excel 내보내기</button>
+        </div>
+      </section>
+
+      <section class="upload-panel">
+        <div class="panel-head">
+          <div>
+            <div class="panel-title">ERP Excel 업로드</div>
+            <div class="panel-sub">일자-No., 품목명, 수량, 거래처명 컬럼이 포함된 Ecount 매출 파일</div>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="upload-row">
+            <label class="upload-zone" id="uploadZone" for="excelInput">
+              <div class="upload-icon">📄</div>
+              <div class="upload-title">엑셀 파일 선택</div>
+              <div class="upload-sub">.xlsx 또는 .xls 파일을 클릭하거나 끌어놓으세요.</div>
+              <input id="excelInput" type="file" accept=".xlsx,.xls" hidden>
+            </label>
+            <div>
+              <div class="meta-grid">
+                <div class="meta-card">
+                  <div class="meta-label">납품일</div>
+                  <div class="meta-value" id="deliveryDate">-</div>
+                </div>
+                <div class="meta-card">
+                  <div class="meta-label">유효 행</div>
+                  <div class="meta-value good" id="validCount">0</div>
+                </div>
+                <div class="meta-card">
+                  <div class="meta-label">거래처</div>
+                  <div class="meta-value" id="customerCount">0</div>
+                </div>
+                <div class="meta-card">
+                  <div class="meta-label">미포함</div>
+                  <div class="meta-value warn" id="unmatchedCount">0</div>
+                </div>
+              </div>
+              <div class="status-line" id="statusLine">파일을 업로드하면 자동으로 분석합니다.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="board-panel">
+        <div class="panel-head">
+          <div>
+            <div class="panel-title">현황표</div>
+            <div class="panel-sub">거래처명은 ERP 표시명을 그대로 사용하며, 동일 거래처 + 동일 품목 수량은 합산됩니다.</div>
+          </div>
+        </div>
+        <div class="table-wrap" id="boardWrap">
+          <div class="empty">아직 생성된 현황표가 없습니다.</div>
+        </div>
+      </section>
+
+      <section class="board-panel">
+        <div class="panel-head">
+          <div>
+            <div class="panel-title">미포함 ERP 행</div>
+            <div class="panel-sub">유효 매출 행이지만 고정 품목 컬럼에 매칭되지 않은 항목입니다.</div>
+          </div>
+        </div>
+        <div class="table-wrap" id="unmatchedWrap">
+          <div class="empty">미포함 행이 없습니다.</div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+    import { getAuth, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+
+    const FIREBASE_CONFIG = {
+      apiKey: "AIzaSyAlvRWMpYV5Cq2vb0XxpA4t56KuByj8KuE",
+      authDomain: "dmnfood-erp.firebaseapp.com",
+      projectId: "dmnfood-erp",
+      storageBucket: "dmnfood-erp.firebasestorage.app",
+      messagingSenderId: "918686575195",
+      appId: "1:918686575195:web:699d961aa0a092ee9ead7e",
+    };
+
+    const app = initializeApp(FIREBASE_CONFIG);
+    const auth = getAuth(app);
+
+    onAuthStateChanged(auth, user => {
+      if (!user) {
+        window.location.href = '/';
+        return;
+      }
+      document.getElementById('userChip').textContent = user.email.split('@')[0];
+      document.getElementById('loadingScreen').classList.add('hidden');
+      document.getElementById('mainContent').classList.remove('auth-hidden');
+    });
+
+    window.handleLogout = async () => {
+      if (!confirm('로그아웃 하시겠습니까?')) return;
+      await signOut(auth);
+      window.location.href = '/';
+    };
+  </script>
+
+  <script>
+    const PRODUCT_COLUMNS = [
+      '국산 참기름 500ml',
+      '국산 참기름 1L',
+      '국산 참기름 1.8L',
+      '중국산 참기름 1L',
+      '중국산 참기름 1.8L',
+      '국산 볶음통깨 1kg',
+      '국산 볶음통깨_거피',
+      '중국산 볶음통깨 1kg',
+      '중국산 볶음통깨_거피',
+      '국산 볶음통깨_흑임자',
+      '중국산 볶음통깨_흑임자',
+    ];
+
+    const PRODUCT_RULES = [
+      { column: '국산 참기름 500ml', tests: ['국산', '참기름'], any: ['500', '0.5'] },
+      { column: '국산 참기름 1L', tests: ['국산', '참기름'], any: ['1l', '1000'], reject: ['1.8', '1800'] },
+      { column: '국산 참기름 1.8L', tests: ['국산', '참기름'], any: ['1.8', '1800'] },
+      { column: '중국산 참기름 1L', tests: ['중국산', '참기름'], any: ['1l', '1000'], reject: ['1.8', '1800'] },
+      { column: '중국산 참기름 1.8L', tests: ['중국산', '참기름'], any: ['1.8', '1800'] },
+      { column: '국산 볶음통깨 1kg', tests: ['국산', '볶음통깨', '1kg'], reject: ['거피', '흑임자'] },
+      { column: '국산 볶음통깨_거피', tests: ['국산', '볶음통깨', '거피'] },
+      { column: '중국산 볶음통깨 1kg', tests: ['중국산', '볶음통깨', '1kg'], reject: ['거피', '흑임자'] },
+      { column: '중국산 볶음통깨_거피', tests: ['중국산', '볶음통깨', '거피'] },
+      { column: '국산 볶음통깨_흑임자', tests: ['국산', '볶음통깨', '흑임자'] },
+      { column: '중국산 볶음통깨_흑임자', tests: ['중국산', '볶음통깨', '흑임자'] },
+    ];
+
+    const PRIORITY_GROUPS = [
+      { label: '태화', tests: ['태화에프에스', '태화fs'] },
+      { label: '동진', tests: ['동진'] },
+      { label: '참팜', tests: ['참팜'] },
+      { label: '진장', tests: ['진장'] },
+    ];
+
+    const state = {
+      rows: [],
+      board: [],
+      totals: {},
+      unmatched: [],
+      deliveryDate: '-',
+      validCount: 0,
+    };
+
+    const fmt = n => Number(n || 0).toLocaleString('ko-KR');
+    const esc = v => String(v ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+    const norm = v => String(v ?? '').trim();
+    const normKey = v => norm(v).toLowerCase().replace(/\s+/g, '').replace(/㎖/g, 'ml').replace(/ℓ/g, 'l');
+
+    const excelInput = document.getElementById('excelInput');
+    const uploadZone = document.getElementById('uploadZone');
+    const exportBtn = document.getElementById('exportBtn');
+
+    excelInput.addEventListener('change', e => {
+      if (e.target.files[0]) loadFile(e.target.files[0]);
+      e.target.value = '';
+    });
+    uploadZone.addEventListener('dragover', e => {
+      e.preventDefault();
+      uploadZone.classList.add('over');
+    });
+    uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('over'));
+    uploadZone.addEventListener('drop', e => {
+      e.preventDefault();
+      uploadZone.classList.remove('over');
+      if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]);
+    });
+    exportBtn.addEventListener('click', exportBoard);
+
+    function setStatus(message, type = '') {
+      const el = document.getElementById('statusLine');
+      el.textContent = message;
+      el.className = 'status-line ' + type;
+    }
+
+    function loadFile(file) {
+      setStatus(`"${file.name}" 파일을 읽는 중입니다.`);
+      const reader = new FileReader();
+      reader.onload = e => {
+        try {
+          const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array', cellDates: true });
+          const ws = wb.Sheets[wb.SheetNames[0]];
+          const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: true });
+          parseRows(rows, file.name);
+        } catch (err) {
+          setStatus(`파일 처리 오류: ${err.message}`, 'err');
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    function parseRows(rows, fileName) {
+      const headerIndex = findHeaderIndex(rows);
+      if (headerIndex < 0) {
+        setStatus('필수 컬럼을 찾지 못했습니다. 일자-No., 품목명, 수량, 거래처명 컬럼을 확인하세요.', 'err');
+        return;
+      }
+
+      const headers = rows[headerIndex].map(h => norm(h));
+      const idx = buildIndex(headers);
+      const salesRows = [];
+      const unmatched = [];
+      const customerOrder = new Map();
+      const matrix = new Map();
+      const totals = Object.fromEntries(PRODUCT_COLUMNS.map(c => [c, 0]));
+      const dates = [];
+
+      for (let r = headerIndex + 1; r < rows.length; r++) {
+        const raw = rows[r];
+        const item = norm(raw[idx.item]);
+        const customer = norm(raw[idx.customer]);
+        const quantity = parseQuantity(raw[idx.quantity]);
+        const dateValue = raw[idx.date];
+        const reason = getExclusionReason({ item, customer, quantity, raw });
+        if (reason) continue;
+
+        const date = parseDateValue(dateValue);
+        if (date) dates.push(date);
+
+        const row = {
+          date,
+          item,
+          customer,
+          quantity,
+          unitPrice: idx.unitPrice >= 0 ? raw[idx.unitPrice] : '',
+          supply: idx.supply >= 0 ? raw[idx.supply] : '',
+          vat: idx.vat >= 0 ? raw[idx.vat] : '',
+          total: idx.total >= 0 ? raw[idx.total] : '',
+          memo: idx.memo >= 0 ? raw[idx.memo] : '',
+          sourceRow: r + 1,
+        };
+        salesRows.push(row);
+
+        const column = matchProductColumn(item);
+        if (!column) {
+          unmatched.push(row);
+          continue;
+        }
+
+        if (!customerOrder.has(customer)) customerOrder.set(customer, customerOrder.size);
+        if (!matrix.has(customer)) {
+          matrix.set(customer, Object.fromEntries(PRODUCT_COLUMNS.map(c => [c, 0])));
+        }
+        matrix.get(customer)[column] += quantity;
+        totals[column] += quantity;
+      }
+
+      const board = [...matrix.entries()]
+        .map(([customer, values]) => ({
+          customer,
+          values,
+          total: PRODUCT_COLUMNS.reduce((sum, col) => sum + values[col], 0),
+          order: customerOrder.get(customer),
+          priority: getPriority(customer),
+        }))
+        .sort((a, b) => {
+          if (a.priority !== b.priority) return a.priority - b.priority;
+          return a.order - b.order;
+        });
+
+      state.rows = salesRows;
+      state.board = board;
+      state.totals = totals;
+      state.unmatched = unmatched;
+      state.deliveryDate = detectDeliveryDate(dates);
+      state.validCount = salesRows.length;
+
+      draw();
+      exportBtn.disabled = board.length === 0;
+      setStatus(`"${fileName}" 분석 완료: 유효 행 ${salesRows.length}건, 현황표 ${board.length}개 거래처`, 'ok');
+    }
+
+    function findHeaderIndex(rows) {
+      return rows.findIndex(row => {
+        const cells = row.map(c => norm(c).replace(/\s+/g, ''));
+        return cells.some(c => c.includes('품목명')) &&
+          cells.some(c => c.includes('수량')) &&
+          cells.some(c => c.includes('거래처명'));
+      });
+    }
+
+    function buildIndex(headers) {
+      const compact = headers.map(h => h.replace(/\s+/g, ''));
+      const find = names => compact.findIndex(h => names.some(n => h.includes(n)));
+      return {
+        date: find(['일자-No.', '일자No', '일자']),
+        item: find(['품목명']),
+        quantity: find(['수량']),
+        unitPrice: find(['단가']),
+        supply: find(['공급가액']),
+        vat: find(['부가세']),
+        total: find(['합계']),
+        customer: find(['거래처명']),
+        memo: find(['비고']),
+      };
+    }
+
+    function parseQuantity(value) {
+      if (typeof value === 'number') return Number.isFinite(value) ? value : NaN;
+      const cleaned = norm(value).replace(/,/g, '').replace(/[^\d.-]/g, '');
+      if (!cleaned || cleaned === '-' || cleaned === '.') return NaN;
+      return Number(cleaned);
+    }
+
+    function getExclusionReason({ item, customer, quantity, raw }) {
+      const joined = raw.map(v => norm(v)).join(' ');
+      const itemKey = normKey(item);
+      const customerKey = normKey(customer);
+      if (!item || !customer) return '필수값 없음';
+      if (!Number.isFinite(quantity) || quantity <= 0) return '수량 오류';
+      if (/^(계|합계|총합계|소계)$/i.test(itemKey) || /^(계|합계|총합계|소계)$/i.test(customerKey)) return '집계 행';
+      if (/출력일|출력시간|인쇄일|print|페이지|page/i.test(joined)) return '출력 정보';
+      return '';
+    }
+
+    function matchProductColumn(item) {
+      const key = normKey(item);
+      const rule = PRODUCT_RULES.find(rule => {
+        if (!rule.tests.every(test => key.includes(normKey(test)))) return false;
+        if (rule.any && !rule.any.some(test => key.includes(normKey(test)))) return false;
+        if (rule.reject && rule.reject.some(test => key.includes(normKey(test)))) return false;
+        return true;
+      });
+      return rule ? rule.column : '';
+    }
+
+    function getPriority(customer) {
+      const key = normKey(customer);
+      const i = PRIORITY_GROUPS.findIndex(group => group.tests.some(test => key.includes(normKey(test))));
+      return i < 0 ? 99 : i;
+    }
+
+    function priorityLabel(customer) {
+      const i = getPriority(customer);
+      return i < 99 ? PRIORITY_GROUPS[i].label : '';
+    }
+
+    function parseDateValue(value) {
+      if (value instanceof Date && !Number.isNaN(value.getTime())) return formatDate(value);
+      if (typeof value === 'number') {
+        const parsed = XLSX.SSF.parse_date_code(value);
+        if (parsed) return `${parsed.y}-${String(parsed.m).padStart(2, '0')}-${String(parsed.d).padStart(2, '0')}`;
+      }
+      const text = norm(value);
+      const m = text.match(/(20\d{2})[.\-/년\s]*(\d{1,2})[.\-/월\s]*(\d{1,2})/);
+      if (m) return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
+      return '';
+    }
+
+    function formatDate(date) {
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    }
+
+    function detectDeliveryDate(dates) {
+      const unique = [...new Set(dates.filter(Boolean))].sort();
+      if (!unique.length) return '-';
+      return unique.length === 1 ? unique[0] : `${unique[0]} ~ ${unique[unique.length - 1]}`;
+    }
+
+    function draw() {
+      document.getElementById('deliveryDate').textContent = state.deliveryDate;
+      document.getElementById('validCount').textContent = fmt(state.validCount);
+      document.getElementById('customerCount').textContent = fmt(state.board.length);
+      document.getElementById('unmatchedCount').textContent = fmt(state.unmatched.length);
+      drawBoard();
+      drawUnmatched();
+    }
+
+    function drawBoard() {
+      const wrap = document.getElementById('boardWrap');
+      if (!state.board.length) {
+        wrap.innerHTML = '<div class="empty">현황표에 포함된 행이 없습니다.</div>';
+        return;
+      }
+      const head = PRODUCT_COLUMNS.map(col => `<th>${esc(col)}</th>`).join('');
+      const body = state.board.map(row => {
+        const tag = priorityLabel(row.customer);
+        const cells = PRODUCT_COLUMNS.map(col => `<td>${row.values[col] ? fmt(row.values[col]) : ''}</td>`).join('');
+        return `<tr><td>${esc(row.customer)}${tag ? `<span class="group-tag">${esc(tag)}</span>` : ''}</td>${cells}<td>${fmt(row.total)}</td></tr>`;
+      }).join('');
+      const foot = PRODUCT_COLUMNS.map(col => `<td>${state.totals[col] ? fmt(state.totals[col]) : ''}</td>`).join('');
+      wrap.innerHTML = `<table class="status-table">
+        <thead><tr><th>거래처명</th>${head}<th>합계</th></tr></thead>
+        <tbody>${body}</tbody>
+        <tfoot><tr><td>합계</td>${foot}<td>${fmt(PRODUCT_COLUMNS.reduce((sum, col) => sum + state.totals[col], 0))}</td></tr></tfoot>
+      </table>`;
+    }
+
+    function drawUnmatched() {
+      const wrap = document.getElementById('unmatchedWrap');
+      if (!state.unmatched.length) {
+        wrap.innerHTML = '<div class="empty">미포함 행이 없습니다.</div>';
+        return;
+      }
+      const rows = state.unmatched.slice(0, 500).map(row => `<tr>
+        <td>${esc(row.sourceRow)}</td>
+        <td>${esc(row.date || '-')}</td>
+        <td>${esc(row.customer)}</td>
+        <td>${esc(row.item)}</td>
+        <td class="qty">${fmt(row.quantity)}</td>
+        <td>${esc(row.memo)}</td>
+      </tr>`).join('');
+      wrap.innerHTML = `<table class="unmatched-table">
+        <thead><tr><th>원본 행</th><th>일자</th><th>거래처명</th><th>품목명</th><th>수량</th><th>비고</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+    }
+
+    function exportBoard() {
+      if (!state.board.length) return;
+      const boardRows = [
+        ['납품일', state.deliveryDate],
+        [],
+        ['거래처명', ...PRODUCT_COLUMNS, '합계'],
+        ...state.board.map(row => [row.customer, ...PRODUCT_COLUMNS.map(col => row.values[col] || ''), row.total]),
+        ['합계', ...PRODUCT_COLUMNS.map(col => state.totals[col] || ''), PRODUCT_COLUMNS.reduce((sum, col) => sum + state.totals[col], 0)],
+      ];
+      const unmatchedRows = [
+        ['원본 행', '일자', '거래처명', '품목명', '수량', '비고'],
+        ...state.unmatched.map(row => [row.sourceRow, row.date, row.customer, row.item, row.quantity, row.memo]),
+      ];
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(boardRows), '학교급식 주간현황표');
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(unmatchedRows), '미포함 ERP 행');
+      XLSX.writeFile(wb, `학교급식_주간현황표_${state.deliveryDate.replace(/\s|~/g, '_')}.xlsx`);
+    }
+  </script>
+</body>
+
+</html>

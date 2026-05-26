@@ -237,6 +237,36 @@
       display: block;
     }
 
+    .all-category-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+      align-items: start;
+    }
+
+    .all-category-column {
+      min-width: 0;
+    }
+
+    .all-category-column .section-header {
+      margin-bottom: 12px;
+    }
+
+    .all-category-column .card-grid {
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+
+    .all-category-column .dashboard-card {
+      padding: 20px;
+    }
+
+    @media (max-width: 900px) {
+      .all-category-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
     /* 카드 그리드 */
     .card-grid {
       display: grid;
@@ -439,12 +469,31 @@
 
       <div class="section">
         <div class="category-tabs" role="tablist" aria-label="대시보드 분류">
-          <button class="category-tab active" type="button" role="tab" aria-selected="true" data-category="finance">회계 재무</button>
+          <button class="category-tab active" type="button" role="tab" aria-selected="true" data-category="office">일반 사무</button>
+          <button class="category-tab" type="button" role="tab" aria-selected="false" data-category="finance">회계 재무</button>
           <button class="category-tab" type="button" role="tab" aria-selected="false" data-category="management">경영관리</button>
-          <button class="category-tab" type="button" role="tab" aria-selected="false" data-category="office">일반 사무</button>
+          <button class="category-tab" type="button" role="tab" aria-selected="false" data-category="all">전체</button>
         </div>
 
-        <div class="category-panel active" id="category-finance" role="tabpanel">
+        <div class="category-panel active" id="category-office" role="tabpanel">
+          <div class="section-header">
+            <span class="section-title">일반 사무</span>
+            <span class="section-count">1</span>
+          </div>
+          <div class="card-grid">
+            <a href="/school-meal-weekly" class="dashboard-card card-active">
+              <div class="card-icon">🏫</div>
+              <div class="card-title">학교급식 주간현황표</div>
+              <div class="card-desc">Ecount ERP 매출 엑셀을 업로드해 학교급식 납품 현황표를 자동 생성하고 엑셀로 내보냅니다.</div>
+              <div class="card-meta">
+                <span class="badge badge-live"><span class="badge-dot"></span> 운영 중</span>
+                <span class="card-arrow">→</span>
+              </div>
+            </a>
+          </div>
+        </div>
+
+        <div class="category-panel" id="category-finance" role="tabpanel">
           <div class="section-header">
             <span class="section-title">회계 재무</span>
             <span class="section-count">2</span>
@@ -489,21 +538,70 @@
           </div>
         </div>
 
-        <div class="category-panel" id="category-office" role="tabpanel">
-          <div class="section-header">
-            <span class="section-title">일반 사무</span>
-            <span class="section-count">1</span>
-          </div>
-          <div class="card-grid">
-            <a href="/school-meal-weekly" class="dashboard-card card-active">
-              <div class="card-icon">🏫</div>
-              <div class="card-title">학교급식 주간현황표</div>
-              <div class="card-desc">Ecount ERP 매출 엑셀을 업로드해 학교급식 납품 현황표를 자동 생성하고 엑셀로 내보냅니다.</div>
-              <div class="card-meta">
-                <span class="badge badge-live"><span class="badge-dot"></span> 운영 중</span>
-                <span class="card-arrow">→</span>
+        <div class="category-panel" id="category-all" role="tabpanel">
+          <div class="all-category-grid">
+            <div class="all-category-column">
+              <div class="section-header">
+                <span class="section-title">일반 사무</span>
+                <span class="section-count">1</span>
               </div>
-            </a>
+              <div class="card-grid">
+                <a href="/school-meal-weekly" class="dashboard-card card-active">
+                  <div class="card-icon">🏫</div>
+                  <div class="card-title">학교급식 주간현황표</div>
+                  <div class="card-desc">Ecount ERP 매출 엑셀을 업로드해 학교급식 납품 현황표를 자동 생성하고 엑셀로 내보냅니다.</div>
+                  <div class="card-meta">
+                    <span class="badge badge-live"><span class="badge-dot"></span> 운영 중</span>
+                    <span class="card-arrow">→</span>
+                  </div>
+                </a>
+              </div>
+            </div>
+
+            <div class="all-category-column">
+              <div class="section-header">
+                <span class="section-title">회계 재무</span>
+                <span class="section-count">2</span>
+              </div>
+              <div class="card-grid">
+                <a href="/bond" class="dashboard-card card-active">
+                  <div class="card-icon">📋</div>
+                  <div class="card-title">미청구채권 현황</div>
+                  <div class="card-desc">거래처별 채권 잔액을 3가지 유형으로 분류하고 검토 우선순위를 파악합니다.</div>
+                  <div class="card-meta">
+                    <span class="badge badge-live"><span class="badge-dot"></span> 운영 중</span>
+                    <span class="card-arrow">→</span>
+                  </div>
+                </a>
+                <a href="/cashflow" class="dashboard-card card-active">
+                  <div class="card-icon">💰</div>
+                  <div class="card-title">자금 분석</div>
+                  <div class="card-desc">통장 거래내역과 카드 이용명세서를 업로드해 월별 지출 패턴과 고정비 구조를 분석합니다.</div>
+                  <div class="card-meta">
+                    <span class="badge badge-live"><span class="badge-dot"></span> 운영 중</span>
+                    <span class="card-arrow">→</span>
+                  </div>
+                </a>
+              </div>
+            </div>
+
+            <div class="all-category-column">
+              <div class="section-header">
+                <span class="section-title">경영관리</span>
+                <span class="section-count">1</span>
+              </div>
+              <div class="card-grid">
+                <a href="/planning" class="dashboard-card card-active">
+                  <div class="card-icon card-icon-planning">PA</div>
+                  <div class="card-title">계획 비서</div>
+                  <div class="card-desc">업무 일정, 지연 항목, 긴급 업무, 알림을 로컬 저장소 기준으로 관리하고 후속 조치를 정리합니다.</div>
+                  <div class="card-meta">
+                    <span class="badge badge-live"><span class="badge-dot"></span> 운영 중</span>
+                    <span class="card-arrow">→</span>
+                  </div>
+                </a>
+              </div>
+            </div>
           </div>
         </div>
       </div>

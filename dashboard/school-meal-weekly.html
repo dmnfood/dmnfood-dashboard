@@ -158,13 +158,13 @@
       border: 2px dashed var(--border);
       border-radius: 14px;
       background: var(--card-w);
-      min-height: 82px;
+      min-height: 70px;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       text-align: center;
-      padding: 14px 18px;
+      padding: 10px 16px;
       cursor: pointer;
       transition: border-color .15s, background .15s;
     }
@@ -172,9 +172,11 @@
       border-color: rgba(34, 211, 238, .45);
       background: rgba(34, 211, 238, .05);
     }
-    .upload-icon { font-size: 26px; opacity: .45; margin-bottom: 6px; }
+    .upload-icon { font-size: 22px; opacity: .45; margin-bottom: 4px; }
     .upload-title { font-size: 14px; font-weight: 700; color: var(--t0); }
     .upload-sub { font-size: 11px; color: var(--t2); margin-top: 5px; }
+    .upload-sub.ok { color: var(--zr); }
+    .upload-sub.err { color: var(--rv); }
     .meta-grid {
       display: grid;
       grid-template-columns: repeat(4, minmax(120px, 1fr));
@@ -184,8 +186,8 @@
       border: 1px solid var(--border);
       border-radius: 10px;
       background: rgba(255,255,255,.04);
-      padding: 12px 14px;
-      min-height: 82px;
+      padding: 10px 14px;
+      min-height: 70px;
     }
     .meta-label {
       font-size: 10px;
@@ -212,32 +214,24 @@
     .btn-export, .btn-print {
       height: 34px;
       padding: 0 16px;
-      border: 1px solid rgba(34,211,238,.28);
       border-radius: 8px;
-      background: rgba(34,211,238,.13);
-      color: #22d3ee;
       font-family: 'Noto Sans KR', sans-serif;
       font-size: 12px;
       font-weight: 700;
       cursor: pointer;
     }
-    .btn-print {
+    .btn-export {
       border-color: var(--border);
       background: rgba(255,255,255,.05);
       color: var(--t1);
     }
-    .btn-export:disabled, .btn-print:disabled { opacity: .45; cursor: not-allowed; }
-    .status-line {
-      position: absolute;
-      right: 20px;
-      bottom: 5px;
-      font-size: 11px;
-      color: var(--t2);
-      white-space: nowrap;
-      pointer-events: none;
+    .btn-print {
+      border-color: rgba(74,222,128,.42);
+      background: linear-gradient(135deg, #4ade80, #16a34a);
+      color: #04130a;
+      box-shadow: 0 0 18px rgba(74,222,128,.18);
     }
-    .status-line.ok { color: var(--t2); }
-    .status-line.err { color: var(--rv); }
+    .btn-export:disabled, .btn-print:disabled { opacity: .45; cursor: not-allowed; }
     .board-actions {
       display: flex;
       align-items: center;
@@ -269,7 +263,7 @@
       color: var(--t0);
       border: 1px solid var(--border);
     }
-    .print-title { display: none; }
+    .print-title, #printHost { display: none; }
     .table-wrap { overflow-x: visible; }
     .status-table {
       width: 100%;
@@ -282,6 +276,7 @@
       padding: 5px 4px;
       font-size: clamp(9px, .66vw, 11px);
       line-height: 1.25;
+      text-align: center;
     }
     .status-table th {
       background: #0b1220;
@@ -291,7 +286,7 @@
     }
     .status-table th:first-child, .status-table td:first-child {
       background: #0b1220;
-      text-align: left;
+      text-align: center;
       width: 15%;
     }
     .status-table td {
@@ -310,10 +305,24 @@
       font-weight: 800;
       background: rgba(255,255,255,.05);
     }
-    .status-table .total-col {
-      width: 5%;
-      color: var(--t0);
-      font-weight: 800;
+    .status-table .col-sesame-kr { background: rgba(34,211,238,.045); }
+    .status-table .col-sesame-cn { background: rgba(96,165,250,.055); }
+    .status-table .col-roasted-kr { background: rgba(74,222,128,.045); }
+    .status-table .col-roasted-kr-peeled { background: rgba(251,191,36,.045); }
+    .status-table .col-roasted-cn { background: rgba(217,70,239,.045); }
+    .status-table .col-roasted-cn-peeled { background: rgba(99,102,241,.06); }
+    .status-table .col-black-kr { background: rgba(255,255,255,.04); }
+    .status-table .col-black-cn { background: rgba(248,113,113,.045); }
+    .status-table th.col-sesame-kr { background: rgba(34,211,238,.10); }
+    .status-table th.col-sesame-cn { background: rgba(96,165,250,.12); }
+    .status-table th.col-roasted-kr { background: rgba(74,222,128,.10); }
+    .status-table th.col-roasted-kr-peeled { background: rgba(251,191,36,.10); }
+    .status-table th.col-roasted-cn { background: rgba(217,70,239,.10); }
+    .status-table th.col-roasted-cn-peeled { background: rgba(99,102,241,.13); }
+    .status-table th.col-black-kr { background: rgba(255,255,255,.08); }
+    .status-table th.col-black-cn { background: rgba(248,113,113,.10); }
+    .status-table tbody tr:hover td:not(:first-child) {
+      filter: brightness(1.18);
     }
     .group-tag {
       display: inline-block;
@@ -357,33 +366,42 @@
       .upload-row { grid-template-columns: 1fr; }
       .meta-grid { grid-template-columns: repeat(2, minmax(120px, 1fr)); }
       .page-main { padding-inline: 16px; }
-      .status-line {
-        position: static;
-        margin-top: 10px;
-      }
       .table-wrap { overflow-x: auto; }
       .status-table { min-width: 920px; }
     }
     @media print {
-      @page { size: A4 landscape; margin: 10mm; }
-      body {
+      @page { size: A4 landscape; margin: 8mm; }
+      html, body {
         background: #fff !important;
         color: #000 !important;
+        width: auto !important;
+        height: auto !important;
         min-height: auto;
+        margin: 0 !important;
+        padding: 0 !important;
       }
-      body * { visibility: hidden !important; }
-      #printArea, #printArea * { visibility: visible !important; }
-      #printArea {
-        position: absolute;
-        inset: 0;
+      body > *:not(#printHost) { display: none !important; }
+      #printHost {
         display: block !important;
+        margin: 0 !important;
+        padding: 0 !important;
         background: #fff !important;
         color: #000 !important;
+        break-before: avoid;
+        page-break-before: avoid;
+      }
+      #printHost .print-board {
+        display: block !important;
+        break-before: avoid;
+        page-break-before: avoid;
+        break-inside: avoid;
       }
       .print-title {
         display: block;
         text-align: center;
-        margin: 0 0 8px;
+        margin: 0 0 6px;
+        break-after: avoid;
+        page-break-after: avoid;
       }
       .print-title h1 {
         font-size: 18px;
@@ -398,19 +416,29 @@
         width: 100% !important;
         table-layout: fixed;
         border-collapse: collapse;
+        break-before: avoid;
+        page-break-before: avoid;
+        break-inside: avoid;
       }
       .status-table th, .status-table td {
         border: 1px solid #333 !important;
-        background: #fff !important;
         color: #000 !important;
         padding: 3px 2px;
         font-size: 8.5px;
         text-align: center;
       }
       .status-table th:first-child, .status-table td:first-child {
-        text-align: left;
+        text-align: center;
         width: 15%;
       }
+      .status-table .col-sesame-kr { background: #eaf8fb !important; }
+      .status-table .col-sesame-cn { background: #edf3ff !important; }
+      .status-table .col-roasted-kr { background: #eef9f0 !important; }
+      .status-table .col-roasted-kr-peeled { background: #fff7df !important; }
+      .status-table .col-roasted-cn { background: #fbecfb !important; }
+      .status-table .col-roasted-cn-peeled { background: #efefff !important; }
+      .status-table .col-black-kr { background: #f4f4f4 !important; }
+      .status-table .col-black-cn { background: #fff0f0 !important; }
       .status-table tfoot td {
         font-weight: 800;
         background: #f2f2f2 !important;
@@ -421,6 +449,8 @@
 </head>
 
 <body>
+  <div id="printHost" class="print-board"></div>
+
   <div class="blobs">
     <div class="b1"></div>
     <div class="b2"></div>
@@ -465,8 +495,8 @@
           <div class="upload-row">
             <label class="upload-zone" id="uploadZone" for="excelInput">
               <div class="upload-icon">📄</div>
-              <div class="upload-title">엑셀 파일 선택</div>
-              <div class="upload-sub">.xlsx 또는 .xls 파일을 클릭하거나 끌어놓으세요.</div>
+              <div class="upload-title" id="uploadTitle">엑셀 파일 선택</div>
+              <div class="upload-sub" id="uploadSub">.xlsx 또는 .xls 파일을 클릭하거나 끌어놓으세요.</div>
               <input id="excelInput" type="file" accept=".xlsx,.xls" hidden>
             </label>
             <div>
@@ -488,7 +518,6 @@
                   <div class="meta-value warn" id="unmatchedCount">0</div>
                 </div>
               </div>
-              <div class="status-line" id="statusLine">파일을 업로드하면 자동으로 분석합니다.</div>
             </div>
           </div>
         </div>
@@ -580,20 +609,33 @@
         { label: '참기름', colspan: 5 },
         { label: '볶음통깨', colspan: 4 },
         { label: '볶음흑임자', colspan: 2 },
-        { label: '합계', rowspan: 3 },
       ],
       origin: [
-        { label: '국산', colspan: 3 },
-        { label: '중국산', colspan: 2 },
-        { label: '국산' },
-        { label: '국산거피' },
-        { label: '중국산' },
-        { label: '중국산(거피)' },
-        { label: '국산' },
-        { label: '중국산' },
+        { label: '국산', colspan: 3, cls: 'col-sesame-kr' },
+        { label: '중국산', colspan: 2, cls: 'col-sesame-cn' },
+        { label: '국산', cls: 'col-roasted-kr' },
+        { label: '국산거피', cls: 'col-roasted-kr-peeled' },
+        { label: '중국산', cls: 'col-roasted-cn' },
+        { label: '중국산(거피)', cls: 'col-roasted-cn-peeled' },
+        { label: '국산', cls: 'col-black-kr' },
+        { label: '중국산', cls: 'col-black-cn' },
       ],
-      size: ['500ml', '1L', '1.8L', '1L', '1.8L', '1KG', '1KG', '1KG', '1KG', '1KG', '1KG'],
+      size: ['500ML', '1L', '1.8L', '1L', '1.8L', '1KG', '1KG', '1KG', '1KG', '1KG', '1KG'],
     };
+
+    const PRODUCT_COLUMN_CLASSES = [
+      'col-sesame-kr',
+      'col-sesame-kr',
+      'col-sesame-kr',
+      'col-sesame-cn',
+      'col-sesame-cn',
+      'col-roasted-kr',
+      'col-roasted-kr-peeled',
+      'col-roasted-cn',
+      'col-roasted-cn-peeled',
+      'col-black-kr',
+      'col-black-cn',
+    ];
 
     const KNOWN_SCHOOL_CUSTOMERS = [
       '주식회사 태화에프에스',
@@ -649,8 +691,11 @@
 
     const excelInput = document.getElementById('excelInput');
     const uploadZone = document.getElementById('uploadZone');
+    const uploadTitle = document.getElementById('uploadTitle');
+    const uploadSub = document.getElementById('uploadSub');
     const exportBtn = document.getElementById('exportBtn');
     const printBtn = document.getElementById('printBtn');
+    const printHost = document.getElementById('printHost');
 
     excelInput.addEventListener('change', e => {
       if (e.target.files[0]) loadFile(e.target.files[0]);
@@ -681,9 +726,9 @@
     });
 
     function setStatus(message, type = '') {
-      const el = document.getElementById('statusLine');
-      el.textContent = message;
-      el.className = 'status-line ' + type;
+      uploadTitle.textContent = type === 'ok' ? '엑셀 파일 재선택' : '엑셀 파일 선택';
+      uploadSub.textContent = message || '.xlsx 또는 .xls 파일을 클릭하거나 끌어놓으세요.';
+      uploadSub.className = 'upload-sub ' + type;
     }
 
     function loadFile(file) {
@@ -877,21 +922,23 @@
       const wrap = document.getElementById('boardWrap');
       if (!state.board.length && state.viewMode === 'ordered') {
         wrap.innerHTML = '<div class="empty">현황표에 포함된 행이 없습니다.</div>';
+        printHost.innerHTML = '';
         return;
       }
       const displayRows = getDisplayRows();
       if (!displayRows.length) {
         wrap.innerHTML = '<div class="empty">표시할 업체가 없습니다.</div>';
+        printHost.innerHTML = '';
         return;
       }
       const header = renderGroupedHeader();
       const body = displayRows.map(row => {
         const tag = priorityLabel(row.customer);
-        const cells = PRODUCT_COLUMNS.map(col => `<td>${row.values[col] ? fmt(row.values[col]) : ''}</td>`).join('');
-        return `<tr><td>${esc(row.customer)}${tag ? `<span class="group-tag">${esc(tag)}</span>` : ''}</td>${cells}<td class="total-col">${row.total ? fmt(row.total) : ''}</td></tr>`;
+        const cells = PRODUCT_COLUMNS.map((col, i) => `<td class="${PRODUCT_COLUMN_CLASSES[i]}">${row.values[col] ? fmt(row.values[col]) : ''}</td>`).join('');
+        return `<tr><td>${esc(row.customer)}${tag ? `<span class="group-tag">${esc(tag)}</span>` : ''}</td>${cells}</tr>`;
       }).join('');
-      const foot = PRODUCT_COLUMNS.map(col => `<td>${state.totals[col] ? fmt(state.totals[col]) : ''}</td>`).join('');
-      wrap.innerHTML = `<div id="printArea">
+      const foot = PRODUCT_COLUMNS.map((col, i) => `<td class="${PRODUCT_COLUMN_CLASSES[i]}">${state.totals[col] ? fmt(state.totals[col]) : ''}</td>`).join('');
+      const boardHtml = `<div class="print-board">
         <div class="print-title">
           <h1>학교급식 주간현황표</h1>
           <div>납품일: ${esc(state.deliveryDate)}</div>
@@ -899,9 +946,11 @@
         <table class="status-table">
           ${header}
           <tbody>${body}</tbody>
-          <tfoot><tr><td>합계</td>${foot}<td class="total-col">${fmt(PRODUCT_COLUMNS.reduce((sum, col) => sum + state.totals[col], 0))}</td></tr></tfoot>
+          <tfoot><tr><td>합계</td>${foot}</tr></tfoot>
         </table>
       </div>`;
+      wrap.innerHTML = boardHtml;
+      printHost.innerHTML = boardHtml;
     }
 
     function renderGroupedHeader() {
@@ -914,9 +963,9 @@
       }).join('');
       const origin = PRODUCT_HEADER_ROWS.origin.map(cell => {
         const attrs = cell.colspan ? ` colspan="${cell.colspan}"` : '';
-        return `<th${attrs}>${esc(cell.label)}</th>`;
+        return `<th${attrs} class="${cell.cls}">${esc(cell.label)}</th>`;
       }).join('');
-      const size = PRODUCT_HEADER_ROWS.size.map(label => `<th>${esc(label)}</th>`).join('');
+      const size = PRODUCT_HEADER_ROWS.size.map((label, i) => `<th class="${PRODUCT_COLUMN_CLASSES[i]}">${esc(label)}</th>`).join('');
       return `<thead><tr>${group}</tr><tr>${origin}</tr><tr>${size}</tr></thead>`;
     }
 
@@ -970,9 +1019,9 @@
       const boardRows = [
         ['납품일', state.deliveryDate],
         [],
-        ['거래처명', ...PRODUCT_COLUMNS, '합계'],
-        ...getDisplayRows().map(row => [row.customer, ...PRODUCT_COLUMNS.map(col => row.values[col] || ''), row.total || '']),
-        ['합계', ...PRODUCT_COLUMNS.map(col => state.totals[col] || ''), PRODUCT_COLUMNS.reduce((sum, col) => sum + state.totals[col], 0)],
+        ['거래처명', ...PRODUCT_COLUMNS],
+        ...getDisplayRows().map(row => [row.customer, ...PRODUCT_COLUMNS.map(col => row.values[col] || '')]),
+        ['합계', ...PRODUCT_COLUMNS.map(col => state.totals[col] || '')],
       ];
       const unmatchedRows = [
         ['원본 행', '일자', '거래처명', '품목명', '수량', '비고'],

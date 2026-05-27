@@ -565,6 +565,42 @@
       border-color: rgba(34, 211, 238, .45);
       box-shadow: 0 0 0 3px rgba(34, 211, 238, .08);
     }
+    .level3-control {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-top: 6px;
+    }
+    .level3-select {
+      max-width: 180px;
+      height: 28px;
+      border: 1px solid var(--in-br);
+      border-radius: 7px;
+      background: var(--in-bg);
+      color: var(--t0);
+      padding: 0 8px;
+      font-family: 'Noto Sans KR', sans-serif;
+      font-size: 11px;
+      outline: none;
+      color-scheme: dark;
+    }
+    .level3-select option {
+      background: #0c1220;
+      color: rgba(255, 255, 255, .92);
+    }
+    .override-badge {
+      display: inline-flex;
+      align-items: center;
+      height: 22px;
+      padding: 0 7px;
+      border: 1px solid rgba(251, 191, 36, .25);
+      border-radius: 14px;
+      background: rgba(251, 191, 36, .09);
+      color: var(--ac);
+      font-size: 10px;
+      font-weight: 800;
+    }
     .empty-state {
       padding: 34px 20px;
       text-align: center;
@@ -777,6 +813,7 @@
 
     const MATERIAL_STORAGE_KEY = 'dmf_cost_materials_v1';
     const MATERIAL_COLUMN_STORAGE_KEY = 'dmf_cost_material_columns_v1';
+    const MATERIAL_LEVEL3_OVERRIDE_STORAGE_KEY = 'dmf_cost_material_level3_overrides_v1';
     let materials = [];
     let materialSearch = '';
     let materialCategory = 'all';
@@ -784,6 +821,7 @@
     let materialDetail = 'all';
     let materialSort = 'code';
     let visibleMaterialColumns = [];
+    let materialLevel3Overrides = {};
 
     const materialColumns = [
       { key: 'itemCode', label: '품목코드', required: true },
@@ -862,6 +900,7 @@
     };
 
     visibleMaterialColumns = loadVisibleColumns();
+    materialLevel3Overrides = loadLevel3Overrides();
     materials = loadMaterials();
 
     function toNumber(value) {
@@ -919,6 +958,25 @@
       ].join('');
     }
 
+    function loadLevel3Overrides() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(MATERIAL_LEVEL3_OVERRIDE_STORAGE_KEY) || '{}');
+        return saved && typeof saved === 'object' && !Array.isArray(saved) ? saved : {};
+      } catch {
+        return {};
+      }
+    }
+
+    function saveLevel3Overrides() {
+      localStorage.setItem(MATERIAL_LEVEL3_OVERRIDE_STORAGE_KEY, JSON.stringify(materialLevel3Overrides));
+    }
+
+    function getLevel3Override(item) {
+      const code = String(item.itemCode || '').trim();
+      const value = materialLevel3Overrides[code];
+      return value && detailLabels[value] ? value : '';
+    }
+
     function classifyMaterial(item) {
       const code = String(item.itemCode || '').trim().toUpperCase();
       const name = `${item.itemName || ''} ${item.spec || ''}`.toLowerCase();
@@ -966,7 +1024,7 @@
       return { key: 'other', label: '기타', prefixes: [] };
     }
 
-    function getDetailCategory(item) {
+    function getAutoDetailCategory(item) {
       const code = String(item.itemCode || '').trim().toUpperCase();
       const text = `${item.itemCode || ''} ${item.itemName || ''} ${item.spec || ''} ${item.itemGroupName || ''}`.toLowerCase();
       const category = classifyMaterial(item);
@@ -975,28 +1033,51 @@
       if (category === 'other') return { key: 'other', label: detailLabels.other };
 
       if (category === 'package') {
-        if (code.includes('GS') || text.includes('세트') || text.includes('행복가득') || text.includes('결들') || text.includes('들메내')) return { key: 'set', label: detailLabels.set };
-        if (code.includes('RSS') || text.includes('볶음통깨') || text.includes('통깨')) return { key: 'roastedSesame', label: detailLabels.roastedSesame };
-        if (code.includes('SO') || text.includes('참기름')) return { key: 'sesameOil', label: detailLabels.sesameOil };
-        if (code.includes('PO') || text.includes('들기름')) return { key: 'perillaOil', label: detailLabels.perillaOil };
-        if (code.includes('RS') || text.includes('소금')) return { key: 'salt', label: detailLabels.salt };
         return { key: 'other', label: detailLabels.other };
       }
 
       if (category === 'gift') {
-        if (code.startsWith('D-GS-C') || text.includes('행복가득') || text.includes('중국산')) return { key: 'happy', label: detailLabels.happy };
-        if (code.startsWith('D-GS-I') || text.includes('결들') || text.includes('수입산')) return { key: 'gyeoldeul', label: detailLabels.gyeoldeul };
-        if (code.startsWith('D-GS-K') || text.includes('들메내') || text.includes('국산')) return { key: 'deulmena', label: detailLabels.deulmena };
+        if (code.startsWith('D-GS-C')) return { key: 'happy', label: detailLabels.happy };
+        if (code.startsWith('D-GS-I')) return { key: 'gyeoldeul', label: detailLabels.gyeoldeul };
+        if (code.startsWith('D-GS-K')) return { key: 'deulmena', label: detailLabels.deulmena };
+        if (text.includes('행복가득')) return { key: 'happy', label: detailLabels.happy };
+        if (text.includes('결들')) return { key: 'gyeoldeul', label: detailLabels.gyeoldeul };
+        if (text.includes('들메내')) return { key: 'deulmena', label: detailLabels.deulmena };
         return { key: 'other', label: detailLabels.other };
       }
 
-      if (text.includes('깨분') || code.includes('I02')) return { key: 'powder', label: detailLabels.powder };
-      if (text.includes('거피') || /-(C|K)02/.test(code)) return { key: 'hulled', label: detailLabels.hulled };
-      if (text.includes('흑임자') || /-(C|K)03/.test(code)) return { key: 'black', label: detailLabels.black };
-      if (code.includes('-C') || text.includes('중국산')) return { key: 'china', label: detailLabels.china };
-      if (code.includes('-K') || text.includes('국산')) return { key: 'domestic', label: detailLabels.domestic };
-      if (code.includes('-I') || text.includes('수입산')) return { key: 'imported', label: detailLabels.imported };
+      if (category === 'product') {
+        if (code.startsWith('D-SO-C') || code.startsWith('D-PO-C') || code.startsWith('D-RSS-C')) return { key: 'china', label: detailLabels.china };
+        if (code.startsWith('D-SO-I') || code.startsWith('D-RSS-I')) return { key: 'imported', label: detailLabels.imported };
+        if (code.startsWith('D-SO-K') || code.startsWith('D-PO-K') || code.startsWith('D-RSS-K') || code.startsWith('D-RS-K')) return { key: 'domestic', label: detailLabels.domestic };
+      }
+
+      if (code.includes('-C')) return { key: 'china', label: detailLabels.china };
+      if (code.includes('-K')) return { key: 'domestic', label: detailLabels.domestic };
+      if (code.includes('-I')) return { key: 'imported', label: detailLabels.imported };
+      if (category === 'raw' && text.includes('중국산')) return { key: 'china', label: detailLabels.china };
+      if (category === 'raw' && text.includes('국산')) return { key: 'domestic', label: detailLabels.domestic };
+      if (category === 'raw' && text.includes('수입산')) return { key: 'imported', label: detailLabels.imported };
       return { key: 'other', label: detailLabels.other };
+    }
+
+    function getAllowedDetailOptions(item) {
+      const category = classifyMaterial(item);
+      const optionsByCategory = {
+        raw: ['china', 'domestic', 'imported', 'other'],
+        product: ['china', 'domestic', 'imported', 'other'],
+        gift: ['happy', 'gyeoldeul', 'deulmena', 'other'],
+        package: ['other'],
+        other: ['other'],
+        unknown: ['unknown'],
+      };
+      return (optionsByCategory[category] || ['other']).map(key => ({ key, label: detailLabels[key] || key }));
+    }
+
+    function getDetailCategory(item) {
+      const override = getLevel3Override(item);
+      if (override) return { key: override, label: detailLabels[override], overridden: true };
+      return { ...getAutoDetailCategory(item), overridden: false };
     }
 
     function getItemStatus(item) {
@@ -1259,15 +1340,28 @@
     function renderMaterialCell(item, columnKey) {
       const categoryLabel = materialCategories[classifyMaterial(item)]?.label || '미분류';
       const subcategory = getSubcategory(item).label;
-      const detail = getDetailCategory(item).label;
+      const detail = getDetailCategory(item);
       const status = getItemStatus(item);
+      const override = getLevel3Override(item);
+      const level3Options = getAllowedDetailOptions(item);
+      const level3Control = `
+        <div class="level3-control">
+          <select class="level3-select" data-code="${escapeHtml(item.itemCode)}" aria-label="${escapeHtml(item.itemName)} Level 3 수동 분류">
+            <option value="">자동: ${escapeHtml(getAutoDetailCategory(item).label)}</option>
+            ${level3Options.map(option => `
+              <option value="${option.key}" ${override === option.key ? 'selected' : ''}>${escapeHtml(option.label)}</option>
+            `).join('')}
+          </select>
+          ${detail.overridden ? '<span class="override-badge">수동</span>' : ''}
+        </div>
+      `;
       const cells = {
         itemCode: `<td class="code">${escapeHtml(item.itemCode)}</td>`,
         itemName: `<td>${escapeHtml(item.itemName)}</td>`,
         itemType: `<td>${escapeHtml(item.itemType || '-')}</td>`,
         spec: `<td>${escapeHtml(item.spec || '-')}</td>`,
         itemGroupName: `<td>${escapeHtml(item.itemGroupName || '-')}</td>`,
-        category: `<td><span class="type-pill">${escapeHtml(categoryLabel)} / ${escapeHtml(subcategory)} / ${escapeHtml(detail)}</span></td>`,
+        category: `<td><span class="type-pill">${escapeHtml(categoryLabel)} / ${escapeHtml(subcategory)} / ${escapeHtml(detail.label)}</span>${level3Control}</td>`,
         purchasePrice: `<td>
           <input class="price-input" type="number" min="0" step="1" value="${toNumber(item.purchasePrice)}"
             data-code="${escapeHtml(item.itemCode)}" data-field="purchasePrice" aria-label="${escapeHtml(item.itemName)} 입고단가">
@@ -1302,22 +1396,6 @@
       renderMaterialTableHead();
       tableBody.innerHTML = filtered.map(item => `
         <tr>
-          <td class="code">${escapeHtml(item.itemCode)}</td>
-          <td>${escapeHtml(item.itemName)}</td>
-          <td>${escapeHtml(item.itemType || '-')}</td>
-          <td>${escapeHtml(item.spec || '-')}</td>
-          <td>${escapeHtml(item.itemGroupName || '-')}</td>
-          <td><span class="type-pill">${escapeHtml(materialCategories[classifyMaterial(item)]?.label || '미분류')} / ${escapeHtml(getSubcategory(item).label)}</span></td>
-          <td>
-            <input class="price-input" type="number" min="0" step="1" value="${toNumber(item.purchasePrice)}"
-              data-code="${escapeHtml(item.itemCode)}" data-field="purchasePrice" aria-label="${escapeHtml(item.itemName)} 입고단가">
-          </td>
-          <td>${escapeHtml(item.purchasePriceVatIncluded || '-')}</td>
-          <td><span class="row-status ${getItemStatus(item).className}">${getItemStatus(item).label}</span></td>
-        </tr>
-      `).join('');
-      tableBody.innerHTML = filtered.map(item => `
-        <tr>
           ${materialColumns.filter(column => isColumnVisible(column.key)).map(column => renderMaterialCell(item, column.key)).join('')}
         </tr>
       `).join('');
@@ -1343,7 +1421,8 @@
         if (!subMap.has(sub)) subMap.set(sub, new Map());
         const detailMap = subMap.get(sub);
         if (!detailMap.has(detail)) detailMap.set(detail, []);
-        detailMap.get(detail).push(item.itemName || item.itemCode);
+        const overrideMark = getDetailCategory(item).overridden ? ' (수동)' : '';
+        detailMap.get(detail).push(`${item.itemName || item.itemCode}${overrideMark}`);
       });
 
       return [...grouped.entries()].map(([major, subMap]) => {
@@ -1502,6 +1581,19 @@
       });
 
       tableBody?.addEventListener('change', event => {
+        const level3Select = event.target.closest('.level3-select');
+        if (level3Select) {
+          const code = level3Select.dataset.code;
+          if (!code) return;
+          if (level3Select.value) materialLevel3Overrides[code] = level3Select.value;
+          else delete materialLevel3Overrides[code];
+          saveLevel3Overrides();
+          materials = materials.map(item => item.itemCode === code ? enrichMaterial(item) : item);
+          renderMaterialTable();
+          setMaterialStatus(level3Select.value ? 'Level 3 수동 분류가 저장되었습니다.' : 'Level 3 수동 분류를 해제했습니다.', 'ok');
+          return;
+        }
+
         const input = event.target.closest('.price-input');
         if (!input) return;
         const index = materials.findIndex(item => item.itemCode === input.dataset.code);

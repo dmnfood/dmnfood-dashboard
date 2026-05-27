@@ -277,6 +277,21 @@
       grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 16px;
       align-items: start;
+      transition: opacity .18s ease, transform .18s ease;
+      will-change: opacity, transform;
+    }
+
+    .all-category-grid.slide-left,
+    .all-category-grid.slide-right {
+      opacity: .2;
+    }
+
+    .all-category-grid.slide-left {
+      transform: translateX(-18px);
+    }
+
+    .all-category-grid.slide-right {
+      transform: translateX(18px);
     }
 
     .all-carousel-controls {
@@ -311,6 +326,12 @@
 
     .all-category-column.is-hidden {
       display: none;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .all-category-grid {
+        transition: none;
+      }
     }
 
     .all-category-column {
@@ -616,7 +637,7 @@
           </div>
           <div class="card-grid">
             <a href="/cost-bom" class="dashboard-card card-active">
-              <div class="card-icon">₩</div>
+              <div class="card-icon">🧩</div>
               <div class="card-title">BOM 관리 및 조회</div>
               <div class="card-desc">Ecount BOM 엑셀 구조 기준으로 제품과 소모품목 연결을 조회합니다.</div>
               <div class="card-meta">
@@ -625,7 +646,7 @@
               </div>
             </a>
             <a href="/cost-materials" class="dashboard-card card-active">
-              <div class="card-icon">₩</div>
+              <div class="card-icon">🌾</div>
               <div class="card-title">원/부자재 단가 관리</div>
               <div class="card-desc">원재료, 부자재, 포장재 단가 기준 데이터를 관리합니다.</div>
               <div class="card-meta">
@@ -634,7 +655,7 @@
               </div>
             </a>
             <a href="/cost-sheets" class="dashboard-card card-active">
-              <div class="card-icon">₩</div>
+              <div class="card-icon">📊</div>
               <div class="card-title">원가표</div>
               <div class="card-desc">기존 제조원가계산 흐름을 품목별 원가표로 정리합니다.</div>
               <div class="card-meta">
@@ -643,7 +664,7 @@
               </div>
             </a>
             <a href="/new-product-cost-calculator" class="dashboard-card card-active">
-              <div class="card-icon">₩</div>
+              <div class="card-icon">🧮</div>
               <div class="card-title">신제품 원가 계산기</div>
               <div class="card-desc">신규 세트 구성과 예상 단가를 조합해 사전 원가를 검토합니다.</div>
               <div class="card-meta">
@@ -730,7 +751,7 @@
               </div>
               <div class="card-grid">
                 <a href="/cost-bom" class="dashboard-card card-active">
-                  <div class="card-icon">₩</div>
+                  <div class="card-icon">🧩</div>
                   <div class="card-title">BOM 관리 및 조회</div>
                   <div class="card-desc">Ecount BOM 엑셀 구조 기준으로 제품과 소모품목 연결을 조회합니다.</div>
                   <div class="card-meta">
@@ -739,7 +760,7 @@
                   </div>
                 </a>
                 <a href="/cost-materials" class="dashboard-card card-active">
-                  <div class="card-icon">₩</div>
+                  <div class="card-icon">🌾</div>
                   <div class="card-title">원/부자재 단가 관리</div>
                   <div class="card-desc">원재료, 부자재, 포장재 단가 기준 데이터를 관리합니다.</div>
                   <div class="card-meta">
@@ -748,7 +769,7 @@
                   </div>
                 </a>
                 <a href="/cost-sheets" class="dashboard-card card-active">
-                  <div class="card-icon">₩</div>
+                  <div class="card-icon">📊</div>
                   <div class="card-title">원가표</div>
                   <div class="card-desc">기존 제조원가계산 흐름을 품목별 원가표로 정리합니다.</div>
                   <div class="card-meta">
@@ -757,7 +778,7 @@
                   </div>
                 </a>
                 <a href="/new-product-cost-calculator" class="dashboard-card card-active">
-                  <div class="card-icon">₩</div>
+                  <div class="card-icon">🧮</div>
                   <div class="card-title">신제품 원가 계산기</div>
                   <div class="card-desc">신규 세트 구성과 예상 단가를 조합해 사전 원가를 검토합니다.</div>
                   <div class="card-meta">
@@ -825,6 +846,7 @@
     });
 
     const allColumns = Array.from(document.querySelectorAll('#category-all .all-category-column'));
+    const allGrid = document.querySelector('#category-all .all-category-grid');
     const allPrevBtn = document.getElementById('allCarouselPrev');
     const allNextBtn = document.getElementById('allCarouselNext');
     let allCarouselIndex = 0;
@@ -845,14 +867,33 @@
       if (allNextBtn) allNextBtn.disabled = allCarouselIndex >= maxIndex;
     }
 
-    allPrevBtn?.addEventListener('click', () => {
-      allCarouselIndex = Math.max(0, allCarouselIndex - 1);
+    function moveAllCarousel(direction) {
+      const visibleCount = getVisibleAllCount();
+      const maxIndex = Math.max(0, allColumns.length - visibleCount);
+      const nextIndex = Math.max(0, Math.min(maxIndex, allCarouselIndex + direction));
+      if (nextIndex === allCarouselIndex) return;
+
+      const motionClass = direction > 0 ? 'slide-left' : 'slide-right';
+      if (allGrid && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        allGrid.classList.add(motionClass);
+        window.setTimeout(() => {
+          allCarouselIndex = nextIndex;
+          renderAllCarousel();
+          allGrid.classList.remove(motionClass);
+        }, 170);
+        return;
+      }
+
+      allCarouselIndex = nextIndex;
       renderAllCarousel();
+    }
+
+    allPrevBtn?.addEventListener('click', () => {
+      moveAllCarousel(-1);
     });
 
     allNextBtn?.addEventListener('click', () => {
-      allCarouselIndex += 1;
-      renderAllCarousel();
+      moveAllCarousel(1);
     });
 
     window.addEventListener('resize', renderAllCarousel);

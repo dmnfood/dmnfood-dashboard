@@ -161,49 +161,24 @@
       color: var(--t2);
     }
 
-    .admin-test-panel {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 14px;
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 14px 16px;
-      margin-bottom: 22px;
-    }
-
-    .admin-test-title {
-      font-size: 12px;
-      font-weight: 700;
-      color: var(--t0);
-      margin-bottom: 2px;
-    }
-
-    .admin-test-sub {
-      font-size: 11px;
-      color: var(--t2);
-    }
-
-    .admin-test-actions {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      flex-wrap: wrap;
-      justify-content: flex-end;
-    }
-
     .btn-ecount-test {
-      height: 32px;
-      padding: 0 14px;
-      border: 1px solid rgba(34, 211, 238, .28);
-      border-radius: 8px;
-      background: rgba(34, 211, 238, .13);
-      color: #22d3ee;
+      height: 30px;
+      padding: 0 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: transparent;
+      color: var(--t2);
       font-family: 'Noto Sans KR', sans-serif;
       font-size: 12px;
-      font-weight: 700;
+      font-weight: 600;
       cursor: pointer;
+      transition: background .15s, border-color .15s, color .15s;
+      white-space: nowrap;
+    }
+
+    .btn-ecount-test:hover:not(:disabled) {
+      background: rgba(255, 255, 255, .07);
+      color: var(--t0);
     }
 
     .btn-ecount-test:disabled {
@@ -211,31 +186,14 @@
       cursor: not-allowed;
     }
 
-    .ecount-test-status {
-      min-width: 74px;
-      font-size: 11px;
-      color: var(--t2);
-      text-align: right;
-      white-space: nowrap;
-    }
-
-    .ecount-test-status.ok {
+    .btn-ecount-test.ok {
+      border-color: rgba(74, 222, 128, .42);
       color: var(--zr);
     }
 
-    .ecount-test-status.err {
+    .btn-ecount-test.err {
+      border-color: rgba(248, 113, 113, .42);
       color: var(--rv);
-    }
-
-    @media (max-width: 720px) {
-      .admin-test-panel {
-        align-items: flex-start;
-        flex-direction: column;
-      }
-
-      .admin-test-actions {
-        justify-content: flex-start;
-      }
     }
 
     .section {
@@ -529,6 +487,7 @@
         <span class="header-title">들메내식품 대시보드</span>
       </div>
       <div class="header-right">
+        <button class="btn-ecount-test" type="button" id="ecountTestBtn">Ecount 연결 테스트</button>
         <span class="current-time" id="clockDisplay">--:--:--</span>
         <div class="user-info">
           <div class="user-avatar" id="userAvatar">—</div>
@@ -542,17 +501,6 @@
       <div class="page-greeting">
         <h1 id="greetingText">안녕하세요 👋</h1>
         <p>들메내식품 내부 대시보드입니다. 원하는 메뉴를 선택하세요.</p>
-      </div>
-
-      <div class="admin-test-panel">
-        <div>
-          <div class="admin-test-title">Ecount API 연결</div>
-          <div class="admin-test-sub">서버 환경 변수로 Zone/Login 연결만 확인합니다.</div>
-        </div>
-        <div class="admin-test-actions">
-          <button class="btn-ecount-test" type="button" id="ecountTestBtn">Ecount 연결 테스트</button>
-          <span class="ecount-test-status" id="ecountTestStatus">대기</span>
-        </div>
       </div>
 
       <div class="section">
@@ -748,11 +696,17 @@
     });
 
     const ecountTestBtn = document.getElementById('ecountTestBtn');
-    const ecountTestStatus = document.getElementById('ecountTestStatus');
+    const ecountErrorLabels = {
+      205: 'IP 오류',
+      201: '인증키 오류',
+      20: '로그인 정보 오류',
+      204: '키 환경 오류',
+      412: '요청 제한',
+    };
     ecountTestBtn?.addEventListener('click', async () => {
       ecountTestBtn.disabled = true;
-      ecountTestStatus.className = 'ecount-test-status';
-      ecountTestStatus.textContent = '연결 중';
+      ecountTestBtn.className = 'btn-ecount-test';
+      ecountTestBtn.textContent = 'Ecount 확인 중...';
 
       try {
         const res = await fetch('/api/ecount/login', {
@@ -762,16 +716,16 @@
         });
         const data = await res.json().catch(() => ({}));
         if (res.ok && data.ok && data.hasSession) {
-          ecountTestStatus.className = 'ecount-test-status ok';
-          ecountTestStatus.textContent = '연결 성공';
+          ecountTestBtn.className = 'btn-ecount-test ok';
+          ecountTestBtn.textContent = 'Ecount 연결 성공';
         } else {
-          ecountTestStatus.className = 'ecount-test-status err';
-          const safeMessage = data.errorMessage || data.message || '연결 실패';
-          ecountTestStatus.textContent = data.errorCode ? `${safeMessage} (${data.errorCode})` : safeMessage;
+          const label = ecountErrorLabels[data.errorCode] || 'Ecount 연결 실패';
+          ecountTestBtn.className = 'btn-ecount-test err';
+          ecountTestBtn.textContent = data.errorCode ? `${label} (${data.errorCode})` : label;
         }
       } catch (error) {
-        ecountTestStatus.className = 'ecount-test-status err';
-        ecountTestStatus.textContent = '연결 실패';
+        ecountTestBtn.className = 'btn-ecount-test err';
+        ecountTestBtn.textContent = 'Ecount 연결 실패';
       } finally {
         ecountTestBtn.disabled = false;
       }

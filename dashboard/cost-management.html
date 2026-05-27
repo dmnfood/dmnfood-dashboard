@@ -395,6 +395,19 @@
       margin-bottom: 12px;
       flex-wrap: wrap;
     }
+    .material-actions-left,
+    .material-actions-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .material-actions-left {
+      flex: 1 1 420px;
+    }
+    .material-actions-right {
+      margin-left: auto;
+    }
     .material-search {
       min-width: 220px;
       height: 34px;
@@ -604,13 +617,14 @@
     .classification-table-wrap {
       border: 1px solid var(--border);
       border-radius: 10px;
-      overflow: auto;
+      overflow-y: auto;
+      overflow-x: hidden;
       max-height: 560px;
       background: rgba(255, 255, 255, .02);
     }
     .classification-table {
       width: 100%;
-      min-width: 900px;
+      table-layout: fixed;
       border-collapse: collapse;
       font-size: 12px;
     }
@@ -637,8 +651,53 @@
       color: var(--t0);
       white-space: nowrap;
     }
+    .classification-table td.name {
+      white-space: normal;
+      overflow-wrap: anywhere;
+      line-height: 1.45;
+    }
     .classification-table .level3-select {
-      max-width: 220px;
+      width: 100%;
+      max-width: 190px;
+    }
+    .classification-table th:nth-child(1),
+    .classification-table td:nth-child(1) {
+      width: 132px;
+    }
+    .classification-table th:nth-child(3),
+    .classification-table td:nth-child(3) {
+      width: 112px;
+    }
+    .classification-table th:nth-child(4),
+    .classification-table td:nth-child(4) {
+      width: 210px;
+    }
+    .classification-filter-panel {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--card-w);
+      padding: 10px 12px;
+      margin-bottom: 12px;
+      display: grid;
+      gap: 10px;
+    }
+    .classification-filter-row {
+      display: grid;
+      grid-template-columns: 76px 1fr;
+      gap: 8px;
+      align-items: start;
+    }
+    .classification-search {
+      width: 100%;
+      height: 32px;
+      border: 1px solid var(--in-br);
+      border-radius: 8px;
+      background: var(--in-bg);
+      color: var(--t0);
+      padding: 0 10px;
+      font-family: 'Noto Sans KR', sans-serif;
+      font-size: 12px;
+      outline: none;
     }
     .empty-state {
       padding: 34px 20px;
@@ -658,7 +717,7 @@
       padding: 24px;
     }
     .hierarchy-modal {
-      width: min(860px, 100%);
+      width: min(1080px, calc(100vw - 32px));
       max-height: min(760px, 88vh);
       overflow: hidden;
       border: 1px solid var(--border);
@@ -861,6 +920,9 @@
     let materialSort = 'code';
     let visibleMaterialColumns = [];
     let materialLevel3Overrides = {};
+    let classificationModalCategory = 'all';
+    let classificationModalSubcategory = 'all';
+    let classificationModalSearch = '';
 
     const materialColumns = [
       { key: 'itemCode', label: '품목코드', required: true },
@@ -1550,13 +1612,84 @@
     }
 
     function getClassificationModalItems() {
-      return getFilteredMaterials();
+      const term = classificationModalSearch.trim().toLowerCase();
+      return sortMaterials(materials.filter(item => {
+        const category = classifyMaterial(item);
+        const matchesCategory = classificationModalCategory === 'all' || category === classificationModalCategory;
+        const matchesSubcategory = classificationModalSubcategory === 'all' || getSubcategory(item).key === classificationModalSubcategory;
+        const matchesTerm = !term
+          || item.itemCode.toLowerCase().includes(term)
+          || item.itemName.toLowerCase().includes(term)
+          || item.spec.toLowerCase().includes(term)
+          || item.itemGroupName.toLowerCase().includes(term);
+        return matchesCategory && matchesSubcategory && matchesTerm;
+      }));
     }
 
-    function renderClassificationManagementRows() {
+    function getClassificationSubcategoryOptions() {
+      if (classificationModalCategory === 'all') return [];
+      const rules = subcategoryRules[classificationModalCategory] || [];
+      return rules.map(rule => ({
+        ...rule,
+        count: materials.filter(item => classifyMaterial(item) === classificationModalCategory && getSubcategory(item).key === rule.key).length,
+      })).filter(rule => rule.count > 0 || classificationModalCategory === 'unknown');
+    }
+
+    function renderClassificationModalFilters() {
+      const host = document.getElementById('classificationModalFilters');
+      if (!host) return;
+      const stats = getMaterialStats();
+      const majorOptions = [
+        ['all', '전체', stats.all],
+        ['raw', '원재료', stats.raw],
+        ['package', '부자재/포장재', stats.package],
+        ['gift', '세트제품', stats.gift],
+        ['product', '반제품·제품', stats.product],
+        ['other', '기타비용', stats.other],
+        ['unknown', '미분류', stats.unknown],
+      ];
+      const subOptions = getClassificationSubcategoryOptions();
+      if (classificationModalSubcategory !== 'all' && !subOptions.some(option => option.key === classificationModalSubcategory)) {
+        classificationModalSubcategory = 'all';
+      }
+      host.innerHTML = `
+        <div class="classification-filter-row">
+          <div class="hierarchy-label">Level 1</div>
+          <div class="hierarchy-chips">
+            ${majorOptions.map(([key, label, count]) => `
+              <button class="hierarchy-chip classification-major-filter ${classificationModalCategory === key ? 'active' : ''}" type="button" data-category="${key}">
+                ${label} ${Number(count).toLocaleString('ko-KR')}
+              </button>
+            `).join('')}
+          </div>
+        </div>
+        <div class="classification-filter-row">
+          <div class="hierarchy-label">Level 2</div>
+          <div class="hierarchy-chips">
+            ${subOptions.length ? [
+              `<button class="hierarchy-chip classification-sub-filter ${classificationModalSubcategory === 'all' ? 'active' : ''}" type="button" data-subcategory="all">전체</button>`,
+              ...subOptions.map(option => `
+                <button class="hierarchy-chip classification-sub-filter ${classificationModalSubcategory === option.key ? 'active' : ''}" type="button" data-subcategory="${option.key}">
+                  ${escapeHtml(option.label)} ${option.count.toLocaleString('ko-KR')}
+                </button>
+              `)
+            ].join('') : '<span class="material-note">하위 분류 없음</span>'}
+          </div>
+        </div>
+        <div class="classification-filter-row">
+          <div class="hierarchy-label">검색</div>
+          <input class="classification-search" id="classificationModalSearch" type="search" placeholder="품목코드 / 품목명 검색" value="${escapeHtml(classificationModalSearch)}">
+        </div>
+      `;
+    }
+
+    function renderClassificationManagementRows(includeFilters = true) {
       const body = document.getElementById('classificationModalBody');
       if (!body) return;
+      if (includeFilters) renderClassificationModalFilters();
       const items = getClassificationModalItems();
+      const title = document.getElementById('classificationModalTitle');
+      if (title) title.textContent = `Level 3 분류 관리 (${items.length.toLocaleString('ko-KR')})`;
       if (!items.length) {
         body.innerHTML = '<div class="empty-state">현재 필터에 해당하는 품목이 없습니다.</div>';
         return;
@@ -1568,25 +1701,19 @@
               <tr>
                 <th>품목코드</th>
                 <th>품목명</th>
-                <th>Level 1</th>
-                <th>Level 2</th>
                 <th>자동 Level 3</th>
                 <th>수동 Level 3</th>
               </tr>
             </thead>
             <tbody>
               ${items.map(item => {
-                const category = materialCategories[classifyMaterial(item)]?.label || '미분류';
-                const subcategory = getSubcategory(item).label;
                 const autoDetail = getAutoDetailCategory(item);
                 const override = getLevel3Override(item);
                 const options = getAllowedDetailOptions(item);
                 return `
                   <tr>
                     <td class="code">${escapeHtml(item.itemCode)}</td>
-                    <td>${escapeHtml(item.itemName)}</td>
-                    <td>${escapeHtml(category)}</td>
-                    <td>${escapeHtml(subcategory)}</td>
+                    <td class="name">${escapeHtml(item.itemName)}</td>
                     <td>${escapeHtml(autoDetail.label)}</td>
                     <td>
                       <select class="level3-select classification-level3-select" data-code="${escapeHtml(item.itemCode)}" aria-label="${escapeHtml(item.itemName)} Level 3 수동 분류">
@@ -1610,6 +1737,9 @@
       const modal = document.getElementById('classificationModal');
       const title = document.getElementById('classificationModalTitle');
       if (!modal || !title) return;
+      classificationModalCategory = ['raw', 'package', 'gift', 'product', 'other', 'unknown'].includes(materialCategory) ? materialCategory : 'all';
+      classificationModalSubcategory = classificationModalCategory === 'all' ? 'all' : materialSubcategory;
+      classificationModalSearch = materialSearch;
       const filteredCount = getClassificationModalItems().length;
       title.textContent = `Level 3 분류 관리 (${filteredCount.toLocaleString('ko-KR')})`;
       renderClassificationManagementRows();
@@ -1736,6 +1866,28 @@
       classificationModalClose?.addEventListener('click', closeClassificationModal);
       classificationModal?.addEventListener('click', event => {
         if (event.target === classificationModal) closeClassificationModal();
+      });
+
+      classificationModal?.addEventListener('click', event => {
+        const majorButton = event.target.closest('.classification-major-filter');
+        const subButton = event.target.closest('.classification-sub-filter');
+        if (majorButton) {
+          classificationModalCategory = majorButton.dataset.category;
+          classificationModalSubcategory = 'all';
+          renderClassificationManagementRows();
+          return;
+        }
+        if (subButton) {
+          classificationModalSubcategory = subButton.dataset.subcategory;
+          renderClassificationManagementRows();
+        }
+      });
+
+      classificationModal?.addEventListener('input', event => {
+        const input = event.target.closest('#classificationModalSearch');
+        if (!input) return;
+        classificationModalSearch = input.value;
+        renderClassificationManagementRows(false);
       });
 
       classificationModalBody?.addEventListener('change', event => {
@@ -1880,13 +2032,16 @@
             </div>
           </div>
           <div class="material-actions">
-            <input class="material-search" id="materialSearch" type="search" placeholder="품목코드 / 품목명 / 규격 / 그룹 검색" value="${escapeHtml(materialSearch)}">
-            <select class="material-sort" id="materialSort" aria-label="정렬">
-              <option value="code" ${materialSort === 'code' ? 'selected' : ''}>코드순</option>
-              <option value="missing" ${materialSort === 'missing' ? 'selected' : ''}>단가 미입력 우선</option>
-            </select>
-            <button class="back-btn" id="classificationManageButton" type="button">Level 3 분류 관리</button>
-            <div class="material-status" id="materialStatus"></div>
+            <div class="material-actions-left">
+              <input class="material-search" id="materialSearch" type="search" placeholder="품목코드 / 품목명 / 규격 / 그룹 검색" value="${escapeHtml(materialSearch)}">
+              <select class="material-sort" id="materialSort" aria-label="정렬">
+                <option value="code" ${materialSort === 'code' ? 'selected' : ''}>코드순</option>
+                <option value="missing" ${materialSort === 'missing' ? 'selected' : ''}>단가 미입력 우선</option>
+              </select>
+            </div>
+            <div class="material-actions-right">
+              <button class="back-btn" id="classificationManageButton" type="button">Level 3 분류 관리</button>
+            </div>
             <div class="column-selector" id="materialColumnSelector"></div>
           </div>
           <div class="material-table-wrap">
@@ -1927,7 +2082,10 @@
               <div class="modal-title" id="classificationModalTitle">Level 3 분류 관리</div>
               <button class="modal-close" id="classificationModalClose" type="button">닫기</button>
             </div>
-            <div class="modal-body" id="classificationModalBody"></div>
+            <div class="modal-body">
+              <div class="classification-filter-panel" id="classificationModalFilters"></div>
+              <div id="classificationModalBody"></div>
+            </div>
           </div>
         </div>
       `);

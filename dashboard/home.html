@@ -766,7 +766,8 @@
           ecountTestStatus.textContent = '연결 성공';
         } else {
           ecountTestStatus.className = 'ecount-test-status err';
-          ecountTestStatus.textContent = data.message || '연결 실패';
+          const safeMessage = data.errorMessage || data.message || '연결 실패';
+          ecountTestStatus.textContent = data.errorCode ? `${safeMessage} (${data.errorCode})` : safeMessage;
         }
       } catch (error) {
         ecountTestStatus.className = 'ecount-test-status err';

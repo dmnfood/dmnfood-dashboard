@@ -8,6 +8,14 @@ const REQUIRED_ENV = [
   'ECOUNT_ENV',
 ];
 
+const SAFE_ERROR_MESSAGES = {
+  205: 'IP not allowed',
+  201: 'Invalid API certification key',
+  204: 'Test/production key mismatch',
+  20: 'Invalid login information',
+  412: 'Rate limit exceeded',
+};
+
 const sendJson = (response, statusCode, payload) => {
   response.statusCode = statusCode;
   response.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -49,6 +57,42 @@ const safeEcountMessage = (payload, fallback) => {
   );
 };
 
+const findEcountErrorCode = (value) => {
+  if (!value || typeof value !== 'object') return null;
+
+  const candidates = [
+    value.Code,
+    value.CODE,
+    value.code,
+    value.ErrorCode,
+    value.ERROR_CODE,
+    value.errorCode,
+    value.ResultCode,
+    value.RESULT_CODE,
+    value.statusCode,
+  ];
+
+  for (const candidate of candidates) {
+    const normalized = Number(candidate);
+    if (Number.isFinite(normalized)) return normalized;
+  }
+
+  for (const child of Object.values(value)) {
+    const found = findEcountErrorCode(child);
+    if (found !== null) return found;
+  }
+  return null;
+};
+
+const safeErrorDetails = (payload, fallback = 'Ecount login failed') => {
+  const errorCode = findEcountErrorCode(payload);
+  const mappedMessage = SAFE_ERROR_MESSAGES[errorCode];
+  return {
+    errorCode,
+    errorMessage: mappedMessage || safeEcountMessage(payload, fallback) || fallback,
+  };
+};
+
 module.exports = async function handler(request, response) {
   if (request.method !== 'POST') {
     response.setHeader('Allow', 'POST');
@@ -66,6 +110,7 @@ module.exports = async function handler(request, response) {
       ok: false,
       message: 'Ecount 환경 변수가 설정되지 않았습니다.',
       code: 'missing_ecount_env',
+      errorMessage: 'Missing environment variables',
     });
   }
 
@@ -107,26 +152,34 @@ module.exports = async function handler(request, response) {
     }
 
     if (!ecountResponse.ok) {
+      const details = safeErrorDetails(payload);
       console.error('[ecount-login] Ecount HTTP error:', {
         status: ecountResponse.status,
-        message: safeEcountMessage(payload, 'Ecount HTTP 오류'),
+        errorCode: details.errorCode,
+        errorMessage: details.errorMessage,
       });
       return sendJson(response, 502, {
         ok: false,
         message: 'Ecount login failed',
         code: 'ecount_http_error',
+        errorCode: details.errorCode,
+        errorMessage: details.errorMessage,
       });
     }
 
     const sessionId = findSessionId(payload);
     if (!sessionId) {
+      const details = safeErrorDetails(payload);
       console.error('[ecount-login] SESSION_ID missing in successful HTTP response:', {
-        message: safeEcountMessage(payload, 'SESSION_ID 없음'),
+        errorCode: details.errorCode,
+        errorMessage: details.errorMessage,
       });
       return sendJson(response, 502, {
         ok: false,
         message: 'Ecount login failed',
         code: 'missing_session_id',
+        errorCode: details.errorCode,
+        errorMessage: details.errorMessage,
       });
     }
 

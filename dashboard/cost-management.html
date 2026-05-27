@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>들메내식품 · 원가 관리</title>
   <link rel="stylesheet" href="/dashboard/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
     .auth-hidden { display: none !important; }
     .loading-screen {
@@ -234,6 +235,168 @@
       color: var(--t1);
       line-height: 1.6;
     }
+    .materials-body {
+      padding: 18px 20px 22px;
+    }
+    .material-toolbar {
+      display: grid;
+      grid-template-columns: minmax(280px, 420px) 1fr;
+      gap: 14px;
+      margin-bottom: 16px;
+      align-items: stretch;
+    }
+    .upload-zone {
+      border: 2px dashed var(--border);
+      border-radius: 12px;
+      background: var(--card-w);
+      min-height: 92px;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      cursor: pointer;
+      transition: border-color .15s, background .15s;
+    }
+    .upload-zone:hover {
+      border-color: rgba(34, 211, 238, .45);
+      background: rgba(34, 211, 238, .05);
+    }
+    .upload-title {
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--t0);
+      margin-bottom: 5px;
+    }
+    .upload-sub {
+      font-size: 11px;
+      color: var(--t2);
+      line-height: 1.5;
+    }
+    .material-summary {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .summary-card {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--card-w);
+      padding: 14px;
+      min-height: 92px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    .summary-label {
+      font-size: 10px;
+      color: var(--t2);
+      font-weight: 800;
+      letter-spacing: .6px;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    .summary-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--t0);
+    }
+    .material-actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+    .material-search {
+      min-width: 220px;
+      height: 34px;
+      border: 1px solid var(--in-br);
+      border-radius: 8px;
+      background: var(--in-bg);
+      color: var(--t0);
+      padding: 0 12px;
+      font-family: 'Noto Sans KR', sans-serif;
+      font-size: 12px;
+      outline: none;
+    }
+    .material-search::placeholder {
+      color: var(--in-ph);
+    }
+    .material-note {
+      font-size: 11px;
+      color: var(--t2);
+    }
+    .material-status {
+      font-size: 11px;
+      color: var(--t2);
+      min-height: 18px;
+    }
+    .material-status.ok { color: var(--zr); }
+    .material-status.err { color: var(--rv); }
+    .material-table-wrap {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: auto;
+      background: rgba(255, 255, 255, .025);
+      max-height: 520px;
+    }
+    .material-table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 860px;
+      font-size: 12px;
+    }
+    .material-table th,
+    .material-table td {
+      border-bottom: 1px solid var(--tb-br);
+      padding: 10px 12px;
+      text-align: left;
+      vertical-align: middle;
+      color: var(--t1);
+    }
+    .material-table th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: rgba(12, 18, 32, .96);
+      color: var(--t2);
+      font-size: 11px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+    .material-table tr:hover td {
+      background: var(--tb-hv);
+    }
+    .material-table td.code {
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--t0);
+      white-space: nowrap;
+    }
+    .price-input {
+      width: 112px;
+      height: 30px;
+      border: 1px solid var(--in-br);
+      border-radius: 7px;
+      background: var(--in-bg);
+      color: var(--t0);
+      padding: 0 8px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      text-align: right;
+      outline: none;
+    }
+    .price-input:focus {
+      border-color: rgba(34, 211, 238, .45);
+      box-shadow: 0 0 0 3px rgba(34, 211, 238, .08);
+    }
+    .empty-state {
+      padding: 34px 20px;
+      text-align: center;
+      color: var(--t2);
+      font-size: 12px;
+    }
     @media (max-width: 760px) {
       .app-header {
         padding: 0 16px;
@@ -245,7 +408,7 @@
         align-items: flex-start;
         flex-direction: column;
       }
-      .cost-grid, .detail-body {
+      .cost-grid, .detail-body, .material-toolbar, .material-summary {
         grid-template-columns: 1fr;
       }
       .user-chip {
@@ -318,6 +481,7 @@
         kicker: 'Materials',
         title: '원/부자재 단가 관리',
         desc: '원재료, 부자재, 포장재 단가를 원가 계산의 기준 데이터로 관리합니다.',
+        view: 'materials',
         boxes: [
           ['기준 데이터', '품목코드, 품목명, 단위, 입고단가, 출고단가'],
           ['Excel 연결', '품목 자료올리기 양식 및 수기 원가표 단가 매핑 예정'],
@@ -347,6 +511,282 @@
         ]
       }
     ];
+
+    const MATERIAL_STORAGE_KEY = 'dmf_cost_materials_v1';
+    let materials = loadMaterials();
+    let materialSearch = '';
+
+    function toNumber(value) {
+      if (value === null || value === undefined || value === '') return 0;
+      const cleaned = String(value).replace(/,/g, '').trim();
+      const parsed = Number(cleaned);
+      return Number.isFinite(parsed) ? parsed : 0;
+    }
+
+    function formatPrice(value) {
+      const numeric = toNumber(value);
+      return numeric ? numeric.toLocaleString('ko-KR') : '0';
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>"']/g, char => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;',
+      }[char]));
+    }
+
+    function loadMaterials() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(MATERIAL_STORAGE_KEY) || '[]');
+        return Array.isArray(saved) ? saved : [];
+      } catch {
+        return [];
+      }
+    }
+
+    function saveMaterials() {
+      localStorage.setItem(MATERIAL_STORAGE_KEY, JSON.stringify(materials));
+    }
+
+    function normalizeHeader(value) {
+      return String(value || '').replace(/\s+/g, '').trim();
+    }
+
+    function buildHeaderMap(headerRow) {
+      const map = new Map();
+      headerRow.forEach((header, index) => {
+        const normalized = normalizeHeader(header);
+        if (normalized) map.set(normalized, index);
+      });
+      return map;
+    }
+
+    function getCell(row, headerMap, headerName) {
+      const index = headerMap.get(normalizeHeader(headerName));
+      return index === undefined ? '' : row[index];
+    }
+
+    function mapEcountItemRow(row, headerMap) {
+      return {
+        itemCode: String(getCell(row, headerMap, '품목코드') || '').trim(),
+        itemName: String(getCell(row, headerMap, '품목명') || '').trim(),
+        spec: String(getCell(row, headerMap, '규격') || '').trim(),
+        unit: String(getCell(row, headerMap, '단위') || '').trim(),
+        itemType: String(getCell(row, headerMap, '품목구분') || '').trim(),
+        purchasePrice: toNumber(getCell(row, headerMap, '입고단가')),
+        salesPrice: toNumber(getCell(row, headerMap, '출고단가')),
+        barcode: String(getCell(row, headerMap, '바코드') || '').trim(),
+        safeStock: toNumber(getCell(row, headerMap, '안전재고수량')),
+      };
+    }
+
+    function findMaterialSheet(workbook) {
+      const required = ['품목코드', '품목명'];
+      const preferred = workbook.SheetNames.find(name => name.includes('품목'));
+      const names = preferred
+        ? [preferred, ...workbook.SheetNames.filter(name => name !== preferred)]
+        : workbook.SheetNames;
+
+      for (const name of names) {
+        const rows = XLSX.utils.sheet_to_json(workbook.Sheets[name], { header: 1, defval: '' });
+        if (!rows.length) continue;
+        const headerRowIndex = rows.findIndex(row => {
+          const headerMap = buildHeaderMap(row);
+          return required.every(header => headerMap.has(normalizeHeader(header)));
+        });
+        if (headerRowIndex === -1) continue;
+        const headerMap = buildHeaderMap(rows[headerRowIndex]);
+        return { name, rows: rows.slice(headerRowIndex + 1), headerMap };
+      }
+
+      return null;
+    }
+
+    function setMaterialStatus(message, type = '') {
+      const status = document.getElementById('materialStatus');
+      if (!status) return;
+      status.textContent = message;
+      status.className = `material-status ${type}`.trim();
+    }
+
+    function getFilteredMaterials() {
+      const term = materialSearch.trim().toLowerCase();
+      if (!term) return materials;
+      return materials.filter(item => (
+        item.itemCode.toLowerCase().includes(term)
+        || item.itemName.toLowerCase().includes(term)
+        || item.spec.toLowerCase().includes(term)
+      ));
+    }
+
+    function renderMaterialTable() {
+      const tableBody = document.getElementById('materialTableBody');
+      const empty = document.getElementById('materialEmpty');
+      const totalEl = document.getElementById('materialTotalCount');
+      const pricedEl = document.getElementById('materialPricedCount');
+      const editedEl = document.getElementById('materialEditedCount');
+      if (!tableBody || !empty) return;
+
+      const filtered = getFilteredMaterials();
+      if (totalEl) totalEl.textContent = materials.length.toLocaleString('ko-KR');
+      if (pricedEl) pricedEl.textContent = materials.filter(item => toNumber(item.purchasePrice) > 0).length.toLocaleString('ko-KR');
+      if (editedEl) editedEl.textContent = materials.filter(item => item.edited).length.toLocaleString('ko-KR');
+
+      empty.style.display = filtered.length ? 'none' : 'block';
+      tableBody.innerHTML = filtered.map(item => `
+        <tr>
+          <td class="code">${escapeHtml(item.itemCode)}</td>
+          <td>${escapeHtml(item.itemName)}</td>
+          <td>${escapeHtml(item.spec || '-')}</td>
+          <td>${escapeHtml(item.unit || '-')}</td>
+          <td>${formatPrice(item.purchasePrice)}</td>
+          <td>
+            <input class="price-input" type="number" min="0" step="1" value="${toNumber(item.purchasePrice)}"
+              data-code="${escapeHtml(item.itemCode)}" data-field="purchasePrice" aria-label="${escapeHtml(item.itemName)} 입고단가">
+          </td>
+          <td>
+            <input class="price-input" type="number" min="0" step="1" value="${toNumber(item.salesPrice)}"
+              data-code="${escapeHtml(item.itemCode)}" data-field="salesPrice" aria-label="${escapeHtml(item.itemName)} 출고단가">
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function bindMaterialEvents() {
+      const fileInput = document.getElementById('materialFileInput');
+      const uploadZone = document.getElementById('materialUploadZone');
+      const searchInput = document.getElementById('materialSearch');
+      const tableBody = document.getElementById('materialTableBody');
+
+      uploadZone?.addEventListener('click', () => fileInput?.click());
+      fileInput?.addEventListener('change', async event => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        await importMaterialWorkbook(file);
+        event.target.value = '';
+      });
+
+      searchInput?.addEventListener('input', event => {
+        materialSearch = event.target.value;
+        renderMaterialTable();
+      });
+
+      tableBody?.addEventListener('change', event => {
+        const input = event.target.closest('.price-input');
+        if (!input) return;
+        const target = materials.find(item => item.itemCode === input.dataset.code);
+        if (!target) return;
+        target[input.dataset.field] = toNumber(input.value);
+        target.edited = true;
+        saveMaterials();
+        renderMaterialTable();
+        setMaterialStatus('수정사항이 브라우저에 저장되었습니다.', 'ok');
+      });
+    }
+
+    async function importMaterialWorkbook(file) {
+      if (!window.XLSX) {
+        setMaterialStatus('엑셀 처리 라이브러리를 불러오지 못했습니다.', 'err');
+        return;
+      }
+
+      try {
+        setMaterialStatus('엑셀 파일을 읽는 중...');
+        const buffer = await file.arrayBuffer();
+        const workbook = XLSX.read(buffer, { type: 'array' });
+        const sheet = findMaterialSheet(workbook);
+        if (!sheet) {
+          setMaterialStatus('품목코드/품목명 열이 있는 품목 시트를 찾지 못했습니다.', 'err');
+          return;
+        }
+
+        const nextMaterials = sheet.rows
+          .map(row => mapEcountItemRow(row, sheet.headerMap))
+          .filter(item => item.itemCode && item.itemName);
+
+        if (!nextMaterials.length) {
+          setMaterialStatus('가져올 품목 데이터가 없습니다.', 'err');
+          return;
+        }
+
+        const existingByCode = new Map(materials.map(item => [item.itemCode, item]));
+        materials = nextMaterials.map(item => {
+          const existing = existingByCode.get(item.itemCode);
+          return existing?.edited
+            ? { ...item, purchasePrice: existing.purchasePrice, salesPrice: existing.salesPrice, edited: true }
+            : item;
+        });
+        saveMaterials();
+        renderMaterialTable();
+        setMaterialStatus(`${sheet.name}에서 ${materials.length.toLocaleString('ko-KR')}개 품목을 가져왔습니다.`, 'ok');
+      } catch (error) {
+        console.error(error);
+        setMaterialStatus('엑셀 파일을 처리하지 못했습니다.', 'err');
+      }
+    }
+
+    function renderMaterialsView(detailView, current) {
+      detailView.innerHTML = `
+        <div class="detail-head">
+          <div>
+            <div class="detail-title">${current.title}</div>
+            <div class="material-note">Ecount 품목 엑셀을 내부 표준 단가 데이터로 변환합니다.</div>
+          </div>
+          <span class="status-pill">기초 운영</span>
+        </div>
+        <div class="materials-body">
+          <div class="material-toolbar">
+            <label class="upload-zone" id="materialUploadZone">
+              <input id="materialFileInput" type="file" accept=".xlsx,.xls" hidden>
+              <span class="upload-title">엑셀 업로드</span>
+              <span class="upload-sub">품목코드, 품목명 열이 있는 Ecount 품목 자료를 선택하세요.</span>
+            </label>
+            <div class="material-summary">
+              <div class="summary-card">
+                <div class="summary-label">Items</div>
+                <div class="summary-value" id="materialTotalCount">0</div>
+              </div>
+              <div class="summary-card">
+                <div class="summary-label">Priced</div>
+                <div class="summary-value" id="materialPricedCount">0</div>
+              </div>
+              <div class="summary-card">
+                <div class="summary-label">Edited</div>
+                <div class="summary-value" id="materialEditedCount">0</div>
+              </div>
+            </div>
+          </div>
+          <div class="material-actions">
+            <input class="material-search" id="materialSearch" type="search" placeholder="품목코드 / 품목명 / 규격 검색" value="${escapeHtml(materialSearch)}">
+            <div class="material-status" id="materialStatus"></div>
+          </div>
+          <div class="material-table-wrap">
+            <table class="material-table">
+              <thead>
+                <tr>
+                  <th>품목코드</th>
+                  <th>품목명</th>
+                  <th>규격</th>
+                  <th>단위</th>
+                  <th>현재단가</th>
+                  <th>입고단가</th>
+                  <th>출고단가</th>
+                </tr>
+              </thead>
+              <tbody id="materialTableBody"></tbody>
+            </table>
+            <div class="empty-state" id="materialEmpty">아직 가져온 품목 데이터가 없습니다.</div>
+          </div>
+        </div>
+      `;
+
+      bindMaterialEvents();
+      renderMaterialTable();
+      if (materials.length) setMaterialStatus('저장된 단가 데이터를 불러왔습니다.', 'ok');
+    }
 
     function render() {
       const current = pages.find(page => page.path === window.location.pathname);
@@ -378,6 +818,10 @@
       document.getElementById('pageDesc').textContent = current.desc;
       cardView.classList.add('auth-hidden');
       detailView.classList.remove('auth-hidden');
+      if (current.view === 'materials') {
+        renderMaterialsView(detailView, current);
+        return;
+      }
       detailView.innerHTML = `
         <div class="detail-head">
           <div class="detail-title">${current.title}</div>

@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>들메내식품 · 원가 관리</title>
+  <link rel="stylesheet" href="/dashboard/style.css">
+  <style>
+    .auth-hidden { display: none !important; }
+    .loading-screen {
+      position: fixed;
+      inset: 0;
+      background: #070b14;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 12px;
+      z-index: 999;
+    }
+    .loading-screen.hidden { display: none; }
+    .loading-spinner {
+      width: 36px;
+      height: 36px;
+      border: 3px solid rgba(255, 255, 255, .12);
+      border-top-color: #22d3ee;
+      border-radius: 50%;
+      animation: spin .8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .app-header {
+      background: rgba(255, 255, 255, 0.05);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(20px);
+      padding: 0 28px;
+      height: 52px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .header-left, .header-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .back-btn, .btn-logout-sm {
+      height: 30px;
+      padding: 0 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: transparent;
+      color: var(--t2);
+      font-family: 'Noto Sans KR', sans-serif;
+      font-size: 12px;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: background .15s, color .15s;
+    }
+    .back-btn:hover, .btn-logout-sm:hover {
+      background: rgba(255, 255, 255, .07);
+      color: var(--t0);
+    }
+    .app-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--t0);
+      font-size: 14px;
+      font-weight: 700;
+    }
+    .app-title .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #22d3ee;
+    }
+    .user-chip {
+      font-size: 11px;
+      color: var(--t2);
+      background: rgba(255, 255, 255, .05);
+      border: 1px solid var(--border);
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .page-main {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 28px 28px 64px;
+      position: relative;
+      z-index: 10;
+    }
+    .hero {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 18px;
+    }
+    .hero h1 {
+      font-size: 24px;
+      font-weight: 800;
+      color: var(--t0);
+      margin-bottom: 6px;
+    }
+    .hero p {
+      font-size: 12px;
+      color: var(--t2);
+      line-height: 1.6;
+    }
+    .cost-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+    .cost-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 22px;
+      min-height: 150px;
+      color: inherit;
+      text-decoration: none;
+      position: relative;
+      overflow: hidden;
+      transition: transform .15s, border-color .15s, box-shadow .15s;
+    }
+    .cost-card::before {
+      content: '';
+      position: absolute;
+      inset: 0 0 auto;
+      height: 3px;
+      background: linear-gradient(to right, #22d3ee, #6366f1);
+    }
+    .cost-card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(34, 211, 238, .3);
+      box-shadow: 0 8px 28px rgba(34, 211, 238, .12);
+    }
+    .card-kicker {
+      font-size: 11px;
+      color: var(--t2);
+      font-weight: 700;
+      letter-spacing: .7px;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+    .card-title {
+      font-size: 17px;
+      font-weight: 800;
+      color: var(--t0);
+      margin-bottom: 8px;
+    }
+    .card-desc {
+      font-size: 12px;
+      color: var(--t2);
+      line-height: 1.7;
+      margin-bottom: 18px;
+    }
+    .card-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-top: auto;
+    }
+    .status-pill {
+      font-size: 11px;
+      color: var(--nm);
+      background: var(--nm-bg);
+      border: 1px solid rgba(96, 165, 250, .25);
+      border-radius: 20px;
+      padding: 3px 9px;
+      font-weight: 700;
+    }
+    .arrow {
+      color: var(--t2);
+      transition: transform .15s, color .15s;
+    }
+    .cost-card:hover .arrow {
+      transform: translateX(3px);
+      color: #22d3ee;
+    }
+    .detail-panel {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      backdrop-filter: blur(20px);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .detail-head {
+      padding: 18px 22px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(255, 255, 255, .03);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .detail-title {
+      font-size: 15px;
+      font-weight: 800;
+      color: var(--t0);
+    }
+    .detail-body {
+      padding: 22px;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .placeholder-box {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--card-w);
+      padding: 16px;
+      min-height: 88px;
+    }
+    .placeholder-label {
+      font-size: 11px;
+      color: var(--t2);
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .placeholder-value {
+      font-size: 13px;
+      color: var(--t1);
+      line-height: 1.6;
+    }
+    @media (max-width: 760px) {
+      .app-header {
+        padding: 0 16px;
+      }
+      .page-main {
+        padding: 22px 16px 48px;
+      }
+      .hero {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+      .cost-grid, .detail-body {
+        grid-template-columns: 1fr;
+      }
+      .user-chip {
+        display: none;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="blobs"><div class="b1"></div><div class="b2"></div></div>
+
+  <div class="loading-screen" id="loadingScreen">
+    <div class="loading-spinner"></div>
+    <div style="font-size:12px;color:var(--t2);">인증 확인 중...</div>
+  </div>
+
+  <div id="mainContent" class="auth-hidden">
+    <header class="app-header">
+      <div class="header-left">
+        <a class="back-btn" href="/home">← 홈</a>
+        <div class="app-title"><span class="dot"></span><span id="navTitle">원가 관리</span></div>
+      </div>
+      <div class="header-right">
+        <div class="user-chip" id="userChip"></div>
+        <button class="btn-logout-sm" onclick="handleLogout()">로그아웃</button>
+      </div>
+    </header>
+
+    <main class="page-main">
+      <section class="hero">
+        <div>
+          <h1 id="pageTitle">원가 관리</h1>
+          <p id="pageDesc">BOM, 원부자재 단가, 원가표, 신제품 원가 계산 흐름을 관리합니다.</p>
+        </div>
+      </section>
+
+      <section id="cardView" class="cost-grid" aria-label="원가 관리 메뉴"></section>
+      <section id="detailView" class="detail-panel auth-hidden" aria-label="원가 관리 상세"></section>
+    </main>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+    import { getAuth, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+
+    const FIREBASE_CONFIG = {
+      apiKey: "AIzaSyAlvRWMpYV5Cq2vb0XxpA4t56KuByj8KuE",
+      authDomain: "dmnfood-erp.firebaseapp.com",
+      projectId: "dmnfood-erp",
+      storageBucket: "dmnfood-erp.firebasestorage.app",
+      messagingSenderId: "409700382543",
+      appId: "1:409700382543:web:35f38e8890702899f2cb58"
+    };
+
+    const pages = [
+      {
+        path: '/cost-bom',
+        kicker: 'BOM',
+        title: 'BOM 관리 및 조회',
+        desc: 'Ecount BOM 엑셀 구조 기준의 품목-소모품목 연결 조회 영역입니다.',
+        boxes: [
+          ['기준 구조', '생산품목코드, 생산품목명, 생산수량, 소모품목코드, 소모수량'],
+          ['Excel 연결', 'Ecount BOM 다운로드/업로드 양식 매핑 예정'],
+          ['상태', '조회 화면 준비 단계']
+        ]
+      },
+      {
+        path: '/cost-materials',
+        kicker: 'Materials',
+        title: '원/부자재 단가 관리',
+        desc: '원재료, 부자재, 포장재 단가를 원가 계산의 기준 데이터로 관리합니다.',
+        boxes: [
+          ['기준 데이터', '품목코드, 품목명, 단위, 입고단가, 출고단가'],
+          ['Excel 연결', '품목 자료올리기 양식 및 수기 원가표 단가 매핑 예정'],
+          ['상태', '단가 기준표 준비 단계']
+        ]
+      },
+      {
+        path: '/cost-sheets',
+        kicker: 'Sheets',
+        title: '원가표',
+        desc: '기존 제조원가계산 흐름을 품목별 원가표 화면으로 정리합니다.',
+        boxes: [
+          ['기준 구조', '제품별 구성품, 원재료비, 부자재비, 포장비, 합계'],
+          ['Excel 연결', '제조원가계산 workbook의 수식/가정 분리 예정'],
+          ['상태', '원가표 보기 준비 단계']
+        ]
+      },
+      {
+        path: '/new-product-cost-calculator',
+        kicker: 'Calculator',
+        title: '신제품 원가 계산기',
+        desc: '신규 세트 구성과 예상 단가를 조합해 사전 원가를 검토합니다.',
+        boxes: [
+          ['기준 구조', '세트분류, 세트명, 용량, 개수, 원산지, 구성품'],
+          ['Excel 연결', '원가표.xlsx 계산기/세트구성 데이터시트 확장 예정'],
+          ['상태', '입력 양식 준비 단계']
+        ]
+      }
+    ];
+
+    function render() {
+      const current = pages.find(page => page.path === window.location.pathname);
+      const cardView = document.getElementById('cardView');
+      const detailView = document.getElementById('detailView');
+
+      if (!current) {
+        document.getElementById('navTitle').textContent = '원가 관리';
+        document.getElementById('pageTitle').textContent = '원가 관리';
+        document.getElementById('pageDesc').textContent = 'BOM, 원부자재 단가, 원가표, 신제품 원가 계산 흐름을 관리합니다.';
+        detailView.classList.add('auth-hidden');
+        cardView.classList.remove('auth-hidden');
+        cardView.innerHTML = pages.map(page => `
+          <a class="cost-card" href="${page.path}">
+            <div class="card-kicker">${page.kicker}</div>
+            <div class="card-title">${page.title}</div>
+            <div class="card-desc">${page.desc}</div>
+            <div class="card-meta">
+              <span class="status-pill">준비 중</span>
+              <span class="arrow">→</span>
+            </div>
+          </a>
+        `).join('');
+        return;
+      }
+
+      document.getElementById('navTitle').textContent = current.title;
+      document.getElementById('pageTitle').textContent = current.title;
+      document.getElementById('pageDesc').textContent = current.desc;
+      cardView.classList.add('auth-hidden');
+      detailView.classList.remove('auth-hidden');
+      detailView.innerHTML = `
+        <div class="detail-head">
+          <div class="detail-title">${current.title}</div>
+          <span class="status-pill">준비 중</span>
+        </div>
+        <div class="detail-body">
+          ${current.boxes.map(([label, value]) => `
+            <div class="placeholder-box">
+              <div class="placeholder-label">${label}</div>
+              <div class="placeholder-value">${value}</div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    render();
+
+    const app = initializeApp(FIREBASE_CONFIG);
+    const auth = getAuth(app);
+
+    onAuthStateChanged(auth, user => {
+      if (!user) {
+        window.location.href = '/';
+        return;
+      }
+      document.getElementById('userChip').textContent = user.email.split('@')[0];
+      document.getElementById('loadingScreen').classList.add('hidden');
+      document.getElementById('mainContent').classList.remove('auth-hidden');
+    });
+
+    window.handleLogout = async () => {
+      if (!confirm('로그아웃 하시겠습니까?')) return;
+      await signOut(auth);
+      window.location.href = '/';
+    };
+  </script>
+</body>
+
+</html>

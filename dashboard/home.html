@@ -274,7 +274,7 @@
 
     .all-category-grid {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
       gap: 16px;
       align-items: start;
     }
@@ -508,6 +508,7 @@
           <button class="category-tab active" type="button" role="tab" aria-selected="true" data-category="office">일반 사무</button>
           <button class="category-tab" type="button" role="tab" aria-selected="false" data-category="finance">회계 재무</button>
           <button class="category-tab" type="button" role="tab" aria-selected="false" data-category="management">경영관리</button>
+          <button class="category-tab" type="button" role="tab" aria-selected="false" data-category="cost">원가 관리</button>
           <button class="category-tab" type="button" role="tab" aria-selected="false" data-category="all">전체</button>
         </div>
 
@@ -574,6 +575,24 @@
           </div>
         </div>
 
+        <div class="category-panel" id="category-cost" role="tabpanel">
+          <div class="section-header">
+            <span class="section-title">원가 관리</span>
+            <span class="section-count">1</span>
+          </div>
+          <div class="card-grid">
+            <a href="/cost-management" class="dashboard-card card-active">
+              <div class="card-icon">₩</div>
+              <div class="card-title">원가 관리</div>
+              <div class="card-desc">BOM, 원부자재 단가, 원가표, 신제품 원가 계산 흐름을 Excel 기반으로 준비합니다.</div>
+              <div class="card-meta">
+                <span class="badge badge-soon">준비 중</span>
+                <span class="card-arrow">→</span>
+              </div>
+            </a>
+          </div>
+        </div>
+
         <div class="category-panel" id="category-all" role="tabpanel">
           <div class="all-category-grid">
             <div class="all-category-column">
@@ -633,6 +652,24 @@
                   <div class="card-desc">업무 일정, 지연 항목, 긴급 업무, 알림을 로컬 저장소 기준으로 관리하고 후속 조치를 정리합니다.</div>
                   <div class="card-meta">
                     <span class="badge badge-live"><span class="badge-dot"></span> 운영 중</span>
+                    <span class="card-arrow">→</span>
+                  </div>
+                </a>
+              </div>
+            </div>
+
+            <div class="all-category-column">
+              <div class="section-header">
+                <span class="section-title">원가 관리</span>
+                <span class="section-count">1</span>
+              </div>
+              <div class="card-grid">
+                <a href="/cost-management" class="dashboard-card card-active">
+                  <div class="card-icon">₩</div>
+                  <div class="card-title">원가 관리</div>
+                  <div class="card-desc">BOM, 원부자재 단가, 원가표, 신제품 원가 계산 흐름을 Excel 기반으로 준비합니다.</div>
+                  <div class="card-meta">
+                    <span class="badge badge-soon">준비 중</span>
                     <span class="card-arrow">→</span>
                   </div>
                 </a>

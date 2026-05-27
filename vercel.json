@@ -23,6 +23,26 @@
         {
             "source": "/school-meal-weekly",
             "destination": "/dashboard/school-meal-weekly.html"
+        },
+        {
+            "source": "/cost-management",
+            "destination": "/dashboard/cost-management.html"
+        },
+        {
+            "source": "/cost-bom",
+            "destination": "/dashboard/cost-management.html"
+        },
+        {
+            "source": "/cost-materials",
+            "destination": "/dashboard/cost-management.html"
+        },
+        {
+            "source": "/cost-sheets",
+            "destination": "/dashboard/cost-management.html"
+        },
+        {
+            "source": "/new-product-cost-calculator",
+            "destination": "/dashboard/cost-management.html"
         }
     ],
     "headers": [

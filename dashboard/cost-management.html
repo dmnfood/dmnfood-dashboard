@@ -332,13 +332,32 @@
       color: var(--t0);
     }
     .summary-value.warn { color: var(--ac); }
-    .category-filters {
+    .hierarchy-panel {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--card-w);
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+    .hierarchy-row + .hierarchy-row {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border);
+    }
+    .hierarchy-label {
+      font-size: 10px;
+      color: var(--t2);
+      font-weight: 800;
+      letter-spacing: .6px;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    .hierarchy-chips {
       display: flex;
       gap: 6px;
       flex-wrap: wrap;
-      margin-bottom: 12px;
     }
-    .category-filter {
+    .hierarchy-chip {
       border: 1px solid var(--border);
       border-radius: 20px;
       background: rgba(255, 255, 255, .04);
@@ -351,109 +370,11 @@
       cursor: pointer;
       transition: background .15s, color .15s, border-color .15s;
     }
-    .category-filter:hover,
-    .category-filter.active {
+    .hierarchy-chip:hover,
+    .hierarchy-chip.active {
       background: rgba(34, 211, 238, .10);
       border-color: rgba(34, 211, 238, .28);
       color: var(--t0);
-    }
-    .material-card-groups {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 12px;
-      margin-bottom: 16px;
-    }
-    .material-card-groups.focused {
-      grid-template-columns: 1fr;
-    }
-    .material-group {
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      background: var(--card-w);
-      overflow: hidden;
-      min-width: 0;
-    }
-    .material-group-head {
-      padding: 12px 14px;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-      color: var(--t0);
-      font-size: 12px;
-      font-weight: 800;
-    }
-    .material-focus-summary {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 10px;
-      padding: 12px;
-      border-bottom: 1px solid var(--border);
-    }
-    .focus-stat {
-      border: 1px solid var(--tb-br);
-      border-radius: 9px;
-      background: rgba(255, 255, 255, .035);
-      padding: 10px;
-    }
-    .focus-stat-label {
-      color: var(--t2);
-      font-size: 10px;
-      font-weight: 800;
-      letter-spacing: .5px;
-      text-transform: uppercase;
-      margin-bottom: 6px;
-    }
-    .focus-stat-value {
-      color: var(--t0);
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 16px;
-      font-weight: 800;
-    }
-    .material-group-list {
-      padding: 10px;
-      display: grid;
-      gap: 8px;
-      max-height: 290px;
-      overflow: auto;
-    }
-    .material-card-groups.focused .material-group-list {
-      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-      max-height: none;
-    }
-    .material-mini-card {
-      border: 1px solid var(--tb-br);
-      border-radius: 9px;
-      background: rgba(255, 255, 255, .035);
-      padding: 10px;
-      min-width: 0;
-    }
-    .mini-title {
-      color: var(--t0);
-      font-size: 12px;
-      font-weight: 800;
-      margin-bottom: 5px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .mini-meta,
-    .mini-price {
-      color: var(--t2);
-      font-size: 10.5px;
-      line-height: 1.5;
-    }
-    .mini-price {
-      margin-top: 6px;
-      color: var(--t1);
-      font-family: 'JetBrains Mono', monospace;
-    }
-    .mini-empty {
-      padding: 18px 10px;
-      color: var(--t2);
-      font-size: 11px;
-      text-align: center;
     }
     .material-actions {
       display: flex;
@@ -477,6 +398,17 @@
     }
     .material-search::placeholder {
       color: var(--in-ph);
+    }
+    .material-sort {
+      height: 34px;
+      border: 1px solid var(--in-br);
+      border-radius: 8px;
+      background: var(--in-bg);
+      color: var(--t0);
+      padding: 0 10px;
+      font-family: 'Noto Sans KR', sans-serif;
+      font-size: 12px;
+      outline: none;
     }
     .material-note {
       font-size: 11px;
@@ -528,6 +460,36 @@
       color: var(--t0);
       white-space: nowrap;
     }
+    .type-pill,
+    .row-status {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      padding: 3px 8px;
+      font-size: 11px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+    .type-pill {
+      color: var(--t1);
+      background: rgba(255, 255, 255, .04);
+    }
+    .row-status.ok {
+      color: var(--zr);
+      background: var(--zr-bg);
+      border-color: rgba(74, 222, 128, .24);
+    }
+    .row-status.warn {
+      color: var(--ac);
+      background: rgba(251, 191, 36, .10);
+      border-color: rgba(251, 191, 36, .24);
+    }
+    .row-status.err {
+      color: var(--rv);
+      background: var(--rv-bg);
+      border-color: rgba(248, 113, 113, .24);
+    }
     .price-input {
       width: 112px;
       height: 30px;
@@ -562,7 +524,7 @@
         align-items: flex-start;
         flex-direction: column;
       }
-      .cost-grid, .detail-body, .material-toolbar, .material-summary, .material-card-groups {
+      .cost-grid, .detail-body, .material-toolbar, .material-summary {
         grid-template-columns: 1fr;
       }
       .user-chip {
@@ -670,14 +632,50 @@
     let materials = loadMaterials();
     let materialSearch = '';
     let materialCategory = 'all';
+    let materialSubcategory = 'all';
+    let materialSort = 'code';
 
     const materialCategories = {
+      all: { label: '전체', icon: '전체' },
       raw: { label: '원재료', icon: '🌾' },
       package: { label: '부자재/포장재', icon: '📦' },
       gift: { label: '세트제품', icon: '🎁' },
       product: { label: '반제품·제품', icon: '🏷️' },
       other: { label: '기타비용', icon: '🧾' },
       unknown: { label: '미분류', icon: '？' },
+    };
+
+    const subcategoryRules = {
+      raw: [
+        { key: 'D-SS', label: '참깨', prefixes: ['D-SS'] },
+        { key: 'D-PS', label: '들깨', prefixes: ['D-PS'] },
+        { key: 'D-S', label: '소금', prefixes: ['D-S-'] },
+      ],
+      package: [
+        { key: 'D-P-L', label: '라벨', prefixes: ['D-P-L'] },
+        { key: 'bottle', label: '병', prefixes: ['D-P-OGB', 'D-P-OPB', 'D-P-SSPB', 'D-P-SGB', 'D-P-SPB'] },
+        { key: 'cap', label: '뚜껑', prefixes: ['D-P-OGBC', 'D-P-OPBC', 'DP-SSPBC', 'D-P-SGBC', 'D-P-SPBC'] },
+        { key: 'D-P-B', label: '박스', prefixes: ['D-P-B'] },
+        { key: 'D-P-P', label: '패드', prefixes: ['D-P-P'] },
+        { key: 'box-bag', label: '카톤/개별박스/쇼핑백', prefixes: ['D-P-CB', 'D-P-IB', 'D-P-SB'] },
+      ],
+      gift: [
+        { key: 'D-GS-C', label: '행복가득', prefixes: ['D-GS-C'] },
+        { key: 'D-GS-I', label: '결들', prefixes: ['D-GS-I'] },
+        { key: 'D-GS-K', label: '들메내', prefixes: ['D-GS-K'] },
+      ],
+      product: [
+        { key: 'D-SO', label: '참기름', prefixes: ['D-SO'] },
+        { key: 'D-PO', label: '들기름', prefixes: ['D-PO'] },
+        { key: 'D-RSS', label: '볶음통깨', prefixes: ['D-RSS'] },
+        { key: 'D-RS', label: '소금제품', prefixes: ['D-RS'] },
+      ],
+      other: [
+        { key: 'D-OS', label: '기타비용', prefixes: ['D-OS'] },
+      ],
+      unknown: [
+        { key: 'unknown', label: '미분류', prefixes: [] },
+      ],
     };
 
     function toNumber(value) {
@@ -738,26 +736,88 @@
       return 'unknown';
     }
 
-    function getCodeFamily(item) {
+    function getSubcategory(item) {
       const code = String(item.itemCode || '').trim().toUpperCase();
-      if (code.startsWith('D-P-L')) return { label: '라벨', icon: '🏷️' };
-      if (code.startsWith('D-P-OGB') || code.startsWith('D-P-OPB') || code.startsWith('D-P-SSPB') || code.startsWith('D-P-SGB') || code.startsWith('D-P-SPB') || code.startsWith('DP-SSPB')) return { label: '병/용기', icon: '🫙' };
-      if (code.includes('BC') || code.endsWith('C01-000')) {
-        if (code.startsWith('D-P-OGBC') || code.startsWith('D-P-OPBC') || code.startsWith('D-P-SGBC') || code.startsWith('D-P-SPBC') || code.startsWith('DP-SSPBC')) return { label: '뚜껑/캡', icon: '⚙️' };
+      const category = classifyMaterial(item);
+      const rules = subcategoryRules[category] || [];
+      const match = rules.find(rule => rule.prefixes.some(prefix => code.startsWith(prefix)));
+      if (match) return match;
+
+      if (category === 'unknown') return subcategoryRules.unknown[0];
+      return { key: 'other', label: '기타', prefixes: [] };
+    }
+
+    function getItemStatus(item) {
+      if (classifyMaterial(item) === 'unknown') return { label: '미분류', className: 'err' };
+      if (toNumber(item.purchasePrice) <= 0) return { label: '단가 미입력', className: 'warn' };
+      return { label: '정상', className: 'ok' };
+    }
+
+    function matchesSubcategory(item) {
+      if (materialSubcategory === 'all') return true;
+      return getSubcategory(item).key === materialSubcategory;
+    }
+
+    function sortMaterials(list) {
+      const sorted = [...list];
+      sorted.sort((a, b) => {
+        if (materialSort === 'missing') {
+          const aMissing = toNumber(a.purchasePrice) <= 0 ? 0 : 1;
+          const bMissing = toNumber(b.purchasePrice) <= 0 ? 0 : 1;
+          if (aMissing !== bMissing) return aMissing - bMissing;
+        }
+        return String(a.itemCode).localeCompare(String(b.itemCode), 'ko-KR', { numeric: true });
+      });
+      return sorted;
+    }
+
+    function getSubcategoryOptions() {
+      if (materialCategory === 'all' || materialCategory === 'unpriced') return [];
+      const rules = subcategoryRules[materialCategory] || [];
+      return rules.map(rule => ({
+        ...rule,
+        count: materials.filter(item => classifyMaterial(item) === materialCategory && getSubcategory(item).key === rule.key).length,
+      })).filter(rule => rule.count > 0 || materialCategory !== 'unknown');
+    }
+
+    function renderHierarchySelectors() {
+      const majorHost = document.getElementById('majorCategoryChips');
+      const subHost = document.getElementById('subCategoryChips');
+      if (!majorHost || !subHost) return;
+
+      const stats = getMaterialStats();
+      const majorOptions = [
+        ['all', '전체', stats.all],
+        ['raw', '원재료', stats.raw],
+        ['package', '부자재/포장재', stats.package],
+        ['gift', '세트제품', stats.gift],
+        ['product', '반제품·제품', stats.product],
+        ['other', '기타비용', stats.other],
+        ['unknown', '미분류', stats.unknown],
+        ['unpriced', '단가 미입력', stats.unpriced],
+      ];
+
+      majorHost.innerHTML = majorOptions.map(([key, label, count]) => `
+        <button class="hierarchy-chip major-filter ${materialCategory === key ? 'active' : ''}" type="button" data-category="${key}">
+          ${label} ${Number(count).toLocaleString('ko-KR')}
+        </button>
+      `).join('');
+
+      const options = getSubcategoryOptions();
+      if (!options.length) {
+        subHost.innerHTML = '<span class="material-note">하위 분류 없음</span>';
+        return;
       }
-      if (code.startsWith('D-P-B')) return { label: '박스', icon: '📦' };
-      if (code.startsWith('D-P-P')) return { label: '패드', icon: '▣' };
-      if (code.startsWith('D-P-CB')) return { label: '카톤박스', icon: '📦' };
-      if (code.startsWith('D-P-IB')) return { label: '개별박스', icon: '▫' };
-      if (code.startsWith('D-P-SB')) return { label: '쇼핑백', icon: '🛍️' };
-      if (code.startsWith('D-SS')) return { label: '참깨', icon: '🌾' };
-      if (code.startsWith('D-PS')) return { label: '들깨', icon: '🌿' };
-      if (code.startsWith('D-S-')) return { label: '소금', icon: '🧂' };
-      if (code.startsWith('D-GS')) return { label: '세트', icon: '🎁' };
-      if (code.startsWith('D-SO') || code.startsWith('D-PO')) return { label: '기름', icon: '🛢️' };
-      if (code.startsWith('D-RSS') || code.startsWith('D-RS')) return { label: '볶음/소금 제품', icon: '🏷️' };
-      if (code.startsWith('D-OS')) return { label: '기타비용', icon: '🧾' };
-      return { label: '미분류', icon: '？' };
+
+      const total = options.reduce((sum, option) => sum + option.count, 0);
+      subHost.innerHTML = [
+        `<button class="hierarchy-chip sub-filter ${materialSubcategory === 'all' ? 'active' : ''}" type="button" data-subcategory="all">전체 ${total.toLocaleString('ko-KR')}</button>`,
+        ...options.map(option => `
+          <button class="hierarchy-chip sub-filter ${materialSubcategory === option.key ? 'active' : ''}" type="button" data-subcategory="${option.key}">
+            ${option.label} ${option.count.toLocaleString('ko-KR')}
+          </button>
+        `)
+      ].join('');
     }
 
     function getMaterialStats() {
@@ -857,97 +917,18 @@
 
     function getFilteredMaterials() {
       const term = materialSearch.trim().toLowerCase();
-      return materials.filter(item => {
+      const filtered = materials.filter(item => {
         const matchesCategory = materialCategory === 'all'
           || (materialCategory === 'unpriced' && toNumber(item.purchasePrice) <= 0)
           || classifyMaterial(item) === materialCategory;
+        const matchesSub = matchesSubcategory(item);
         const matchesTerm = !term
           || item.itemCode.toLowerCase().includes(term)
           || item.itemName.toLowerCase().includes(term)
           || item.spec.toLowerCase().includes(term);
-        return matchesCategory && matchesTerm;
+        return matchesCategory && matchesSub && matchesTerm;
       });
-    }
-
-    function renderMaterialCards(filtered) {
-      const host = document.getElementById('materialCardGroups');
-      if (!host) return;
-
-      if (materialCategory !== 'all') {
-        const meta = materialCategory === 'unpriced'
-          ? { label: '단가 미입력', icon: '⚠️' }
-          : materialCategories[materialCategory];
-        const average = filtered.length
-          ? Math.round(filtered.reduce((sum, item) => sum + toNumber(item.purchasePrice), 0) / filtered.length)
-          : 0;
-        const missing = filtered.filter(item => toNumber(item.purchasePrice) <= 0).length;
-        const families = new Map();
-        filtered.forEach(item => {
-          const family = getCodeFamily(item);
-          const key = family.label;
-          if (!families.has(key)) families.set(key, { ...family, items: [] });
-          families.get(key).items.push(item);
-        });
-
-        host.classList.add('focused');
-        host.innerHTML = `
-          <div class="material-group">
-            <div class="material-group-head">
-              <span>${meta.icon} ${meta.label}</span>
-              <span>${filtered.length.toLocaleString('ko-KR')}</span>
-            </div>
-            <div class="material-focus-summary">
-              <div class="focus-stat">
-                <div class="focus-stat-label">Items</div>
-                <div class="focus-stat-value">${filtered.length.toLocaleString('ko-KR')}</div>
-              </div>
-              <div class="focus-stat">
-                <div class="focus-stat-label">Missing</div>
-                <div class="focus-stat-value">${missing.toLocaleString('ko-KR')}</div>
-              </div>
-              <div class="focus-stat">
-                <div class="focus-stat-label">Avg Price</div>
-                <div class="focus-stat-value">${formatPrice(average)}</div>
-              </div>
-            </div>
-            <div class="material-group-list">
-              ${filtered.length ? Array.from(families.values()).map(family => family.items.slice(0, 12).map(item => `
-                <div class="material-mini-card">
-                  <div class="mini-title">${family.icon} ${escapeHtml(item.itemName)}</div>
-                  <div class="mini-meta">${escapeHtml(item.itemCode)} · ${escapeHtml(family.label)} · ${escapeHtml(item.unit || '-')}</div>
-                  <div class="mini-price">입고 ${formatPrice(item.purchasePrice)} / 출고 ${formatPrice(item.salesPrice)}</div>
-                </div>
-              `).join('')).join('') : '<div class="mini-empty">표시할 품목이 없습니다.</div>'}
-            </div>
-          </div>
-        `;
-        return;
-      }
-
-      const groupKeys = ['raw', 'package', 'gift', 'product', 'other', 'unknown']
-        .filter(key => filtered.some(item => classifyMaterial(item) === key));
-      host.classList.remove('focused');
-      host.innerHTML = groupKeys.map(key => {
-        const group = filtered.filter(item => classifyMaterial(item) === key).slice(0, 6);
-        const meta = materialCategories[key];
-        return `
-          <div class="material-group">
-            <div class="material-group-head">
-              <span>${meta.icon} ${meta.label}</span>
-              <span>${group.length.toLocaleString('ko-KR')}</span>
-            </div>
-            <div class="material-group-list">
-              ${group.length ? group.map(item => `
-                <div class="material-mini-card">
-                  <div class="mini-title">${escapeHtml(item.itemName)}</div>
-                  <div class="mini-meta">${escapeHtml(item.spec || '-')} · ${escapeHtml(item.unit || '-')}</div>
-                  <div class="mini-price">입고 ${formatPrice(item.purchasePrice)} / 출고 ${formatPrice(item.salesPrice)}</div>
-                </div>
-              `).join('') : '<div class="mini-empty">표시할 품목이 없습니다.</div>'}
-            </div>
-          </div>
-        `;
-      }).join('');
+      return sortMaterials(filtered);
     }
 
     function renderMaterialTable() {
@@ -975,14 +956,14 @@
       if (unpricedEl) unpricedEl.textContent = stats.unpriced.toLocaleString('ko-KR');
 
       empty.style.display = filtered.length ? 'none' : 'block';
-      renderMaterialCards(filtered);
+      renderHierarchySelectors();
       tableBody.innerHTML = filtered.map(item => `
         <tr>
           <td class="code">${escapeHtml(item.itemCode)}</td>
           <td>${escapeHtml(item.itemName)}</td>
           <td>${escapeHtml(item.spec || '-')}</td>
           <td>${escapeHtml(item.unit || '-')}</td>
-          <td>${formatPrice(item.purchasePrice)}</td>
+          <td><span class="type-pill">${escapeHtml(materialCategories[classifyMaterial(item)]?.label || '미분류')} / ${escapeHtml(getSubcategory(item).label)}</span></td>
           <td>
             <input class="price-input" type="number" min="0" step="1" value="${toNumber(item.purchasePrice)}"
               data-code="${escapeHtml(item.itemCode)}" data-field="purchasePrice" aria-label="${escapeHtml(item.itemName)} 입고단가">
@@ -991,6 +972,7 @@
             <input class="price-input" type="number" min="0" step="1" value="${toNumber(item.salesPrice)}"
               data-code="${escapeHtml(item.itemCode)}" data-field="salesPrice" aria-label="${escapeHtml(item.itemName)} 출고단가">
           </td>
+          <td><span class="row-status ${getItemStatus(item).className}">${getItemStatus(item).label}</span></td>
         </tr>
       `).join('');
     }
@@ -999,8 +981,9 @@
       const fileInput = document.getElementById('materialFileInput');
       const uploadZone = document.getElementById('materialUploadZone');
       const searchInput = document.getElementById('materialSearch');
+      const sortSelect = document.getElementById('materialSort');
       const tableBody = document.getElementById('materialTableBody');
-      const filterButtons = document.querySelectorAll('.category-filter');
+      const hierarchyPanel = document.getElementById('materialHierarchy');
 
       uploadZone?.addEventListener('click', event => {
         if (event.target === fileInput) return;
@@ -1034,12 +1017,24 @@
         renderMaterialTable();
       });
 
-      filterButtons.forEach(button => {
-        button.addEventListener('click', () => {
-          materialCategory = button.dataset.category;
-          filterButtons.forEach(btn => btn.classList.toggle('active', btn === button));
+      sortSelect?.addEventListener('change', event => {
+        materialSort = event.target.value;
+        renderMaterialTable();
+      });
+
+      hierarchyPanel?.addEventListener('click', event => {
+        const majorButton = event.target.closest('.major-filter');
+        const subButton = event.target.closest('.sub-filter');
+        if (majorButton) {
+          materialCategory = majorButton.dataset.category;
+          materialSubcategory = 'all';
           renderMaterialTable();
-        });
+          return;
+        }
+        if (subButton) {
+          materialSubcategory = subButton.dataset.subcategory;
+          renderMaterialTable();
+        }
       });
 
       tableBody?.addEventListener('change', event => {
@@ -1168,19 +1163,22 @@
               </div>
             </div>
           </section>
-          <div class="category-filters" aria-label="품목 분류 필터">
-            <button class="category-filter active" type="button" data-category="all">전체</button>
-            <button class="category-filter" type="button" data-category="raw">원재료</button>
-            <button class="category-filter" type="button" data-category="package">부자재/포장재</button>
-            <button class="category-filter" type="button" data-category="gift">세트제품</button>
-            <button class="category-filter" type="button" data-category="product">반제품·제품</button>
-            <button class="category-filter" type="button" data-category="other">기타비용</button>
-            <button class="category-filter" type="button" data-category="unknown">미분류</button>
-            <button class="category-filter" type="button" data-category="unpriced">단가 미입력</button>
+          <div class="hierarchy-panel" id="materialHierarchy" aria-label="품목 분류 선택">
+            <div class="hierarchy-row">
+              <div class="hierarchy-label">Level 1</div>
+              <div class="hierarchy-chips" id="majorCategoryChips"></div>
+            </div>
+            <div class="hierarchy-row">
+              <div class="hierarchy-label">Level 2</div>
+              <div class="hierarchy-chips" id="subCategoryChips"></div>
+            </div>
           </div>
-          <div class="material-card-groups" id="materialCardGroups"></div>
           <div class="material-actions">
             <input class="material-search" id="materialSearch" type="search" placeholder="품목코드 / 품목명 / 규격 검색" value="${escapeHtml(materialSearch)}">
+            <select class="material-sort" id="materialSort" aria-label="정렬">
+              <option value="code" ${materialSort === 'code' ? 'selected' : ''}>코드순</option>
+              <option value="missing" ${materialSort === 'missing' ? 'selected' : ''}>단가 미입력 우선</option>
+            </select>
             <div class="material-status" id="materialStatus"></div>
           </div>
           <div class="material-table-wrap">
@@ -1191,9 +1189,10 @@
                   <th>품목명</th>
                   <th>규격</th>
                   <th>단위</th>
-                  <th>현재단가</th>
+                  <th>분류</th>
                   <th>입고단가</th>
                   <th>출고단가</th>
+                  <th>상태</th>
                 </tr>
               </thead>
               <tbody id="materialTableBody"></tbody>

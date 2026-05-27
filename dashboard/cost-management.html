@@ -363,6 +363,9 @@
       gap: 12px;
       margin-bottom: 16px;
     }
+    .material-card-groups.focused {
+      grid-template-columns: 1fr;
+    }
     .material-group {
       border: 1px solid var(--border);
       border-radius: 12px;
@@ -381,12 +384,43 @@
       font-size: 12px;
       font-weight: 800;
     }
+    .material-focus-summary {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      padding: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .focus-stat {
+      border: 1px solid var(--tb-br);
+      border-radius: 9px;
+      background: rgba(255, 255, 255, .035);
+      padding: 10px;
+    }
+    .focus-stat-label {
+      color: var(--t2);
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: .5px;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+    .focus-stat-value {
+      color: var(--t0);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 16px;
+      font-weight: 800;
+    }
     .material-group-list {
       padding: 10px;
       display: grid;
       gap: 8px;
       max-height: 290px;
       overflow: auto;
+    }
+    .material-card-groups.focused .material-group-list {
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      max-height: none;
     }
     .material-mini-card {
       border: 1px solid var(--tb-br);
@@ -640,7 +674,10 @@
     const materialCategories = {
       raw: { label: '원재료', icon: '🌾' },
       package: { label: '부자재/포장재', icon: '📦' },
-      finished: { label: '완제품', icon: '🏷️' },
+      gift: { label: '세트제품', icon: '🎁' },
+      product: { label: '반제품·제품', icon: '🏷️' },
+      other: { label: '기타비용', icon: '🧾' },
+      unknown: { label: '미분류', icon: '？' },
     };
 
     function toNumber(value) {
@@ -666,20 +703,61 @@
     }
 
     function classifyMaterial(item) {
+      const code = String(item.itemCode || '').trim().toUpperCase();
       const name = `${item.itemName || ''} ${item.spec || ''}`.toLowerCase();
-      const itemType = String(item.itemType || '').trim();
       const hasAny = keywords => keywords.some(keyword => name.includes(keyword));
+
+      if (code.startsWith('D-SS') || code.startsWith('D-PS') || code.startsWith('D-S-')) {
+        return 'raw';
+      }
+      if (code.startsWith('D-P-') || code.startsWith('DP-')) {
+        return 'package';
+      }
+      if (code.startsWith('D-GS')) {
+        return 'gift';
+      }
+      if (code.startsWith('D-SO') || code.startsWith('D-PO') || code.startsWith('D-RSS') || code.startsWith('D-RS')) {
+        return 'product';
+      }
+      if (code.startsWith('D-OS')) {
+        return 'other';
+      }
 
       if (hasAny(['병', '뚜껑', '캡', '라벨', '박스', '상자', '스티커', '포장', '봉투', '쇼핑백', '패드', '로프'])) {
         return 'package';
       }
-      if (itemType === '1' || hasAny(['세트', '제품', '참기름', '들기름'])) {
-        return 'finished';
+      if (hasAny(['세트'])) {
+        return 'gift';
+      }
+      if (hasAny(['참기름', '들기름', '볶음통깨', '제품'])) {
+        return 'product';
       }
       if (hasAny(['참깨', '들깨', '깨분', '통깨', '깨', '원재료', '소금'])) {
         return 'raw';
       }
-      return 'raw';
+      return 'unknown';
+    }
+
+    function getCodeFamily(item) {
+      const code = String(item.itemCode || '').trim().toUpperCase();
+      if (code.startsWith('D-P-L')) return { label: '라벨', icon: '🏷️' };
+      if (code.startsWith('D-P-OGB') || code.startsWith('D-P-OPB') || code.startsWith('D-P-SSPB') || code.startsWith('D-P-SGB') || code.startsWith('D-P-SPB') || code.startsWith('DP-SSPB')) return { label: '병/용기', icon: '🫙' };
+      if (code.includes('BC') || code.endsWith('C01-000')) {
+        if (code.startsWith('D-P-OGBC') || code.startsWith('D-P-OPBC') || code.startsWith('D-P-SGBC') || code.startsWith('D-P-SPBC') || code.startsWith('DP-SSPBC')) return { label: '뚜껑/캡', icon: '⚙️' };
+      }
+      if (code.startsWith('D-P-B')) return { label: '박스', icon: '📦' };
+      if (code.startsWith('D-P-P')) return { label: '패드', icon: '▣' };
+      if (code.startsWith('D-P-CB')) return { label: '카톤박스', icon: '📦' };
+      if (code.startsWith('D-P-IB')) return { label: '개별박스', icon: '▫' };
+      if (code.startsWith('D-P-SB')) return { label: '쇼핑백', icon: '🛍️' };
+      if (code.startsWith('D-SS')) return { label: '참깨', icon: '🌾' };
+      if (code.startsWith('D-PS')) return { label: '들깨', icon: '🌿' };
+      if (code.startsWith('D-S-')) return { label: '소금', icon: '🧂' };
+      if (code.startsWith('D-GS')) return { label: '세트', icon: '🎁' };
+      if (code.startsWith('D-SO') || code.startsWith('D-PO')) return { label: '기름', icon: '🛢️' };
+      if (code.startsWith('D-RSS') || code.startsWith('D-RS')) return { label: '볶음/소금 제품', icon: '🏷️' };
+      if (code.startsWith('D-OS')) return { label: '기타비용', icon: '🧾' };
+      return { label: '미분류', icon: '？' };
     }
 
     function getMaterialStats() {
@@ -687,7 +765,10 @@
         all: materials.length,
         raw: 0,
         package: 0,
-        finished: 0,
+        gift: 0,
+        product: 0,
+        other: 0,
+        unknown: 0,
         unpriced: 0,
       };
 
@@ -792,9 +873,62 @@
       const host = document.getElementById('materialCardGroups');
       if (!host) return;
 
-      const groupKeys = ['raw', 'package', 'finished'];
+      if (materialCategory !== 'all') {
+        const meta = materialCategory === 'unpriced'
+          ? { label: '단가 미입력', icon: '⚠️' }
+          : materialCategories[materialCategory];
+        const average = filtered.length
+          ? Math.round(filtered.reduce((sum, item) => sum + toNumber(item.purchasePrice), 0) / filtered.length)
+          : 0;
+        const missing = filtered.filter(item => toNumber(item.purchasePrice) <= 0).length;
+        const families = new Map();
+        filtered.forEach(item => {
+          const family = getCodeFamily(item);
+          const key = family.label;
+          if (!families.has(key)) families.set(key, { ...family, items: [] });
+          families.get(key).items.push(item);
+        });
+
+        host.classList.add('focused');
+        host.innerHTML = `
+          <div class="material-group">
+            <div class="material-group-head">
+              <span>${meta.icon} ${meta.label}</span>
+              <span>${filtered.length.toLocaleString('ko-KR')}</span>
+            </div>
+            <div class="material-focus-summary">
+              <div class="focus-stat">
+                <div class="focus-stat-label">Items</div>
+                <div class="focus-stat-value">${filtered.length.toLocaleString('ko-KR')}</div>
+              </div>
+              <div class="focus-stat">
+                <div class="focus-stat-label">Missing</div>
+                <div class="focus-stat-value">${missing.toLocaleString('ko-KR')}</div>
+              </div>
+              <div class="focus-stat">
+                <div class="focus-stat-label">Avg Price</div>
+                <div class="focus-stat-value">${formatPrice(average)}</div>
+              </div>
+            </div>
+            <div class="material-group-list">
+              ${filtered.length ? Array.from(families.values()).map(family => family.items.slice(0, 12).map(item => `
+                <div class="material-mini-card">
+                  <div class="mini-title">${family.icon} ${escapeHtml(item.itemName)}</div>
+                  <div class="mini-meta">${escapeHtml(item.itemCode)} · ${escapeHtml(family.label)} · ${escapeHtml(item.unit || '-')}</div>
+                  <div class="mini-price">입고 ${formatPrice(item.purchasePrice)} / 출고 ${formatPrice(item.salesPrice)}</div>
+                </div>
+              `).join('')).join('') : '<div class="mini-empty">표시할 품목이 없습니다.</div>'}
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      const groupKeys = ['raw', 'package', 'gift', 'product', 'other', 'unknown']
+        .filter(key => filtered.some(item => classifyMaterial(item) === key));
+      host.classList.remove('focused');
       host.innerHTML = groupKeys.map(key => {
-        const group = filtered.filter(item => classifyMaterial(item) === key).slice(0, 8);
+        const group = filtered.filter(item => classifyMaterial(item) === key).slice(0, 6);
         const meta = materialCategories[key];
         return `
           <div class="material-group">
@@ -822,7 +956,10 @@
       const totalEl = document.getElementById('materialTotalCount');
       const rawEl = document.getElementById('materialRawCount');
       const packageEl = document.getElementById('materialPackageCount');
-      const finishedEl = document.getElementById('materialFinishedCount');
+      const giftEl = document.getElementById('materialGiftCount');
+      const productEl = document.getElementById('materialProductCount');
+      const otherEl = document.getElementById('materialOtherCount');
+      const unknownEl = document.getElementById('materialUnknownCount');
       const unpricedEl = document.getElementById('materialUnpricedCount');
       if (!tableBody || !empty) return;
 
@@ -831,7 +968,10 @@
       if (totalEl) totalEl.textContent = stats.all.toLocaleString('ko-KR');
       if (rawEl) rawEl.textContent = stats.raw.toLocaleString('ko-KR');
       if (packageEl) packageEl.textContent = stats.package.toLocaleString('ko-KR');
-      if (finishedEl) finishedEl.textContent = stats.finished.toLocaleString('ko-KR');
+      if (giftEl) giftEl.textContent = stats.gift.toLocaleString('ko-KR');
+      if (productEl) productEl.textContent = stats.product.toLocaleString('ko-KR');
+      if (otherEl) otherEl.textContent = stats.other.toLocaleString('ko-KR');
+      if (unknownEl) unknownEl.textContent = stats.unknown.toLocaleString('ko-KR');
       if (unpricedEl) unpricedEl.textContent = stats.unpriced.toLocaleString('ko-KR');
 
       empty.style.display = filtered.length ? 'none' : 'block';
@@ -1006,8 +1146,20 @@
                   <div class="summary-value" id="materialPackageCount">0</div>
                 </div>
                 <div class="summary-card">
-                  <div class="summary-label">완제품</div>
-                  <div class="summary-value" id="materialFinishedCount">0</div>
+                  <div class="summary-label">세트제품</div>
+                  <div class="summary-value" id="materialGiftCount">0</div>
+                </div>
+                <div class="summary-card">
+                  <div class="summary-label">반제품·제품</div>
+                  <div class="summary-value" id="materialProductCount">0</div>
+                </div>
+                <div class="summary-card">
+                  <div class="summary-label">기타비용</div>
+                  <div class="summary-value" id="materialOtherCount">0</div>
+                </div>
+                <div class="summary-card">
+                  <div class="summary-label">미분류</div>
+                  <div class="summary-value warn" id="materialUnknownCount">0</div>
                 </div>
                 <div class="summary-card">
                   <div class="summary-label">단가 미입력</div>
@@ -1020,7 +1172,10 @@
             <button class="category-filter active" type="button" data-category="all">전체</button>
             <button class="category-filter" type="button" data-category="raw">원재료</button>
             <button class="category-filter" type="button" data-category="package">부자재/포장재</button>
-            <button class="category-filter" type="button" data-category="finished">완제품</button>
+            <button class="category-filter" type="button" data-category="gift">세트제품</button>
+            <button class="category-filter" type="button" data-category="product">반제품·제품</button>
+            <button class="category-filter" type="button" data-category="other">기타비용</button>
+            <button class="category-filter" type="button" data-category="unknown">미분류</button>
             <button class="category-filter" type="button" data-category="unpriced">단가 미입력</button>
           </div>
           <div class="material-card-groups" id="materialCardGroups"></div>

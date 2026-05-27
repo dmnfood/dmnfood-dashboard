@@ -161,6 +161,83 @@
       color: var(--t2);
     }
 
+    .admin-test-panel {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin-bottom: 22px;
+    }
+
+    .admin-test-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--t0);
+      margin-bottom: 2px;
+    }
+
+    .admin-test-sub {
+      font-size: 11px;
+      color: var(--t2);
+    }
+
+    .admin-test-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .btn-ecount-test {
+      height: 32px;
+      padding: 0 14px;
+      border: 1px solid rgba(34, 211, 238, .28);
+      border-radius: 8px;
+      background: rgba(34, 211, 238, .13);
+      color: #22d3ee;
+      font-family: 'Noto Sans KR', sans-serif;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .btn-ecount-test:disabled {
+      opacity: .55;
+      cursor: not-allowed;
+    }
+
+    .ecount-test-status {
+      min-width: 74px;
+      font-size: 11px;
+      color: var(--t2);
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    .ecount-test-status.ok {
+      color: var(--zr);
+    }
+
+    .ecount-test-status.err {
+      color: var(--rv);
+    }
+
+    @media (max-width: 720px) {
+      .admin-test-panel {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .admin-test-actions {
+        justify-content: flex-start;
+      }
+    }
+
     .section {
       margin-bottom: 40px;
     }
@@ -467,6 +544,17 @@
         <p>들메내식품 내부 대시보드입니다. 원하는 메뉴를 선택하세요.</p>
       </div>
 
+      <div class="admin-test-panel">
+        <div>
+          <div class="admin-test-title">Ecount API 연결</div>
+          <div class="admin-test-sub">서버 환경 변수로 Zone/Login 연결만 확인합니다.</div>
+        </div>
+        <div class="admin-test-actions">
+          <button class="btn-ecount-test" type="button" id="ecountTestBtn">Ecount 연결 테스트</button>
+          <span class="ecount-test-status" id="ecountTestStatus">대기</span>
+        </div>
+      </div>
+
       <div class="section">
         <div class="category-tabs" role="tablist" aria-label="대시보드 분류">
           <button class="category-tab active" type="button" role="tab" aria-selected="true" data-category="office">일반 사무</button>
@@ -657,6 +745,35 @@
           panel.classList.toggle('active', panel.id === `category-${category}`);
         });
       });
+    });
+
+    const ecountTestBtn = document.getElementById('ecountTestBtn');
+    const ecountTestStatus = document.getElementById('ecountTestStatus');
+    ecountTestBtn?.addEventListener('click', async () => {
+      ecountTestBtn.disabled = true;
+      ecountTestStatus.className = 'ecount-test-status';
+      ecountTestStatus.textContent = '연결 중';
+
+      try {
+        const res = await fetch('/api/ecount/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: '{}',
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.ok && data.hasSession) {
+          ecountTestStatus.className = 'ecount-test-status ok';
+          ecountTestStatus.textContent = '연결 성공';
+        } else {
+          ecountTestStatus.className = 'ecount-test-status err';
+          ecountTestStatus.textContent = data.message || '연결 실패';
+        }
+      } catch (error) {
+        ecountTestStatus.className = 'ecount-test-status err';
+        ecountTestStatus.textContent = '연결 실패';
+      } finally {
+        ecountTestBtn.disabled = false;
+      }
     });
 
     window.handleLogout = async () => {

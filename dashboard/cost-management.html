@@ -601,6 +601,45 @@
       font-size: 10px;
       font-weight: 800;
     }
+    .classification-table-wrap {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: auto;
+      max-height: 560px;
+      background: rgba(255, 255, 255, .02);
+    }
+    .classification-table {
+      width: 100%;
+      min-width: 900px;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    .classification-table th,
+    .classification-table td {
+      border-bottom: 1px solid var(--tb-br);
+      padding: 9px 10px;
+      text-align: left;
+      vertical-align: middle;
+      color: var(--t1);
+    }
+    .classification-table th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: rgba(12, 18, 32, .98);
+      color: var(--t2);
+      font-size: 11px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+    .classification-table td.code {
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--t0);
+      white-space: nowrap;
+    }
+    .classification-table .level3-select {
+      max-width: 220px;
+    }
     .empty-state {
       padding: 34px 20px;
       text-align: center;
@@ -895,6 +934,13 @@
       happy: '중국산/행복가득',
       gyeoldeul: '수입산/결들',
       deulmena: '국산/들메내',
+      glassBottle: '유리병',
+      cap: '뚜껑',
+      petBottle: '페트병',
+      zipperBag: '지퍼백',
+      happyBrand: '행복가득',
+      gyeoldeulBrand: '결들',
+      deulmenaBrand: '들메내',
       other: '기타',
       unknown: '미분류',
     };
@@ -1033,6 +1079,38 @@
       if (category === 'other') return { key: 'other', label: detailLabels.other };
 
       if (category === 'package') {
+        const subKey = getSubcategory(item).key;
+        const has = (...patterns) => patterns.some(pattern => code.includes(pattern) || text.includes(pattern.toLowerCase()));
+
+        if (subKey === 'D-P-L') {
+          if (code.includes('-C') || text.includes('중국산')) return { key: 'china', label: detailLabels.china };
+          if (code.includes('-K') || text.includes('국산')) return { key: 'domestic', label: detailLabels.domestic };
+          if (code.includes('-I') || text.includes('수입산')) return { key: 'imported', label: detailLabels.imported };
+          return { key: 'other', label: detailLabels.other };
+        }
+
+        if (subKey === 'bottle' || subKey === 'cap') {
+          if (has('OGBC', 'OPBC', 'SSPBC', 'SGBC', 'SPBC', '뚜껑', '캡')) return { key: 'cap', label: detailLabels.cap };
+          if (has('OGB', 'SGB', '유리병')) return { key: 'glassBottle', label: detailLabels.glassBottle };
+          if (has('OPB', 'SSPB', 'SPB', '페트병', 'PET')) return { key: 'petBottle', label: detailLabels.petBottle };
+          if (has('지퍼백')) return { key: 'zipperBag', label: detailLabels.zipperBag };
+          return { key: 'other', label: detailLabels.other };
+        }
+
+        if (subKey === 'D-P-P') {
+          if (has('PD', '들메내')) return { key: 'deulmenaBrand', label: detailLabels.deulmenaBrand };
+          if (has('PH', '행복가득')) return { key: 'happyBrand', label: detailLabels.happyBrand };
+          if (has('PG', '결들')) return { key: 'gyeoldeulBrand', label: detailLabels.gyeoldeulBrand };
+          return { key: 'other', label: detailLabels.other };
+        }
+
+        if (subKey === 'D-P-B' || subKey === 'box-bag') {
+          if (has('BD', 'CBD', 'IBD', 'SBD', '들메내')) return { key: 'deulmenaBrand', label: detailLabels.deulmenaBrand };
+          if (has('BH', 'CBH', 'IBH', '행복가득')) return { key: 'happyBrand', label: detailLabels.happyBrand };
+          if (has('BG', 'CBG', 'IBG', '결들')) return { key: 'gyeoldeulBrand', label: detailLabels.gyeoldeulBrand };
+          return { key: 'other', label: detailLabels.other };
+        }
+
         return { key: 'other', label: detailLabels.other };
       }
 
@@ -1063,11 +1141,22 @@
 
     function getAllowedDetailOptions(item) {
       const category = classifyMaterial(item);
+      const subKey = getSubcategory(item).key;
+      if (category === 'package') {
+        if (subKey === 'D-P-L') {
+          return ['china', 'domestic', 'imported', 'other'].map(key => ({ key, label: detailLabels[key] || key }));
+        }
+        if (subKey === 'bottle' || subKey === 'cap') {
+          return ['glassBottle', 'cap', 'petBottle', 'zipperBag', 'other'].map(key => ({ key, label: detailLabels[key] || key }));
+        }
+        if (subKey === 'D-P-P' || subKey === 'D-P-B' || subKey === 'box-bag') {
+          return ['deulmenaBrand', 'happyBrand', 'gyeoldeulBrand', 'other'].map(key => ({ key, label: detailLabels[key] || key }));
+        }
+      }
       const optionsByCategory = {
         raw: ['china', 'domestic', 'imported', 'other'],
         product: ['china', 'domestic', 'imported', 'other'],
         gift: ['happy', 'gyeoldeul', 'deulmena', 'other'],
-        package: ['other'],
         other: ['other'],
         unknown: ['unknown'],
       };
@@ -1342,26 +1431,14 @@
       const subcategory = getSubcategory(item).label;
       const detail = getDetailCategory(item);
       const status = getItemStatus(item);
-      const override = getLevel3Override(item);
-      const level3Options = getAllowedDetailOptions(item);
-      const level3Control = `
-        <div class="level3-control">
-          <select class="level3-select" data-code="${escapeHtml(item.itemCode)}" aria-label="${escapeHtml(item.itemName)} Level 3 수동 분류">
-            <option value="">자동: ${escapeHtml(getAutoDetailCategory(item).label)}</option>
-            ${level3Options.map(option => `
-              <option value="${option.key}" ${override === option.key ? 'selected' : ''}>${escapeHtml(option.label)}</option>
-            `).join('')}
-          </select>
-          ${detail.overridden ? '<span class="override-badge">수동</span>' : ''}
-        </div>
-      `;
+      const overrideBadge = detail.overridden ? '<span class="override-badge">수동</span>' : '';
       const cells = {
         itemCode: `<td class="code">${escapeHtml(item.itemCode)}</td>`,
         itemName: `<td>${escapeHtml(item.itemName)}</td>`,
         itemType: `<td>${escapeHtml(item.itemType || '-')}</td>`,
         spec: `<td>${escapeHtml(item.spec || '-')}</td>`,
         itemGroupName: `<td>${escapeHtml(item.itemGroupName || '-')}</td>`,
-        category: `<td><span class="type-pill">${escapeHtml(categoryLabel)} / ${escapeHtml(subcategory)} / ${escapeHtml(detail.label)}</span>${level3Control}</td>`,
+        category: `<td><span class="type-pill">${escapeHtml(categoryLabel)} / ${escapeHtml(subcategory)} / ${escapeHtml(detail.label)}</span> ${overrideBadge}</td>`,
         purchasePrice: `<td>
           <input class="price-input" type="number" min="0" step="1" value="${toNumber(item.purchasePrice)}"
             data-code="${escapeHtml(item.itemCode)}" data-field="purchasePrice" aria-label="${escapeHtml(item.itemName)} 입고단가">
@@ -1472,6 +1549,77 @@
       document.getElementById('hierarchyModal')?.classList.add('auth-hidden');
     }
 
+    function getClassificationModalItems() {
+      return getFilteredMaterials();
+    }
+
+    function renderClassificationManagementRows() {
+      const body = document.getElementById('classificationModalBody');
+      if (!body) return;
+      const items = getClassificationModalItems();
+      if (!items.length) {
+        body.innerHTML = '<div class="empty-state">현재 필터에 해당하는 품목이 없습니다.</div>';
+        return;
+      }
+      body.innerHTML = `
+        <div class="classification-table-wrap">
+          <table class="classification-table">
+            <thead>
+              <tr>
+                <th>품목코드</th>
+                <th>품목명</th>
+                <th>Level 1</th>
+                <th>Level 2</th>
+                <th>자동 Level 3</th>
+                <th>수동 Level 3</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${items.map(item => {
+                const category = materialCategories[classifyMaterial(item)]?.label || '미분류';
+                const subcategory = getSubcategory(item).label;
+                const autoDetail = getAutoDetailCategory(item);
+                const override = getLevel3Override(item);
+                const options = getAllowedDetailOptions(item);
+                return `
+                  <tr>
+                    <td class="code">${escapeHtml(item.itemCode)}</td>
+                    <td>${escapeHtml(item.itemName)}</td>
+                    <td>${escapeHtml(category)}</td>
+                    <td>${escapeHtml(subcategory)}</td>
+                    <td>${escapeHtml(autoDetail.label)}</td>
+                    <td>
+                      <select class="level3-select classification-level3-select" data-code="${escapeHtml(item.itemCode)}" aria-label="${escapeHtml(item.itemName)} Level 3 수동 분류">
+                        <option value="">자동 분류 사용</option>
+                        ${options.map(option => `
+                          <option value="${option.key}" ${override === option.key ? 'selected' : ''}>${escapeHtml(option.label)}</option>
+                        `).join('')}
+                      </select>
+                      ${override ? '<span class="override-badge">수동</span>' : ''}
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    function openClassificationModal() {
+      const modal = document.getElementById('classificationModal');
+      const title = document.getElementById('classificationModalTitle');
+      if (!modal || !title) return;
+      const filteredCount = getClassificationModalItems().length;
+      title.textContent = `Level 3 분류 관리 (${filteredCount.toLocaleString('ko-KR')})`;
+      renderClassificationManagementRows();
+      modal.classList.remove('auth-hidden');
+    }
+
+    function closeClassificationModal() {
+      document.getElementById('classificationModal')?.classList.add('auth-hidden');
+    }
+
     function bindMaterialEvents() {
       const fileInput = document.getElementById('materialFileInput');
       const uploadZone = document.getElementById('materialUploadZone');
@@ -1482,6 +1630,10 @@
       const columnSelector = document.getElementById('materialColumnSelector');
       const modal = document.getElementById('hierarchyModal');
       const modalClose = document.getElementById('hierarchyModalClose');
+      const classificationButton = document.getElementById('classificationManageButton');
+      const classificationModal = document.getElementById('classificationModal');
+      const classificationModalClose = document.getElementById('classificationModalClose');
+      const classificationModalBody = document.getElementById('classificationModalBody');
 
       uploadZone?.addEventListener('click', event => {
         if (event.target === fileInput) return;
@@ -1580,20 +1732,27 @@
         if (event.target === modal) closeHierarchyModal();
       });
 
-      tableBody?.addEventListener('change', event => {
-        const level3Select = event.target.closest('.level3-select');
-        if (level3Select) {
-          const code = level3Select.dataset.code;
-          if (!code) return;
-          if (level3Select.value) materialLevel3Overrides[code] = level3Select.value;
-          else delete materialLevel3Overrides[code];
-          saveLevel3Overrides();
-          materials = materials.map(item => item.itemCode === code ? enrichMaterial(item) : item);
-          renderMaterialTable();
-          setMaterialStatus(level3Select.value ? 'Level 3 수동 분류가 저장되었습니다.' : 'Level 3 수동 분류를 해제했습니다.', 'ok');
-          return;
-        }
+      classificationButton?.addEventListener('click', openClassificationModal);
+      classificationModalClose?.addEventListener('click', closeClassificationModal);
+      classificationModal?.addEventListener('click', event => {
+        if (event.target === classificationModal) closeClassificationModal();
+      });
 
+      classificationModalBody?.addEventListener('change', event => {
+        const level3Select = event.target.closest('.classification-level3-select');
+        if (!level3Select) return;
+        const code = level3Select.dataset.code;
+        if (!code) return;
+        if (level3Select.value) materialLevel3Overrides[code] = level3Select.value;
+        else delete materialLevel3Overrides[code];
+        saveLevel3Overrides();
+        materials = materials.map(item => item.itemCode === code ? enrichMaterial(item) : item);
+        renderMaterialTable();
+        renderClassificationManagementRows();
+        setMaterialStatus(level3Select.value ? 'Level 3 수동 분류가 저장되었습니다.' : 'Level 3 수동 분류를 해제했습니다.', 'ok');
+      });
+
+      tableBody?.addEventListener('change', event => {
         const input = event.target.closest('.price-input');
         if (!input) return;
         const index = materials.findIndex(item => item.itemCode === input.dataset.code);
@@ -1726,6 +1885,7 @@
               <option value="code" ${materialSort === 'code' ? 'selected' : ''}>코드순</option>
               <option value="missing" ${materialSort === 'missing' ? 'selected' : ''}>단가 미입력 우선</option>
             </select>
+            <button class="back-btn" id="classificationManageButton" type="button">Level 3 분류 관리</button>
             <div class="material-status" id="materialStatus"></div>
             <div class="column-selector" id="materialColumnSelector"></div>
           </div>
@@ -1759,6 +1919,15 @@
               <button class="modal-close" id="hierarchyModalClose" type="button">닫기</button>
             </div>
             <div class="modal-body" id="hierarchyModalBody"></div>
+          </div>
+        </div>
+        <div class="modal-overlay auth-hidden" id="classificationModal">
+          <div class="hierarchy-modal" role="dialog" aria-modal="true" aria-labelledby="classificationModalTitle">
+            <div class="modal-head">
+              <div class="modal-title" id="classificationModalTitle">Level 3 분류 관리</div>
+              <button class="modal-close" id="classificationModalClose" type="button">닫기</button>
+            </div>
+            <div class="modal-body" id="classificationModalBody"></div>
           </div>
         </div>
       `);

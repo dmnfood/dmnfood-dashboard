@@ -317,6 +317,17 @@
       flex-direction: column;
       justify-content: center;
     }
+    .summary-card.clickable {
+      cursor: pointer;
+      transition: border-color .15s, background .15s, transform .15s;
+    }
+    .summary-card.clickable:hover,
+    .summary-card.clickable:focus-visible {
+      border-color: rgba(34, 211, 238, .32);
+      background: rgba(34, 211, 238, .06);
+      transform: translateY(-1px);
+      outline: none;
+    }
     .summary-label {
       font-size: 10px;
       color: var(--t2);
@@ -409,6 +420,53 @@
       font-family: 'Noto Sans KR', sans-serif;
       font-size: 12px;
       outline: none;
+      color-scheme: dark;
+    }
+    .material-sort option {
+      background: #0c1220;
+      color: rgba(255, 255, 255, .92);
+    }
+    .column-selector {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--card-w);
+    }
+    .column-label {
+      font-size: 10px;
+      color: var(--t2);
+      font-weight: 800;
+      letter-spacing: .6px;
+      text-transform: uppercase;
+      margin-right: 2px;
+    }
+    .column-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      height: 26px;
+      padding: 0 8px;
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, .04);
+      color: var(--t2);
+      font-size: 11px;
+      font-weight: 800;
+      cursor: pointer;
+      user-select: none;
+    }
+    .column-toggle input {
+      accent-color: #22d3ee;
+    }
+    .column-toggle:has(input:checked) {
+      color: var(--t0);
+      border-color: rgba(34, 211, 238, .26);
+      background: rgba(34, 211, 238, .08);
     }
     .material-note {
       font-size: 11px;
@@ -512,6 +570,95 @@
       text-align: center;
       color: var(--t2);
       font-size: 12px;
+    }
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 400;
+      background: rgba(3, 7, 18, .72);
+      backdrop-filter: blur(10px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .hierarchy-modal {
+      width: min(860px, 100%);
+      max-height: min(760px, 88vh);
+      overflow: hidden;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: rgba(12, 18, 32, .98);
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+    }
+    .modal-head {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .modal-title {
+      color: var(--t0);
+      font-size: 14px;
+      font-weight: 800;
+    }
+    .modal-close {
+      height: 30px;
+      padding: 0 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, .04);
+      color: var(--t2);
+      font-family: 'Noto Sans KR', sans-serif;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .modal-close:hover {
+      color: var(--t0);
+      background: rgba(255, 255, 255, .08);
+    }
+    .modal-body {
+      overflow: auto;
+      padding: 14px 16px 18px;
+    }
+    .tree-major {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, .025);
+      padding: 12px;
+      margin-bottom: 10px;
+    }
+    .tree-title {
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--t0);
+      margin-bottom: 8px;
+    }
+    .tree-sub {
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid var(--border);
+    }
+    .tree-sub-title,
+    .tree-detail-title {
+      font-size: 12px;
+      font-weight: 800;
+      color: var(--t1);
+      margin-bottom: 6px;
+    }
+    .tree-detail {
+      margin: 6px 0 8px 12px;
+    }
+    .tree-list {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--t2);
+      font-size: 12px;
+      line-height: 1.7;
     }
     @media (max-width: 760px) {
       .app-header {
@@ -629,11 +776,27 @@
     ];
 
     const MATERIAL_STORAGE_KEY = 'dmf_cost_materials_v1';
+    const MATERIAL_COLUMN_STORAGE_KEY = 'dmf_cost_material_columns_v1';
     let materials = [];
     let materialSearch = '';
     let materialCategory = 'all';
     let materialSubcategory = 'all';
+    let materialDetail = 'all';
     let materialSort = 'code';
+    let visibleMaterialColumns = [];
+
+    const materialColumns = [
+      { key: 'itemCode', label: '품목코드', required: true },
+      { key: 'itemName', label: '품목명', required: true },
+      { key: 'itemType', label: '품목구분' },
+      { key: 'spec', label: '규격정보' },
+      { key: 'itemGroupName', label: '품목그룹' },
+      { key: 'category', label: '분류' },
+      { key: 'purchasePrice', label: '입고단가', required: true },
+      { key: 'vat', label: 'VAT' },
+      { key: 'status', label: '상태' },
+    ];
+    const defaultVisibleMaterialColumns = ['itemCode', 'itemName', 'itemType', 'spec', 'category', 'purchasePrice', 'vat', 'status'];
 
     const materialCategories = {
       all: { label: '전체', icon: '전체' },
@@ -678,6 +841,27 @@
       ],
     };
 
+    const detailLabels = {
+      all: '전체',
+      china: '중국산',
+      domestic: '국산',
+      imported: '수입산',
+      powder: '깨분',
+      hulled: '거피',
+      black: '흑임자',
+      sesameOil: '참기름용',
+      perillaOil: '들기름용',
+      roastedSesame: '볶음통깨용',
+      salt: '소금용',
+      set: '세트용',
+      happy: '중국산/행복가득',
+      gyeoldeul: '수입산/결들',
+      deulmena: '국산/들메내',
+      other: '기타',
+      unknown: '미분류',
+    };
+
+    visibleMaterialColumns = loadVisibleColumns();
     materials = loadMaterials();
 
     function toNumber(value) {
@@ -700,6 +884,39 @@
         '"': '&quot;',
         "'": '&#39;',
       }[char]));
+    }
+
+    function loadVisibleColumns() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(MATERIAL_COLUMN_STORAGE_KEY) || '[]');
+        const validKeys = new Set(materialColumns.map(column => column.key));
+        const selected = Array.isArray(saved) ? saved.filter(key => validKeys.has(key)) : [];
+        return selected.length ? selected : [...defaultVisibleMaterialColumns];
+      } catch {
+        return [...defaultVisibleMaterialColumns];
+      }
+    }
+
+    function saveVisibleColumns() {
+      localStorage.setItem(MATERIAL_COLUMN_STORAGE_KEY, JSON.stringify(visibleMaterialColumns));
+    }
+
+    function isColumnVisible(key) {
+      return visibleMaterialColumns.includes(key);
+    }
+
+    function renderColumnSelector() {
+      const host = document.getElementById('materialColumnSelector');
+      if (!host) return;
+      host.innerHTML = [
+        '<span class="column-label">표시 컬럼</span>',
+        ...materialColumns.map(column => `
+          <label class="column-toggle">
+            <input type="checkbox" value="${column.key}" ${isColumnVisible(column.key) ? 'checked' : ''} ${column.required ? 'disabled' : ''}>
+            <span>${column.label}</span>
+          </label>
+        `)
+      ].join('');
     }
 
     function classifyMaterial(item) {
@@ -749,6 +966,39 @@
       return { key: 'other', label: '기타', prefixes: [] };
     }
 
+    function getDetailCategory(item) {
+      const code = String(item.itemCode || '').trim().toUpperCase();
+      const text = `${item.itemCode || ''} ${item.itemName || ''} ${item.spec || ''} ${item.itemGroupName || ''}`.toLowerCase();
+      const category = classifyMaterial(item);
+
+      if (category === 'unknown') return { key: 'unknown', label: detailLabels.unknown };
+      if (category === 'other') return { key: 'other', label: detailLabels.other };
+
+      if (category === 'package') {
+        if (code.includes('GS') || text.includes('세트') || text.includes('행복가득') || text.includes('결들') || text.includes('들메내')) return { key: 'set', label: detailLabels.set };
+        if (code.includes('RSS') || text.includes('볶음통깨') || text.includes('통깨')) return { key: 'roastedSesame', label: detailLabels.roastedSesame };
+        if (code.includes('SO') || text.includes('참기름')) return { key: 'sesameOil', label: detailLabels.sesameOil };
+        if (code.includes('PO') || text.includes('들기름')) return { key: 'perillaOil', label: detailLabels.perillaOil };
+        if (code.includes('RS') || text.includes('소금')) return { key: 'salt', label: detailLabels.salt };
+        return { key: 'other', label: detailLabels.other };
+      }
+
+      if (category === 'gift') {
+        if (code.startsWith('D-GS-C') || text.includes('행복가득') || text.includes('중국산')) return { key: 'happy', label: detailLabels.happy };
+        if (code.startsWith('D-GS-I') || text.includes('결들') || text.includes('수입산')) return { key: 'gyeoldeul', label: detailLabels.gyeoldeul };
+        if (code.startsWith('D-GS-K') || text.includes('들메내') || text.includes('국산')) return { key: 'deulmena', label: detailLabels.deulmena };
+        return { key: 'other', label: detailLabels.other };
+      }
+
+      if (text.includes('깨분') || code.includes('I02')) return { key: 'powder', label: detailLabels.powder };
+      if (text.includes('거피') || /-(C|K)02/.test(code)) return { key: 'hulled', label: detailLabels.hulled };
+      if (text.includes('흑임자') || /-(C|K)03/.test(code)) return { key: 'black', label: detailLabels.black };
+      if (code.includes('-C') || text.includes('중국산')) return { key: 'china', label: detailLabels.china };
+      if (code.includes('-K') || text.includes('국산')) return { key: 'domestic', label: detailLabels.domestic };
+      if (code.includes('-I') || text.includes('수입산')) return { key: 'imported', label: detailLabels.imported };
+      return { key: 'other', label: detailLabels.other };
+    }
+
     function getItemStatus(item) {
       if (classifyMaterial(item) === 'unknown') return { label: '미분류', className: 'err' };
       if (toNumber(item.purchasePrice) <= 0) return { label: '단가 미입력', className: 'warn' };
@@ -768,6 +1018,7 @@
       };
       normalized.majorCategory = classifyMaterial(normalized);
       normalized.subCategory = getSubcategory(normalized).label;
+      normalized.detailCategory = getDetailCategory(normalized).label;
       normalized.status = getItemStatus(normalized).label;
       return normalized;
     }
@@ -775,6 +1026,11 @@
     function matchesSubcategory(item) {
       if (materialSubcategory === 'all') return true;
       return getSubcategory(item).key === materialSubcategory;
+    }
+
+    function matchesDetailCategory(item) {
+      if (materialDetail === 'all') return true;
+      return getDetailCategory(item).key === materialDetail;
     }
 
     function sortMaterials(list) {
@@ -799,10 +1055,27 @@
       })).filter(rule => rule.count > 0 || materialCategory !== 'unknown');
     }
 
+    function getDetailOptions() {
+      if (materialCategory === 'all') return [];
+      const source = materials.filter(item => {
+        const matchesCategory = materialCategory === 'unpriced'
+          ? toNumber(item.purchasePrice) <= 0
+          : classifyMaterial(item) === materialCategory;
+        return matchesCategory && matchesSubcategory(item);
+      });
+      const counts = new Map();
+      source.forEach(item => {
+        const detail = getDetailCategory(item);
+        counts.set(detail.key, { ...detail, count: (counts.get(detail.key)?.count || 0) + 1 });
+      });
+      return [...counts.values()].sort((a, b) => a.label.localeCompare(b.label, 'ko-KR', { numeric: true }));
+    }
+
     function renderHierarchySelectors() {
       const majorHost = document.getElementById('majorCategoryChips');
       const subHost = document.getElementById('subCategoryChips');
-      if (!majorHost || !subHost) return;
+      const detailHost = document.getElementById('detailCategoryChips');
+      if (!majorHost || !subHost || !detailHost) return;
 
       const stats = getMaterialStats();
       const majorOptions = [
@@ -825,6 +1098,7 @@
       const options = getSubcategoryOptions();
       if (!options.length) {
         subHost.innerHTML = '<span class="material-note">하위 분류 없음</span>';
+        detailHost.innerHTML = '<span class="material-note">세부 분류 없음</span>';
         return;
       }
 
@@ -834,6 +1108,21 @@
         ...options.map(option => `
           <button class="hierarchy-chip sub-filter ${materialSubcategory === option.key ? 'active' : ''}" type="button" data-subcategory="${option.key}">
             ${option.label} ${option.count.toLocaleString('ko-KR')}
+          </button>
+        `)
+      ].join('');
+
+      const detailOptions = getDetailOptions();
+      if (!detailOptions.length) {
+        detailHost.innerHTML = '<span class="material-note">세부 분류 없음</span>';
+        return;
+      }
+      const detailTotal = detailOptions.reduce((sum, option) => sum + option.count, 0);
+      detailHost.innerHTML = [
+        `<button class="hierarchy-chip detail-filter ${materialDetail === 'all' ? 'active' : ''}" type="button" data-detail="all">전체 ${detailTotal.toLocaleString('ko-KR')}</button>`,
+        ...detailOptions.map(option => `
+          <button class="hierarchy-chip detail-filter ${materialDetail === option.key ? 'active' : ''}" type="button" data-detail="${option.key}">
+            ${escapeHtml(option.label)} ${option.count.toLocaleString('ko-KR')}
           </button>
         `)
       ].join('');
@@ -947,14 +1236,46 @@
           || (materialCategory === 'unpriced' && toNumber(item.purchasePrice) <= 0)
           || classifyMaterial(item) === materialCategory;
         const matchesSub = matchesSubcategory(item);
+        const matchesDetail = matchesDetailCategory(item);
         const matchesTerm = !term
           || item.itemCode.toLowerCase().includes(term)
           || item.itemName.toLowerCase().includes(term)
           || item.spec.toLowerCase().includes(term)
           || item.itemGroupName.toLowerCase().includes(term);
-        return matchesCategory && matchesSub && matchesTerm;
+        return matchesCategory && matchesSub && matchesDetail && matchesTerm;
       });
       return sortMaterials(filtered);
+    }
+
+    function renderMaterialTableHead() {
+      const head = document.getElementById('materialTableHead');
+      if (!head) return;
+      head.innerHTML = `<tr>${materialColumns
+        .filter(column => isColumnVisible(column.key))
+        .map(column => `<th>${column.label}</th>`)
+        .join('')}</tr>`;
+    }
+
+    function renderMaterialCell(item, columnKey) {
+      const categoryLabel = materialCategories[classifyMaterial(item)]?.label || '미분류';
+      const subcategory = getSubcategory(item).label;
+      const detail = getDetailCategory(item).label;
+      const status = getItemStatus(item);
+      const cells = {
+        itemCode: `<td class="code">${escapeHtml(item.itemCode)}</td>`,
+        itemName: `<td>${escapeHtml(item.itemName)}</td>`,
+        itemType: `<td>${escapeHtml(item.itemType || '-')}</td>`,
+        spec: `<td>${escapeHtml(item.spec || '-')}</td>`,
+        itemGroupName: `<td>${escapeHtml(item.itemGroupName || '-')}</td>`,
+        category: `<td><span class="type-pill">${escapeHtml(categoryLabel)} / ${escapeHtml(subcategory)} / ${escapeHtml(detail)}</span></td>`,
+        purchasePrice: `<td>
+          <input class="price-input" type="number" min="0" step="1" value="${toNumber(item.purchasePrice)}"
+            data-code="${escapeHtml(item.itemCode)}" data-field="purchasePrice" aria-label="${escapeHtml(item.itemName)} 입고단가">
+        </td>`,
+        vat: `<td>${escapeHtml(item.purchasePriceVatIncluded || '-')}</td>`,
+        status: `<td><span class="row-status ${status.className}">${status.label}</span></td>`,
+      };
+      return cells[columnKey] || '';
     }
 
     function renderMaterialTable() {
@@ -977,6 +1298,8 @@
 
       empty.style.display = filtered.length ? 'none' : 'block';
       renderHierarchySelectors();
+      renderColumnSelector();
+      renderMaterialTableHead();
       tableBody.innerHTML = filtered.map(item => `
         <tr>
           <td class="code">${escapeHtml(item.itemCode)}</td>
@@ -993,6 +1316,81 @@
           <td><span class="row-status ${getItemStatus(item).className}">${getItemStatus(item).label}</span></td>
         </tr>
       `).join('');
+      tableBody.innerHTML = filtered.map(item => `
+        <tr>
+          ${materialColumns.filter(column => isColumnVisible(column.key)).map(column => renderMaterialCell(item, column.key)).join('')}
+        </tr>
+      `).join('');
+    }
+
+    function getSummaryItems(summaryKey) {
+      if (summaryKey === 'raw') return materials.filter(item => classifyMaterial(item) === 'raw');
+      if (summaryKey === 'package') return materials.filter(item => classifyMaterial(item) === 'package');
+      if (summaryKey === 'productSet') return materials.filter(item => ['gift', 'product'].includes(classifyMaterial(item)));
+      if (summaryKey === 'unpriced') return materials.filter(item => toNumber(item.purchasePrice) <= 0);
+      return materials;
+    }
+
+    function renderHierarchyTree(items) {
+      if (!items.length) return '<div class="empty-state">확인할 품목이 없습니다.</div>';
+      const grouped = new Map();
+      sortMaterials(items).forEach(item => {
+        const major = materialCategories[classifyMaterial(item)]?.label || '미분류';
+        const sub = getSubcategory(item).label;
+        const detail = getDetailCategory(item).label;
+        if (!grouped.has(major)) grouped.set(major, new Map());
+        const subMap = grouped.get(major);
+        if (!subMap.has(sub)) subMap.set(sub, new Map());
+        const detailMap = subMap.get(sub);
+        if (!detailMap.has(detail)) detailMap.set(detail, []);
+        detailMap.get(detail).push(item.itemName || item.itemCode);
+      });
+
+      return [...grouped.entries()].map(([major, subMap]) => {
+        const majorCount = [...subMap.values()].reduce((sum, detailMap) => (
+          sum + [...detailMap.values()].reduce((inner, list) => inner + list.length, 0)
+        ), 0);
+        return `
+          <section class="tree-major">
+            <div class="tree-title">${escapeHtml(major)} (${majorCount.toLocaleString('ko-KR')})</div>
+            ${[...subMap.entries()].map(([sub, detailMap]) => {
+              const subCount = [...detailMap.values()].reduce((sum, list) => sum + list.length, 0);
+              return `
+                <div class="tree-sub">
+                  <div class="tree-sub-title">${escapeHtml(sub)} (${subCount.toLocaleString('ko-KR')})</div>
+                  ${[...detailMap.entries()].map(([detail, list]) => `
+                    <div class="tree-detail">
+                      <div class="tree-detail-title">${escapeHtml(detail)} (${list.length.toLocaleString('ko-KR')})</div>
+                      <ul class="tree-list">${list.map(name => `<li>${escapeHtml(name)}</li>`).join('')}</ul>
+                    </div>
+                  `).join('')}
+                </div>
+              `;
+            }).join('')}
+          </section>
+        `;
+      }).join('');
+    }
+
+    function openHierarchyModal(summaryKey) {
+      const modal = document.getElementById('hierarchyModal');
+      const title = document.getElementById('hierarchyModalTitle');
+      const body = document.getElementById('hierarchyModalBody');
+      if (!modal || !title || !body) return;
+      const titles = {
+        all: '전체 품목 분류 구조',
+        raw: '원재료 분류 구조',
+        package: '부자재/포장재 분류 구조',
+        productSet: '제품/세트 분류 구조',
+        unpriced: '입고단가 미입력 품목',
+      };
+      title.textContent = titles[summaryKey] || titles.all;
+      body.innerHTML = renderHierarchyTree(getSummaryItems(summaryKey));
+      modal.classList.remove('auth-hidden');
+    }
+
+    function closeHierarchyModal() {
+      document.getElementById('hierarchyModal')?.classList.add('auth-hidden');
     }
 
     function bindMaterialEvents() {
@@ -1002,6 +1400,9 @@
       const sortSelect = document.getElementById('materialSort');
       const tableBody = document.getElementById('materialTableBody');
       const hierarchyPanel = document.getElementById('materialHierarchy');
+      const columnSelector = document.getElementById('materialColumnSelector');
+      const modal = document.getElementById('hierarchyModal');
+      const modalClose = document.getElementById('hierarchyModalClose');
 
       uploadZone?.addEventListener('click', event => {
         if (event.target === fileInput) return;
@@ -1030,6 +1431,26 @@
         if (file) await importMaterialWorkbook(file);
       });
 
+      [
+        ['materialTotalCount', 'all'],
+        ['materialRawCount', 'raw'],
+        ['materialPackageCount', 'package'],
+        ['materialProductSetCount', 'productSet'],
+        ['materialUnpricedCount', 'unpriced'],
+      ].forEach(([id, summaryKey]) => {
+        const card = document.getElementById(id)?.closest('.summary-card');
+        if (!card) return;
+        card.classList.add('clickable');
+        card.setAttribute('role', 'button');
+        card.setAttribute('tabindex', '0');
+        card.addEventListener('click', () => openHierarchyModal(summaryKey));
+        card.addEventListener('keydown', event => {
+          if (event.key !== 'Enter' && event.key !== ' ') return;
+          event.preventDefault();
+          openHierarchyModal(summaryKey);
+        });
+      });
+
       searchInput?.addEventListener('input', event => {
         materialSearch = event.target.value;
         renderMaterialTable();
@@ -1043,16 +1464,41 @@
       hierarchyPanel?.addEventListener('click', event => {
         const majorButton = event.target.closest('.major-filter');
         const subButton = event.target.closest('.sub-filter');
+        const detailButton = event.target.closest('.detail-filter');
         if (majorButton) {
           materialCategory = majorButton.dataset.category;
           materialSubcategory = 'all';
+          materialDetail = 'all';
           renderMaterialTable();
           return;
         }
         if (subButton) {
           materialSubcategory = subButton.dataset.subcategory;
+          materialDetail = 'all';
+          renderMaterialTable();
+          return;
+        }
+        if (detailButton) {
+          materialDetail = detailButton.dataset.detail;
           renderMaterialTable();
         }
+      });
+
+      columnSelector?.addEventListener('change', event => {
+        const input = event.target.closest('input[type="checkbox"]');
+        if (!input || input.disabled) return;
+        const next = new Set(visibleMaterialColumns);
+        if (input.checked) next.add(input.value);
+        else next.delete(input.value);
+        materialColumns.filter(column => column.required).forEach(column => next.add(column.key));
+        visibleMaterialColumns = materialColumns.map(column => column.key).filter(key => next.has(key));
+        saveVisibleColumns();
+        renderMaterialTable();
+      });
+
+      modalClose?.addEventListener('click', closeHierarchyModal);
+      modal?.addEventListener('click', event => {
+        if (event.target === modal) closeHierarchyModal();
       });
 
       tableBody?.addEventListener('change', event => {
@@ -1177,6 +1623,10 @@
               <div class="hierarchy-label">Level 2</div>
               <div class="hierarchy-chips" id="subCategoryChips"></div>
             </div>
+            <div class="hierarchy-row">
+              <div class="hierarchy-label">Level 3</div>
+              <div class="hierarchy-chips" id="detailCategoryChips"></div>
+            </div>
           </div>
           <div class="material-actions">
             <input class="material-search" id="materialSearch" type="search" placeholder="품목코드 / 품목명 / 규격 / 그룹 검색" value="${escapeHtml(materialSearch)}">
@@ -1185,10 +1635,11 @@
               <option value="missing" ${materialSort === 'missing' ? 'selected' : ''}>단가 미입력 우선</option>
             </select>
             <div class="material-status" id="materialStatus"></div>
+            <div class="column-selector" id="materialColumnSelector"></div>
           </div>
           <div class="material-table-wrap">
             <table class="material-table">
-              <thead>
+              <thead id="materialTableHead">
                 <tr>
                   <th>품목코드</th>
                   <th>품목명</th>
@@ -1207,6 +1658,18 @@
           </div>
         </div>
       `;
+
+      detailView.insertAdjacentHTML('beforeend', `
+        <div class="modal-overlay auth-hidden" id="hierarchyModal">
+          <div class="hierarchy-modal" role="dialog" aria-modal="true" aria-labelledby="hierarchyModalTitle">
+            <div class="modal-head">
+              <div class="modal-title" id="hierarchyModalTitle">분류 구조 확인</div>
+              <button class="modal-close" id="hierarchyModalClose" type="button">닫기</button>
+            </div>
+            <div class="modal-body" id="hierarchyModalBody"></div>
+          </div>
+        </div>
+      `);
 
       bindMaterialEvents();
       renderMaterialTable();

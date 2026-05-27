@@ -431,7 +431,7 @@
     .material-table {
       width: 100%;
       border-collapse: collapse;
-      min-width: 860px;
+      min-width: 980px;
       font-size: 12px;
     }
     .material-table th,
@@ -599,8 +599,8 @@
         desc: '원재료, 부자재, 포장재 단가를 원가 계산의 기준 데이터로 관리합니다.',
         view: 'materials',
         boxes: [
-          ['기준 데이터', '품목코드, 품목명, 단위, 입고단가, 출고단가'],
-          ['Excel 연결', '품목 자료올리기 양식 및 수기 원가표 단가 매핑 예정'],
+          ['기준 데이터', '품목코드, 품목명, 품목구분, 규격정보, 품목그룹1명, 입고단가'],
+          ['Excel 연결', 'ERP 웹 품목등록 export 양식 우선 매핑'],
           ['상태', '단가 기준표 준비 단계']
         ]
       },
@@ -629,7 +629,7 @@
     ];
 
     const MATERIAL_STORAGE_KEY = 'dmf_cost_materials_v1';
-    let materials = loadMaterials();
+    let materials = [];
     let materialSearch = '';
     let materialCategory = 'all';
     let materialSubcategory = 'all';
@@ -677,6 +677,8 @@
         { key: 'unknown', label: '미분류', prefixes: [] },
       ],
     };
+
+    materials = loadMaterials();
 
     function toNumber(value) {
       if (value === null || value === undefined || value === '') return 0;
@@ -753,6 +755,23 @@
       return { label: '정상', className: 'ok' };
     }
 
+    function enrichMaterial(item) {
+      const normalized = {
+        itemCode: String(item.itemCode || '').trim(),
+        itemName: String(item.itemName || '').trim(),
+        itemType: String(item.itemType || '').trim(),
+        spec: String(item.spec ?? item.standard ?? '').trim(),
+        itemGroupName: String(item.itemGroupName || '').trim(),
+        purchasePrice: toNumber(item.purchasePrice),
+        purchasePriceVatIncluded: String(item.purchasePriceVatIncluded ?? '').trim(),
+        edited: Boolean(item.edited),
+      };
+      normalized.majorCategory = classifyMaterial(normalized);
+      normalized.subCategory = getSubcategory(normalized).label;
+      normalized.status = getItemStatus(normalized).label;
+      return normalized;
+    }
+
     function matchesSubcategory(item) {
       if (materialSubcategory === 'all') return true;
       return getSubcategory(item).key === materialSubcategory;
@@ -827,6 +846,7 @@
         package: 0,
         gift: 0,
         product: 0,
+        productSet: 0,
         other: 0,
         unknown: 0,
         unpriced: 0,
@@ -835,6 +855,7 @@
       materials.forEach(item => {
         const category = classifyMaterial(item);
         stats[category] += 1;
+        if (category === 'gift' || category === 'product') stats.productSet += 1;
         if (toNumber(item.purchasePrice) <= 0) stats.unpriced += 1;
       });
 
@@ -844,7 +865,7 @@
     function loadMaterials() {
       try {
         const saved = JSON.parse(localStorage.getItem(MATERIAL_STORAGE_KEY) || '[]');
-        return Array.isArray(saved) ? saved : [];
+        return Array.isArray(saved) ? saved.map(item => enrichMaterial(item)) : [];
       } catch {
         return [];
       }
@@ -873,33 +894,37 @@
     }
 
     function mapEcountItemRow(row, headerMap) {
-      return {
+      return enrichMaterial({
         itemCode: String(getCell(row, headerMap, '품목코드') || '').trim(),
         itemName: String(getCell(row, headerMap, '품목명') || '').trim(),
-        spec: String(getCell(row, headerMap, '규격') || '').trim(),
-        unit: String(getCell(row, headerMap, '단위') || '').trim(),
         itemType: String(getCell(row, headerMap, '품목구분') || '').trim(),
+        spec: String(getCell(row, headerMap, '규격정보') || getCell(row, headerMap, '규격') || '').trim(),
+        itemGroupName: String(getCell(row, headerMap, '품목그룹1명') || '').trim(),
         purchasePrice: toNumber(getCell(row, headerMap, '입고단가')),
-        salesPrice: toNumber(getCell(row, headerMap, '출고단가')),
-        barcode: String(getCell(row, headerMap, '바코드') || '').trim(),
-        safeStock: toNumber(getCell(row, headerMap, '안전재고수량')),
-      };
+        purchasePriceVatIncluded: String(getCell(row, headerMap, '입고단가Vat포함여부') || getCell(row, headerMap, '입고단가 VAT포함여부') || '').trim(),
+      });
     }
 
     function findMaterialSheet(workbook) {
       const required = ['품목코드', '품목명'];
-      const preferred = workbook.SheetNames.find(name => name.includes('품목'));
-      const names = preferred
-        ? [preferred, ...workbook.SheetNames.filter(name => name !== preferred)]
-        : workbook.SheetNames;
+      const preferred = workbook.SheetNames.find(name => name === '품목등록')
+        || workbook.SheetNames.find(name => name.includes('품목'));
+      const names = preferred ? [preferred, ...workbook.SheetNames.filter(name => name !== preferred)] : workbook.SheetNames;
 
       for (const name of names) {
         const rows = XLSX.utils.sheet_to_json(workbook.Sheets[name], { header: 1, defval: '' });
         if (!rows.length) continue;
-        const headerRowIndex = rows.findIndex(row => {
-          const headerMap = buildHeaderMap(row);
-          return required.every(header => headerMap.has(normalizeHeader(header)));
-        });
+        let headerRowIndex = -1;
+        if (name === '품목등록' && rows[1]) {
+          const row2Map = buildHeaderMap(rows[1]);
+          if (required.every(header => row2Map.has(normalizeHeader(header)))) headerRowIndex = 1;
+        }
+        if (headerRowIndex === -1) {
+          headerRowIndex = rows.findIndex(row => {
+            const headerMap = buildHeaderMap(row);
+            return required.every(header => headerMap.has(normalizeHeader(header)));
+          });
+        }
         if (headerRowIndex === -1) continue;
         const headerMap = buildHeaderMap(rows[headerRowIndex]);
         return { name, rows: rows.slice(headerRowIndex + 1), headerMap };
@@ -925,7 +950,8 @@
         const matchesTerm = !term
           || item.itemCode.toLowerCase().includes(term)
           || item.itemName.toLowerCase().includes(term)
-          || item.spec.toLowerCase().includes(term);
+          || item.spec.toLowerCase().includes(term)
+          || item.itemGroupName.toLowerCase().includes(term);
         return matchesCategory && matchesSub && matchesTerm;
       });
       return sortMaterials(filtered);
@@ -937,10 +963,7 @@
       const totalEl = document.getElementById('materialTotalCount');
       const rawEl = document.getElementById('materialRawCount');
       const packageEl = document.getElementById('materialPackageCount');
-      const giftEl = document.getElementById('materialGiftCount');
-      const productEl = document.getElementById('materialProductCount');
-      const otherEl = document.getElementById('materialOtherCount');
-      const unknownEl = document.getElementById('materialUnknownCount');
+      const productSetEl = document.getElementById('materialProductSetCount');
       const unpricedEl = document.getElementById('materialUnpricedCount');
       if (!tableBody || !empty) return;
 
@@ -949,10 +972,7 @@
       if (totalEl) totalEl.textContent = stats.all.toLocaleString('ko-KR');
       if (rawEl) rawEl.textContent = stats.raw.toLocaleString('ko-KR');
       if (packageEl) packageEl.textContent = stats.package.toLocaleString('ko-KR');
-      if (giftEl) giftEl.textContent = stats.gift.toLocaleString('ko-KR');
-      if (productEl) productEl.textContent = stats.product.toLocaleString('ko-KR');
-      if (otherEl) otherEl.textContent = stats.other.toLocaleString('ko-KR');
-      if (unknownEl) unknownEl.textContent = stats.unknown.toLocaleString('ko-KR');
+      if (productSetEl) productSetEl.textContent = stats.productSet.toLocaleString('ko-KR');
       if (unpricedEl) unpricedEl.textContent = stats.unpriced.toLocaleString('ko-KR');
 
       empty.style.display = filtered.length ? 'none' : 'block';
@@ -961,17 +981,15 @@
         <tr>
           <td class="code">${escapeHtml(item.itemCode)}</td>
           <td>${escapeHtml(item.itemName)}</td>
+          <td>${escapeHtml(item.itemType || '-')}</td>
           <td>${escapeHtml(item.spec || '-')}</td>
-          <td>${escapeHtml(item.unit || '-')}</td>
+          <td>${escapeHtml(item.itemGroupName || '-')}</td>
           <td><span class="type-pill">${escapeHtml(materialCategories[classifyMaterial(item)]?.label || '미분류')} / ${escapeHtml(getSubcategory(item).label)}</span></td>
           <td>
             <input class="price-input" type="number" min="0" step="1" value="${toNumber(item.purchasePrice)}"
               data-code="${escapeHtml(item.itemCode)}" data-field="purchasePrice" aria-label="${escapeHtml(item.itemName)} 입고단가">
           </td>
-          <td>
-            <input class="price-input" type="number" min="0" step="1" value="${toNumber(item.salesPrice)}"
-              data-code="${escapeHtml(item.itemCode)}" data-field="salesPrice" aria-label="${escapeHtml(item.itemName)} 출고단가">
-          </td>
+          <td>${escapeHtml(item.purchasePriceVatIncluded || '-')}</td>
           <td><span class="row-status ${getItemStatus(item).className}">${getItemStatus(item).label}</span></td>
         </tr>
       `).join('');
@@ -1040,10 +1058,9 @@
       tableBody?.addEventListener('change', event => {
         const input = event.target.closest('.price-input');
         if (!input) return;
-        const target = materials.find(item => item.itemCode === input.dataset.code);
-        if (!target) return;
-        target[input.dataset.field] = toNumber(input.value);
-        target.edited = true;
+        const index = materials.findIndex(item => item.itemCode === input.dataset.code);
+        if (index === -1) return;
+        materials[index] = enrichMaterial({ ...materials[index], [input.dataset.field]: toNumber(input.value), edited: true });
         saveMaterials();
         renderMaterialTable();
         setMaterialStatus('수정사항이 브라우저에 저장되었습니다.', 'ok');
@@ -1079,7 +1096,7 @@
         materials = nextMaterials.map(item => {
           const existing = existingByCode.get(item.itemCode);
           return existing?.edited
-            ? { ...item, purchasePrice: existing.purchasePrice, salesPrice: existing.salesPrice, edited: true }
+            ? enrichMaterial({ ...item, purchasePrice: existing.purchasePrice, edited: true })
             : item;
         });
         saveMaterials();
@@ -1117,7 +1134,7 @@
             <div class="material-upload-head">
               <div>
                 <div class="detail-title">ERP Excel 업로드</div>
-                <div class="material-note">품목코드, 품목명, 입고단가, 출고단가 컬럼이 포함된 Ecount 품목 파일</div>
+                <div class="material-note">품목등록 시트의 품목코드, 품목명, 규격정보, 입고단가 컬럼을 사용합니다.</div>
               </div>
             </div>
             <div class="material-toolbar">
@@ -1141,23 +1158,11 @@
                   <div class="summary-value" id="materialPackageCount">0</div>
                 </div>
                 <div class="summary-card">
-                  <div class="summary-label">세트제품</div>
-                  <div class="summary-value" id="materialGiftCount">0</div>
+                  <div class="summary-label">제품/세트</div>
+                  <div class="summary-value" id="materialProductSetCount">0</div>
                 </div>
                 <div class="summary-card">
-                  <div class="summary-label">반제품·제품</div>
-                  <div class="summary-value" id="materialProductCount">0</div>
-                </div>
-                <div class="summary-card">
-                  <div class="summary-label">기타비용</div>
-                  <div class="summary-value" id="materialOtherCount">0</div>
-                </div>
-                <div class="summary-card">
-                  <div class="summary-label">미분류</div>
-                  <div class="summary-value warn" id="materialUnknownCount">0</div>
-                </div>
-                <div class="summary-card">
-                  <div class="summary-label">단가 미입력</div>
+                  <div class="summary-label">입고단가 미입력</div>
                   <div class="summary-value warn" id="materialUnpricedCount">0</div>
                 </div>
               </div>
@@ -1174,7 +1179,7 @@
             </div>
           </div>
           <div class="material-actions">
-            <input class="material-search" id="materialSearch" type="search" placeholder="품목코드 / 품목명 / 규격 검색" value="${escapeHtml(materialSearch)}">
+            <input class="material-search" id="materialSearch" type="search" placeholder="품목코드 / 품목명 / 규격 / 그룹 검색" value="${escapeHtml(materialSearch)}">
             <select class="material-sort" id="materialSort" aria-label="정렬">
               <option value="code" ${materialSort === 'code' ? 'selected' : ''}>코드순</option>
               <option value="missing" ${materialSort === 'missing' ? 'selected' : ''}>단가 미입력 우선</option>
@@ -1187,11 +1192,12 @@
                 <tr>
                   <th>품목코드</th>
                   <th>품목명</th>
-                  <th>규격</th>
-                  <th>단위</th>
+                  <th>품목구분</th>
+                  <th>규격정보</th>
+                  <th>품목그룹</th>
                   <th>분류</th>
                   <th>입고단가</th>
-                  <th>출고단가</th>
+                  <th>VAT</th>
                   <th>상태</th>
                 </tr>
               </thead>

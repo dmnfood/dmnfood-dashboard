@@ -238,43 +238,73 @@
     .materials-body {
       padding: 18px 20px 22px;
     }
+    .material-upload-panel {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      backdrop-filter: blur(20px);
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+    .material-upload-head {
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(255, 255, 255, .03);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
     .material-toolbar {
       display: grid;
       grid-template-columns: minmax(280px, 420px) 1fr;
-      gap: 14px;
-      margin-bottom: 16px;
+      gap: 18px;
+      padding: 18px;
       align-items: stretch;
     }
     .upload-zone {
       border: 2px dashed var(--border);
-      border-radius: 12px;
+      border-radius: 14px;
       background: var(--card-w);
-      min-height: 92px;
-      padding: 14px 16px;
+      min-height: 126px;
+      height: 100%;
+      padding: 18px 16px;
       display: flex;
       flex-direction: column;
+      align-items: center;
       justify-content: center;
+      text-align: center;
       cursor: pointer;
       transition: border-color .15s, background .15s;
     }
-    .upload-zone:hover {
+    .upload-zone:hover,
+    .upload-zone.over {
       border-color: rgba(34, 211, 238, .45);
       background: rgba(34, 211, 238, .05);
+    }
+    .upload-icon {
+      font-size: 26px;
+      opacity: .62;
+      margin-bottom: 8px;
+      line-height: 1;
     }
     .upload-title {
       font-size: 13px;
       font-weight: 800;
       color: var(--t0);
-      margin-bottom: 5px;
+      line-height: 1.35;
     }
     .upload-sub {
       font-size: 11px;
       color: var(--t2);
       line-height: 1.5;
+      margin-top: 5px;
     }
+    .upload-sub.ok { color: var(--zr); }
+    .upload-sub.err { color: var(--rv); }
     .material-summary {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(5, minmax(0, 1fr));
       gap: 10px;
     }
     .summary-card {
@@ -282,7 +312,7 @@
       border-radius: 10px;
       background: var(--card-w);
       padding: 14px;
-      min-height: 92px;
+      min-height: 86px;
       display: flex;
       flex-direction: column;
       justify-content: center;
@@ -300,6 +330,96 @@
       font-size: 18px;
       font-weight: 800;
       color: var(--t0);
+    }
+    .summary-value.warn { color: var(--ac); }
+    .category-filters {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+    .category-filter {
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      background: rgba(255, 255, 255, .04);
+      color: var(--t2);
+      height: 30px;
+      padding: 0 12px;
+      font-family: 'Noto Sans KR', sans-serif;
+      font-size: 11px;
+      font-weight: 800;
+      cursor: pointer;
+      transition: background .15s, color .15s, border-color .15s;
+    }
+    .category-filter:hover,
+    .category-filter.active {
+      background: rgba(34, 211, 238, .10);
+      border-color: rgba(34, 211, 238, .28);
+      color: var(--t0);
+    }
+    .material-card-groups {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .material-group {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--card-w);
+      overflow: hidden;
+      min-width: 0;
+    }
+    .material-group-head {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      color: var(--t0);
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .material-group-list {
+      padding: 10px;
+      display: grid;
+      gap: 8px;
+      max-height: 290px;
+      overflow: auto;
+    }
+    .material-mini-card {
+      border: 1px solid var(--tb-br);
+      border-radius: 9px;
+      background: rgba(255, 255, 255, .035);
+      padding: 10px;
+      min-width: 0;
+    }
+    .mini-title {
+      color: var(--t0);
+      font-size: 12px;
+      font-weight: 800;
+      margin-bottom: 5px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .mini-meta,
+    .mini-price {
+      color: var(--t2);
+      font-size: 10.5px;
+      line-height: 1.5;
+    }
+    .mini-price {
+      margin-top: 6px;
+      color: var(--t1);
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .mini-empty {
+      padding: 18px 10px;
+      color: var(--t2);
+      font-size: 11px;
+      text-align: center;
     }
     .material-actions {
       display: flex;
@@ -408,7 +528,7 @@
         align-items: flex-start;
         flex-direction: column;
       }
-      .cost-grid, .detail-body, .material-toolbar, .material-summary {
+      .cost-grid, .detail-body, .material-toolbar, .material-summary, .material-card-groups {
         grid-template-columns: 1fr;
       }
       .user-chip {
@@ -515,6 +635,13 @@
     const MATERIAL_STORAGE_KEY = 'dmf_cost_materials_v1';
     let materials = loadMaterials();
     let materialSearch = '';
+    let materialCategory = 'all';
+
+    const materialCategories = {
+      raw: { label: '원재료', icon: '🌾' },
+      package: { label: '부자재/포장재', icon: '📦' },
+      finished: { label: '완제품', icon: '🏷️' },
+    };
 
     function toNumber(value) {
       if (value === null || value === undefined || value === '') return 0;
@@ -536,6 +663,41 @@
         '"': '&quot;',
         "'": '&#39;',
       }[char]));
+    }
+
+    function classifyMaterial(item) {
+      const name = `${item.itemName || ''} ${item.spec || ''}`.toLowerCase();
+      const itemType = String(item.itemType || '').trim();
+      const hasAny = keywords => keywords.some(keyword => name.includes(keyword));
+
+      if (hasAny(['병', '뚜껑', '캡', '라벨', '박스', '상자', '스티커', '포장', '봉투', '쇼핑백', '패드', '로프'])) {
+        return 'package';
+      }
+      if (itemType === '1' || hasAny(['세트', '제품', '참기름', '들기름'])) {
+        return 'finished';
+      }
+      if (hasAny(['참깨', '들깨', '깨분', '통깨', '깨', '원재료', '소금'])) {
+        return 'raw';
+      }
+      return 'raw';
+    }
+
+    function getMaterialStats() {
+      const stats = {
+        all: materials.length,
+        raw: 0,
+        package: 0,
+        finished: 0,
+        unpriced: 0,
+      };
+
+      materials.forEach(item => {
+        const category = classifyMaterial(item);
+        stats[category] += 1;
+        if (toNumber(item.purchasePrice) <= 0) stats.unpriced += 1;
+      });
+
+      return stats;
     }
 
     function loadMaterials() {
@@ -614,28 +776,66 @@
 
     function getFilteredMaterials() {
       const term = materialSearch.trim().toLowerCase();
-      if (!term) return materials;
-      return materials.filter(item => (
-        item.itemCode.toLowerCase().includes(term)
-        || item.itemName.toLowerCase().includes(term)
-        || item.spec.toLowerCase().includes(term)
-      ));
+      return materials.filter(item => {
+        const matchesCategory = materialCategory === 'all'
+          || (materialCategory === 'unpriced' && toNumber(item.purchasePrice) <= 0)
+          || classifyMaterial(item) === materialCategory;
+        const matchesTerm = !term
+          || item.itemCode.toLowerCase().includes(term)
+          || item.itemName.toLowerCase().includes(term)
+          || item.spec.toLowerCase().includes(term);
+        return matchesCategory && matchesTerm;
+      });
+    }
+
+    function renderMaterialCards(filtered) {
+      const host = document.getElementById('materialCardGroups');
+      if (!host) return;
+
+      const groupKeys = ['raw', 'package', 'finished'];
+      host.innerHTML = groupKeys.map(key => {
+        const group = filtered.filter(item => classifyMaterial(item) === key).slice(0, 8);
+        const meta = materialCategories[key];
+        return `
+          <div class="material-group">
+            <div class="material-group-head">
+              <span>${meta.icon} ${meta.label}</span>
+              <span>${group.length.toLocaleString('ko-KR')}</span>
+            </div>
+            <div class="material-group-list">
+              ${group.length ? group.map(item => `
+                <div class="material-mini-card">
+                  <div class="mini-title">${escapeHtml(item.itemName)}</div>
+                  <div class="mini-meta">${escapeHtml(item.spec || '-')} · ${escapeHtml(item.unit || '-')}</div>
+                  <div class="mini-price">입고 ${formatPrice(item.purchasePrice)} / 출고 ${formatPrice(item.salesPrice)}</div>
+                </div>
+              `).join('') : '<div class="mini-empty">표시할 품목이 없습니다.</div>'}
+            </div>
+          </div>
+        `;
+      }).join('');
     }
 
     function renderMaterialTable() {
       const tableBody = document.getElementById('materialTableBody');
       const empty = document.getElementById('materialEmpty');
       const totalEl = document.getElementById('materialTotalCount');
-      const pricedEl = document.getElementById('materialPricedCount');
-      const editedEl = document.getElementById('materialEditedCount');
+      const rawEl = document.getElementById('materialRawCount');
+      const packageEl = document.getElementById('materialPackageCount');
+      const finishedEl = document.getElementById('materialFinishedCount');
+      const unpricedEl = document.getElementById('materialUnpricedCount');
       if (!tableBody || !empty) return;
 
       const filtered = getFilteredMaterials();
-      if (totalEl) totalEl.textContent = materials.length.toLocaleString('ko-KR');
-      if (pricedEl) pricedEl.textContent = materials.filter(item => toNumber(item.purchasePrice) > 0).length.toLocaleString('ko-KR');
-      if (editedEl) editedEl.textContent = materials.filter(item => item.edited).length.toLocaleString('ko-KR');
+      const stats = getMaterialStats();
+      if (totalEl) totalEl.textContent = stats.all.toLocaleString('ko-KR');
+      if (rawEl) rawEl.textContent = stats.raw.toLocaleString('ko-KR');
+      if (packageEl) packageEl.textContent = stats.package.toLocaleString('ko-KR');
+      if (finishedEl) finishedEl.textContent = stats.finished.toLocaleString('ko-KR');
+      if (unpricedEl) unpricedEl.textContent = stats.unpriced.toLocaleString('ko-KR');
 
       empty.style.display = filtered.length ? 'none' : 'block';
+      renderMaterialCards(filtered);
       tableBody.innerHTML = filtered.map(item => `
         <tr>
           <td class="code">${escapeHtml(item.itemCode)}</td>
@@ -660,18 +860,46 @@
       const uploadZone = document.getElementById('materialUploadZone');
       const searchInput = document.getElementById('materialSearch');
       const tableBody = document.getElementById('materialTableBody');
+      const filterButtons = document.querySelectorAll('.category-filter');
 
-      uploadZone?.addEventListener('click', () => fileInput?.click());
+      uploadZone?.addEventListener('click', event => {
+        if (event.target === fileInput) return;
+        fileInput?.click();
+      });
+      uploadZone?.addEventListener('keydown', event => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        event.preventDefault();
+        fileInput?.click();
+      });
       fileInput?.addEventListener('change', async event => {
         const file = event.target.files?.[0];
         if (!file) return;
         await importMaterialWorkbook(file);
         event.target.value = '';
       });
+      uploadZone?.addEventListener('dragover', event => {
+        event.preventDefault();
+        uploadZone.classList.add('over');
+      });
+      uploadZone?.addEventListener('dragleave', () => uploadZone.classList.remove('over'));
+      uploadZone?.addEventListener('drop', async event => {
+        event.preventDefault();
+        uploadZone.classList.remove('over');
+        const file = event.dataTransfer.files?.[0];
+        if (file) await importMaterialWorkbook(file);
+      });
 
       searchInput?.addEventListener('input', event => {
         materialSearch = event.target.value;
         renderMaterialTable();
+      });
+
+      filterButtons.forEach(button => {
+        button.addEventListener('click', () => {
+          materialCategory = button.dataset.category;
+          filterButtons.forEach(btn => btn.classList.toggle('active', btn === button));
+          renderMaterialTable();
+        });
       });
 
       tableBody?.addEventListener('change', event => {
@@ -721,9 +949,21 @@
         });
         saveMaterials();
         renderMaterialTable();
+        const uploadTitle = document.getElementById('materialUploadTitle');
+        const uploadSub = document.getElementById('materialUploadSub');
+        if (uploadTitle) uploadTitle.textContent = file.name;
+        if (uploadSub) {
+          uploadSub.textContent = `${sheet.name} · ${materials.length.toLocaleString('ko-KR')}개 품목`;
+          uploadSub.className = 'upload-sub ok';
+        }
         setMaterialStatus(`${sheet.name}에서 ${materials.length.toLocaleString('ko-KR')}개 품목을 가져왔습니다.`, 'ok');
       } catch (error) {
         console.error(error);
+        const uploadSub = document.getElementById('materialUploadSub');
+        if (uploadSub) {
+          uploadSub.textContent = '엑셀 파일을 처리하지 못했습니다.';
+          uploadSub.className = 'upload-sub err';
+        }
         setMaterialStatus('엑셀 파일을 처리하지 못했습니다.', 'err');
       }
     }
@@ -738,27 +978,52 @@
           <span class="status-pill">기초 운영</span>
         </div>
         <div class="materials-body">
-          <div class="material-toolbar">
-            <label class="upload-zone" id="materialUploadZone">
-              <input id="materialFileInput" type="file" accept=".xlsx,.xls" hidden>
-              <span class="upload-title">엑셀 업로드</span>
-              <span class="upload-sub">품목코드, 품목명 열이 있는 Ecount 품목 자료를 선택하세요.</span>
-            </label>
-            <div class="material-summary">
-              <div class="summary-card">
-                <div class="summary-label">Items</div>
-                <div class="summary-value" id="materialTotalCount">0</div>
-              </div>
-              <div class="summary-card">
-                <div class="summary-label">Priced</div>
-                <div class="summary-value" id="materialPricedCount">0</div>
-              </div>
-              <div class="summary-card">
-                <div class="summary-label">Edited</div>
-                <div class="summary-value" id="materialEditedCount">0</div>
+          <section class="material-upload-panel">
+            <div class="material-upload-head">
+              <div>
+                <div class="detail-title">ERP Excel 업로드</div>
+                <div class="material-note">품목코드, 품목명, 입고단가, 출고단가 컬럼이 포함된 Ecount 품목 파일</div>
               </div>
             </div>
+            <div class="material-toolbar">
+              <div class="upload-zone" id="materialUploadZone" role="button" tabindex="0">
+                <div class="upload-icon">📄</div>
+                <div class="upload-title" id="materialUploadTitle">엑셀 파일 선택</div>
+                <div class="upload-sub" id="materialUploadSub">.xlsx 또는 .xls 파일을 클릭하거나 끌어놓으세요.</div>
+                <input id="materialFileInput" type="file" accept=".xlsx,.xls" hidden>
+              </div>
+              <div class="material-summary">
+                <div class="summary-card">
+                  <div class="summary-label">전체 품목</div>
+                  <div class="summary-value" id="materialTotalCount">0</div>
+                </div>
+                <div class="summary-card">
+                  <div class="summary-label">원재료</div>
+                  <div class="summary-value" id="materialRawCount">0</div>
+                </div>
+                <div class="summary-card">
+                  <div class="summary-label">부자재/포장재</div>
+                  <div class="summary-value" id="materialPackageCount">0</div>
+                </div>
+                <div class="summary-card">
+                  <div class="summary-label">완제품</div>
+                  <div class="summary-value" id="materialFinishedCount">0</div>
+                </div>
+                <div class="summary-card">
+                  <div class="summary-label">단가 미입력</div>
+                  <div class="summary-value warn" id="materialUnpricedCount">0</div>
+                </div>
+              </div>
+            </div>
+          </section>
+          <div class="category-filters" aria-label="품목 분류 필터">
+            <button class="category-filter active" type="button" data-category="all">전체</button>
+            <button class="category-filter" type="button" data-category="raw">원재료</button>
+            <button class="category-filter" type="button" data-category="package">부자재/포장재</button>
+            <button class="category-filter" type="button" data-category="finished">완제품</button>
+            <button class="category-filter" type="button" data-category="unpriced">단가 미입력</button>
           </div>
+          <div class="material-card-groups" id="materialCardGroups"></div>
           <div class="material-actions">
             <input class="material-search" id="materialSearch" type="search" placeholder="품목코드 / 품목명 / 규격 검색" value="${escapeHtml(materialSearch)}">
             <div class="material-status" id="materialStatus"></div>

@@ -578,6 +578,40 @@
       border-color: rgba(34, 211, 238, .45);
       box-shadow: 0 0 0 3px rgba(34, 211, 238, .08);
     }
+    .price-display {
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--t0);
+      font-weight: 700;
+      margin-right: 8px;
+      white-space: nowrap;
+    }
+    .row-actions {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      flex-wrap: wrap;
+    }
+    .mini-btn {
+      height: 26px;
+      padding: 0 8px;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      background: rgba(255, 255, 255, .04);
+      color: var(--t2);
+      font-family: 'Noto Sans KR', sans-serif;
+      font-size: 11px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .mini-btn:hover {
+      color: var(--t0);
+      background: rgba(255, 255, 255, .08);
+    }
+    .mini-btn.primary {
+      border-color: rgba(34, 211, 238, .30);
+      background: rgba(34, 211, 238, .08);
+      color: var(--t0);
+    }
     .level3-control {
       display: flex;
       align-items: center;
@@ -659,6 +693,11 @@
     .classification-table .level3-select {
       width: 100%;
       max-width: 190px;
+    }
+    .export-preview-note {
+      font-size: 11px;
+      color: var(--t2);
+      margin: 0 0 10px;
     }
     .classification-table th:nth-child(1),
     .classification-table td:nth-child(1) {
@@ -923,6 +962,11 @@
     let classificationModalCategory = 'all';
     let classificationModalSubcategory = 'all';
     let classificationModalSearch = '';
+    let editingPriceCode = '';
+    let editingPriceDraft = '';
+    let exportCategory = 'all';
+    let exportSubcategory = 'all';
+    let exportDetail = 'all';
 
     const materialColumns = [
       { key: 'itemCode', label: '품목코드', required: true },
@@ -1494,6 +1538,23 @@
       const detail = getDetailCategory(item);
       const status = getItemStatus(item);
       const overrideBadge = detail.overridden ? '<span class="override-badge">수동</span>' : '';
+      const isEditingPrice = editingPriceCode === item.itemCode;
+      const priceCell = isEditingPrice
+        ? `<td>
+            <div class="row-actions">
+              <input class="price-input price-edit-input" type="number" min="0" step="1" value="${escapeHtml(editingPriceDraft)}"
+                data-code="${escapeHtml(item.itemCode)}" aria-label="${escapeHtml(item.itemName)} 입고단가">
+              <button class="mini-btn primary price-save" type="button" data-code="${escapeHtml(item.itemCode)}">저장</button>
+              <button class="mini-btn price-cancel" type="button" data-code="${escapeHtml(item.itemCode)}">취소</button>
+            </div>
+          </td>`
+        : `<td>
+            <span class="price-display">${formatPrice(item.purchasePrice)}</span>
+            <span class="row-actions">
+              <button class="mini-btn price-edit" type="button" data-code="${escapeHtml(item.itemCode)}">수정</button>
+              ${item.edited ? '<span class="override-badge">수정됨</span>' : ''}
+            </span>
+          </td>`;
       const cells = {
         itemCode: `<td class="code">${escapeHtml(item.itemCode)}</td>`,
         itemName: `<td>${escapeHtml(item.itemName)}</td>`,
@@ -1501,10 +1562,7 @@
         spec: `<td>${escapeHtml(item.spec || '-')}</td>`,
         itemGroupName: `<td>${escapeHtml(item.itemGroupName || '-')}</td>`,
         category: `<td><span class="type-pill">${escapeHtml(categoryLabel)} / ${escapeHtml(subcategory)} / ${escapeHtml(detail.label)}</span> ${overrideBadge}</td>`,
-        purchasePrice: `<td>
-          <input class="price-input" type="number" min="0" step="1" value="${toNumber(item.purchasePrice)}"
-            data-code="${escapeHtml(item.itemCode)}" data-field="purchasePrice" aria-label="${escapeHtml(item.itemName)} 입고단가">
-        </td>`,
+        purchasePrice: priceCell,
         vat: `<td>${escapeHtml(item.purchasePriceVatIncluded || '-')}</td>`,
         status: `<td><span class="row-status ${status.className}">${status.label}</span></td>`,
       };
@@ -1750,6 +1808,197 @@
       document.getElementById('classificationModal')?.classList.add('auth-hidden');
     }
 
+    function getHierarchyFilteredItems(category, subcategory, detail) {
+      return sortMaterials(materials.filter(item => {
+        const matchesCategory = category === 'all' || classifyMaterial(item) === category;
+        const matchesSubcategory = subcategory === 'all' || getSubcategory(item).key === subcategory;
+        const matchesDetail = detail === 'all' || getDetailCategory(item).key === detail;
+        return matchesCategory && matchesSubcategory && matchesDetail;
+      }));
+    }
+
+    function getExportSubcategoryOptions() {
+      if (exportCategory === 'all') return [];
+      const rules = subcategoryRules[exportCategory] || [];
+      return rules.map(rule => ({
+        ...rule,
+        count: materials.filter(item => classifyMaterial(item) === exportCategory && getSubcategory(item).key === rule.key).length,
+      })).filter(rule => rule.count > 0 || exportCategory === 'unknown');
+    }
+
+    function getExportDetailOptions() {
+      if (exportCategory === 'all') return [];
+      const source = getHierarchyFilteredItems(exportCategory, exportSubcategory, 'all');
+      const counts = new Map();
+      source.forEach(item => {
+        const detail = getDetailCategory(item);
+        counts.set(detail.key, { ...detail, count: (counts.get(detail.key)?.count || 0) + 1 });
+      });
+      return [...counts.values()].sort((a, b) => a.label.localeCompare(b.label, 'ko-KR', { numeric: true }));
+    }
+
+    function getExportItems() {
+      return getHierarchyFilteredItems(exportCategory, exportSubcategory, exportDetail);
+    }
+
+    function renderExportModal() {
+      const filters = document.getElementById('exportModalFilters');
+      const body = document.getElementById('exportModalBody');
+      const title = document.getElementById('exportModalTitle');
+      if (!filters || !body || !title) return;
+      const stats = getMaterialStats();
+      const majorOptions = [
+        ['all', '전체', stats.all],
+        ['raw', '원재료', stats.raw],
+        ['package', '부자재/포장재', stats.package],
+        ['gift', '세트제품', stats.gift],
+        ['product', '반제품·제품', stats.product],
+        ['other', '기타비용', stats.other],
+        ['unknown', '미분류', stats.unknown],
+      ];
+      const subOptions = getExportSubcategoryOptions();
+      if (exportSubcategory !== 'all' && !subOptions.some(option => option.key === exportSubcategory)) exportSubcategory = 'all';
+      const detailOptions = getExportDetailOptions();
+      if (exportDetail !== 'all' && !detailOptions.some(option => option.key === exportDetail)) exportDetail = 'all';
+      const items = getExportItems();
+      title.textContent = `Excel 내보내기 (${items.length.toLocaleString('ko-KR')})`;
+      filters.innerHTML = `
+        <div class="classification-filter-row">
+          <div class="hierarchy-label">Level 1</div>
+          <div class="hierarchy-chips">
+            ${majorOptions.map(([key, label, count]) => `
+              <button class="hierarchy-chip export-major-filter ${exportCategory === key ? 'active' : ''}" type="button" data-category="${key}">
+                ${label} ${Number(count).toLocaleString('ko-KR')}
+              </button>
+            `).join('')}
+          </div>
+        </div>
+        <div class="classification-filter-row">
+          <div class="hierarchy-label">Level 2</div>
+          <div class="hierarchy-chips">
+            ${subOptions.length ? [
+              `<button class="hierarchy-chip export-sub-filter ${exportSubcategory === 'all' ? 'active' : ''}" type="button" data-subcategory="all">전체</button>`,
+              ...subOptions.map(option => `
+                <button class="hierarchy-chip export-sub-filter ${exportSubcategory === option.key ? 'active' : ''}" type="button" data-subcategory="${option.key}">
+                  ${escapeHtml(option.label)} ${option.count.toLocaleString('ko-KR')}
+                </button>
+              `)
+            ].join('') : '<span class="material-note">하위 분류 없음</span>'}
+          </div>
+        </div>
+        <div class="classification-filter-row">
+          <div class="hierarchy-label">Level 3</div>
+          <div class="hierarchy-chips">
+            ${detailOptions.length ? [
+              `<button class="hierarchy-chip export-detail-filter ${exportDetail === 'all' ? 'active' : ''}" type="button" data-detail="all">전체</button>`,
+              ...detailOptions.map(option => `
+                <button class="hierarchy-chip export-detail-filter ${exportDetail === option.key ? 'active' : ''}" type="button" data-detail="${option.key}">
+                  ${escapeHtml(option.label)} ${option.count.toLocaleString('ko-KR')}
+                </button>
+              `)
+            ].join('') : '<span class="material-note">세부 분류 없음</span>'}
+          </div>
+        </div>
+      `;
+      if (!items.length) {
+        body.innerHTML = '<div class="empty-state">내보낼 품목이 없습니다.</div>';
+        return;
+      }
+      body.innerHTML = `
+        <p class="export-preview-note">대시보드 편집본 · 현재 선택 기준</p>
+        <div class="classification-table-wrap">
+          <table class="classification-table">
+            <thead>
+              <tr>
+                <th>품목코드</th>
+                <th>품목명</th>
+                <th>품목구분</th>
+                <th>규격정보</th>
+                <th>분류</th>
+                <th>입고단가</th>
+                <th>VAT</th>
+                <th>상태</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${items.slice(0, 120).map(item => {
+                const category = materialCategories[classifyMaterial(item)]?.label || '미분류';
+                const sub = getSubcategory(item).label;
+                const detail = getDetailCategory(item).label;
+                const status = getItemStatus(item).label;
+                return `
+                  <tr>
+                    <td class="code">${escapeHtml(item.itemCode)}</td>
+                    <td class="name">${escapeHtml(item.itemName)}</td>
+                    <td>${escapeHtml(item.itemType || '-')}</td>
+                    <td>${escapeHtml(item.spec || '-')}</td>
+                    <td>${escapeHtml(`${category} / ${sub} / ${detail}`)}</td>
+                    <td>${formatPrice(item.purchasePrice)}</td>
+                    <td>${escapeHtml(item.purchasePriceVatIncluded || '-')}</td>
+                    <td>${escapeHtml(status)}</td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+        ${items.length > 120 ? `<p class="export-preview-note">미리보기는 120개까지만 표시됩니다. 실제 내보내기는 ${items.length.toLocaleString('ko-KR')}개 전체가 포함됩니다.</p>` : ''}
+      `;
+    }
+
+    function openExportModal() {
+      const modal = document.getElementById('exportModal');
+      if (!modal) return;
+      exportCategory = ['raw', 'package', 'gift', 'product', 'other', 'unknown'].includes(materialCategory) ? materialCategory : 'all';
+      exportSubcategory = exportCategory === 'all' ? 'all' : materialSubcategory;
+      exportDetail = exportCategory === 'all' ? 'all' : materialDetail;
+      renderExportModal();
+      modal.classList.remove('auth-hidden');
+    }
+
+    function closeExportModal() {
+      document.getElementById('exportModal')?.classList.add('auth-hidden');
+    }
+
+    function buildExportRows(items) {
+      return items.map(item => {
+        const level1 = materialCategories[classifyMaterial(item)]?.label || '미분류';
+        const level2 = getSubcategory(item).label;
+        const level3 = getDetailCategory(item).label;
+        return {
+          '품목코드': item.itemCode,
+          '품목명': item.itemName,
+          '품목구분': item.itemType,
+          '규격정보': item.spec,
+          '품목그룹': item.itemGroupName,
+          'Level 1': level1,
+          'Level 2': level2,
+          'Level 3': level3,
+          '입고단가': toNumber(item.purchasePrice),
+          'VAT': item.purchasePriceVatIncluded,
+          '상태': getItemStatus(item).label,
+          '구분': '대시보드 편집본',
+        };
+      });
+    }
+
+    function exportSelectedMaterials() {
+      if (!window.XLSX) {
+        alert('Excel 내보내기 라이브러리를 불러오지 못했습니다.');
+        return;
+      }
+      const items = getExportItems();
+      if (!items.length) {
+        alert('내보낼 품목이 없습니다.');
+        return;
+      }
+      const workbook = XLSX.utils.book_new();
+      const worksheet = XLSX.utils.json_to_sheet(buildExportRows(items));
+      XLSX.utils.book_append_sheet(workbook, worksheet, '원부자재단가');
+      const today = new Date().toISOString().slice(0, 10);
+      XLSX.writeFile(workbook, `dmf_material_prices_${today}.xlsx`);
+    }
+
     function bindMaterialEvents() {
       const fileInput = document.getElementById('materialFileInput');
       const uploadZone = document.getElementById('materialUploadZone');
@@ -1764,6 +2013,11 @@
       const classificationModal = document.getElementById('classificationModal');
       const classificationModalClose = document.getElementById('classificationModalClose');
       const classificationModalBody = document.getElementById('classificationModalBody');
+      const exportButton = document.getElementById('materialExportButton');
+      const exportModal = document.getElementById('exportModal');
+      const exportModalClose = document.getElementById('exportModalClose');
+      const exportModalBody = document.getElementById('exportModalBody');
+      const exportConfirmButton = document.getElementById('exportConfirmButton');
 
       uploadZone?.addEventListener('click', event => {
         if (event.target === fileInput) return;
@@ -1904,13 +2158,74 @@
         setMaterialStatus(level3Select.value ? 'Level 3 수동 분류가 저장되었습니다.' : 'Level 3 수동 분류를 해제했습니다.', 'ok');
       });
 
+      exportButton?.addEventListener('click', openExportModal);
+      exportModalClose?.addEventListener('click', closeExportModal);
+      exportModal?.addEventListener('click', event => {
+        if (event.target === exportModal) closeExportModal();
+      });
+      exportConfirmButton?.addEventListener('click', exportSelectedMaterials);
+      exportModal?.addEventListener('click', event => {
+        const majorButton = event.target.closest('.export-major-filter');
+        const subButton = event.target.closest('.export-sub-filter');
+        const detailButton = event.target.closest('.export-detail-filter');
+        if (majorButton) {
+          exportCategory = majorButton.dataset.category;
+          exportSubcategory = 'all';
+          exportDetail = 'all';
+          renderExportModal();
+          return;
+        }
+        if (subButton) {
+          exportSubcategory = subButton.dataset.subcategory;
+          exportDetail = 'all';
+          renderExportModal();
+          return;
+        }
+        if (detailButton) {
+          exportDetail = detailButton.dataset.detail;
+          renderExportModal();
+        }
+      });
+
       tableBody?.addEventListener('change', event => {
-        const input = event.target.closest('.price-input');
+        const input = event.target.closest('.price-edit-input');
         if (!input) return;
-        const index = materials.findIndex(item => item.itemCode === input.dataset.code);
+        editingPriceDraft = input.value;
+      });
+
+      tableBody?.addEventListener('input', event => {
+        const input = event.target.closest('.price-edit-input');
+        if (!input) return;
+        editingPriceDraft = input.value;
+      });
+
+      tableBody?.addEventListener('click', event => {
+        const editButton = event.target.closest('.price-edit');
+        const saveButton = event.target.closest('.price-save');
+        const cancelButton = event.target.closest('.price-cancel');
+        if (editButton) {
+          const item = materials.find(material => material.itemCode === editButton.dataset.code);
+          if (!item) return;
+          editingPriceCode = item.itemCode;
+          editingPriceDraft = String(toNumber(item.purchasePrice));
+          renderMaterialTable();
+          return;
+        }
+        if (cancelButton) {
+          editingPriceCode = '';
+          editingPriceDraft = '';
+          renderMaterialTable();
+          return;
+        }
+        if (!saveButton) return;
+        const code = saveButton.dataset.code;
+        const index = materials.findIndex(item => item.itemCode === code);
         if (index === -1) return;
-        materials[index] = enrichMaterial({ ...materials[index], [input.dataset.field]: toNumber(input.value), edited: true });
+        const nextPrice = toNumber(editingPriceDraft);
+        materials[index] = enrichMaterial({ ...materials[index], purchasePrice: nextPrice, edited: true });
         saveMaterials();
+        editingPriceCode = '';
+        editingPriceDraft = '';
         renderMaterialTable();
         setMaterialStatus('수정사항이 브라우저에 저장되었습니다.', 'ok');
       });
@@ -2040,6 +2355,7 @@
               </select>
             </div>
             <div class="material-actions-right">
+              <button class="back-btn" id="materialExportButton" type="button">Excel 내보내기</button>
               <button class="back-btn" id="classificationManageButton" type="button">Level 3 분류 관리</button>
             </div>
             <div class="column-selector" id="materialColumnSelector"></div>
@@ -2085,6 +2401,24 @@
             <div class="modal-body">
               <div class="classification-filter-panel" id="classificationModalFilters"></div>
               <div id="classificationModalBody"></div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-overlay auth-hidden" id="exportModal">
+          <div class="hierarchy-modal" role="dialog" aria-modal="true" aria-labelledby="exportModalTitle">
+            <div class="modal-head">
+              <div>
+                <div class="modal-title" id="exportModalTitle">Excel 내보내기</div>
+                <div class="material-note">대시보드 편집본</div>
+              </div>
+              <div class="row-actions">
+                <button class="mini-btn primary" id="exportConfirmButton" type="button">선택 항목 Excel 내보내기</button>
+                <button class="modal-close" id="exportModalClose" type="button">닫기</button>
+              </div>
+            </div>
+            <div class="modal-body">
+              <div class="classification-filter-panel" id="exportModalFilters"></div>
+              <div id="exportModalBody"></div>
             </div>
           </div>
         </div>

@@ -215,7 +215,7 @@
       align-items: center;
       flex-wrap: wrap;
     }
-    .btn-export, .btn-print {
+    .btn-export, .btn-print, .btn-manage {
       height: 34px;
       padding: 0 16px;
       border-radius: 8px;
@@ -229,13 +229,18 @@
       background: rgba(255,255,255,.05);
       color: var(--t1);
     }
+    .btn-manage {
+      border-color: rgba(96,165,250,.34);
+      background: rgba(96,165,250,.10);
+      color: #bfdbfe;
+    }
     .btn-print {
       border-color: rgba(74,222,128,.42);
       background: linear-gradient(135deg, #4ade80, #16a34a);
       color: #04130a;
       box-shadow: 0 0 18px rgba(74,222,128,.18);
     }
-    .btn-export:disabled, .btn-print:disabled { opacity: .45; cursor: not-allowed; }
+    .btn-export:disabled, .btn-print:disabled, .btn-manage:disabled { opacity: .45; cursor: not-allowed; }
     .board-actions {
       display: flex;
       align-items: center;
@@ -344,6 +349,133 @@
       text-align: center;
       color: var(--t2);
       font-size: 13px;
+    }
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+      background: rgba(2,6,23,.72);
+      backdrop-filter: blur(10px);
+    }
+    .modal-backdrop.open { display: flex; }
+    .company-modal {
+      width: min(560px, 100%);
+      max-height: min(720px, calc(100vh - 36px));
+      display: flex;
+      flex-direction: column;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: var(--card);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .modal-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--border);
+    }
+    .modal-title {
+      color: var(--t0);
+      font-size: 15px;
+      font-weight: 850;
+    }
+    .modal-close {
+      width: 30px;
+      height: 30px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: rgba(255,255,255,.05);
+      color: var(--t1);
+      cursor: pointer;
+      font-size: 17px;
+      line-height: 1;
+    }
+    .modal-body {
+      padding: 16px 18px 18px;
+      overflow-y: auto;
+    }
+    .company-add-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .company-input {
+      min-width: 0;
+      height: 36px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: rgba(255,255,255,.05);
+      color: var(--t0);
+      font-family: 'Noto Sans KR', sans-serif;
+      font-size: 12px;
+      padding: 0 10px;
+      outline: none;
+    }
+    .company-input:focus {
+      border-color: rgba(96,165,250,.55);
+      box-shadow: 0 0 0 3px rgba(96,165,250,.12);
+    }
+    .company-list {
+      display: grid;
+      gap: 7px;
+      margin-top: 10px;
+    }
+    .company-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto auto;
+      gap: 7px;
+      align-items: center;
+    }
+    .btn-small {
+      height: 34px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: rgba(255,255,255,.06);
+      color: var(--t1);
+      font-family: 'Noto Sans KR', sans-serif;
+      font-size: 11px;
+      font-weight: 800;
+      padding: 0 10px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .btn-small.primary {
+      border-color: rgba(96,165,250,.42);
+      background: rgba(96,165,250,.14);
+      color: #bfdbfe;
+    }
+    .btn-small.danger {
+      border-color: rgba(248,113,113,.34);
+      color: #fecaca;
+    }
+    .company-modal-foot {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+    }
+    .company-count {
+      color: var(--t2);
+      font-size: 12px;
+      line-height: 34px;
+    }
+    .company-empty {
+      padding: 18px;
+      border: 1px dashed var(--border);
+      border-radius: 10px;
+      color: var(--t2);
+      text-align: center;
+      font-size: 12px;
     }
     .unmatched-table {
       min-width: 860px;
@@ -496,6 +628,7 @@
           <p>Ecount ERP 매출현황 엑셀을 업로드하면 거래처명과 품목명 기준으로 수량을 합산해 현황표를 생성합니다.</p>
         </div>
         <div class="action-row">
+          <button class="btn-manage" id="companyManageBtn" type="button">포함 업체 관리</button>
           <button class="btn-export" id="exportBtn" type="button" disabled>Excel 내보내기</button>
           <button class="btn-print" id="printBtn" type="button" disabled>인쇄</button>
         </div>
@@ -570,6 +703,26 @@
         </div>
       </section>
     </main>
+  </div>
+
+  <div class="modal-backdrop" id="companyModal" aria-hidden="true">
+    <section class="company-modal" role="dialog" aria-modal="true" aria-labelledby="companyModalTitle">
+      <div class="modal-head">
+        <div class="modal-title" id="companyModalTitle">주간현황표 포함 업체 관리</div>
+        <button class="modal-close" id="companyModalClose" type="button" aria-label="닫기">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="company-add-row">
+          <input class="company-input" id="companyNameInput" type="text" placeholder="업체명 입력" autocomplete="off">
+          <button class="btn-small primary" id="companyAddBtn" type="button">추가</button>
+        </div>
+        <div id="companyListHost"></div>
+        <div class="company-modal-foot">
+          <div class="company-count" id="companyCountText"></div>
+          <button class="btn-small" id="companyResetBtn" type="button">기본값 복원</button>
+        </div>
+      </div>
+    </section>
   </div>
 
   <script type="module">
@@ -654,7 +807,8 @@
       'col-black-cn',
     ];
 
-    const KNOWN_SCHOOL_CUSTOMERS = [
+    const INCLUDED_COMPANY_STORAGE_KEY = 'dmf_school_meal_included_companies_v1';
+    const DEFAULT_INCLUDED_COMPANIES = [
       '주식회사 태화에프에스',
       '동진푸드',
       '참팜',
@@ -673,6 +827,7 @@
       '파워푸드',
       '원진DF',
       '친환경급식센터',
+      '주식회사 두연푸드',
     ];
 
     const PRIORITY_GROUPS = [
@@ -706,6 +861,53 @@
     const PRODUCT_LOOKUP = new Map(PRODUCT_COLUMNS.map(col => [normalizeProductName(col), col]));
     const emptyValues = () => Object.fromEntries(PRODUCT_COLUMNS.map(c => [c, 0]));
 
+    function normalizeCompanyName(name) {
+      return norm(name).replace(/\s+/g, ' ').trim();
+    }
+
+    function normalizeCompanyKey(name) {
+      return normalizeCompanyName(name).toLowerCase().replace(/\s+/g, '');
+    }
+
+    function uniqueCompanyList(list) {
+      const seen = new Set();
+      return (Array.isArray(list) ? list : [])
+        .map(normalizeCompanyName)
+        .filter(name => {
+          const key = normalizeCompanyKey(name);
+          if (!key || seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+    }
+
+    function getIncludedCompanyList() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(INCLUDED_COMPANY_STORAGE_KEY) || 'null');
+        if (Array.isArray(saved)) return uniqueCompanyList(saved);
+      } catch (err) {
+        console.warn('포함 업체 목록을 읽지 못했습니다.', err);
+      }
+      const defaults = uniqueCompanyList(DEFAULT_INCLUDED_COMPANIES);
+      localStorage.setItem(INCLUDED_COMPANY_STORAGE_KEY, JSON.stringify(defaults));
+      return defaults;
+    }
+
+    function saveIncludedCompanyList(list) {
+      includedCompanies = uniqueCompanyList(list);
+      localStorage.setItem(INCLUDED_COMPANY_STORAGE_KEY, JSON.stringify(includedCompanies));
+      drawBoard();
+      renderCompanyList();
+      return includedCompanies;
+    }
+
+    function isIncludedCompany(name) {
+      const key = normalizeCompanyKey(name);
+      return includedCompanies.some(company => normalizeCompanyKey(company) === key);
+    }
+
+    let includedCompanies = getIncludedCompanyList();
+
     const excelInput = document.getElementById('excelInput');
     const uploadZone = document.getElementById('uploadZone');
     const uploadTitle = document.getElementById('uploadTitle');
@@ -713,6 +915,14 @@
     const exportBtn = document.getElementById('exportBtn');
     const printBtn = document.getElementById('printBtn');
     const printHost = document.getElementById('printHost');
+    const companyManageBtn = document.getElementById('companyManageBtn');
+    const companyModal = document.getElementById('companyModal');
+    const companyModalClose = document.getElementById('companyModalClose');
+    const companyNameInput = document.getElementById('companyNameInput');
+    const companyAddBtn = document.getElementById('companyAddBtn');
+    const companyResetBtn = document.getElementById('companyResetBtn');
+    const companyListHost = document.getElementById('companyListHost');
+    const companyCountText = document.getElementById('companyCountText');
 
     excelInput.addEventListener('change', e => {
       if (e.target.files[0]) loadFile(e.target.files[0]);
@@ -732,6 +942,35 @@
     printBtn.addEventListener('click', () => {
       if (state.board.length) window.print();
     });
+    companyManageBtn.addEventListener('click', openCompanyModal);
+    companyModalClose.addEventListener('click', closeCompanyModal);
+    companyModal.addEventListener('click', e => {
+      if (e.target === companyModal) closeCompanyModal();
+    });
+    companyAddBtn.addEventListener('click', addCompanyFromInput);
+    companyNameInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') addCompanyFromInput();
+    });
+    companyResetBtn.addEventListener('click', () => {
+      if (confirm('포함 업체 목록을 기본값으로 복원할까요?')) {
+        saveIncludedCompanyList(DEFAULT_INCLUDED_COMPANIES);
+      }
+    });
+    companyListHost.addEventListener('click', e => {
+      const row = e.target.closest('[data-company-index]');
+      if (!row) return;
+      const index = Number(row.dataset.companyIndex);
+      if (e.target.matches('[data-company-save]')) {
+        const input = row.querySelector('input');
+        const next = [...includedCompanies];
+        next[index] = input.value;
+        saveIncludedCompanyList(next);
+      }
+      if (e.target.matches('[data-company-delete]')) {
+        const next = includedCompanies.filter((_, i) => i !== index);
+        saveIncludedCompanyList(next);
+      }
+    });
     document.querySelectorAll('[data-view-mode]').forEach(btn => {
       btn.addEventListener('click', () => {
         state.viewMode = btn.dataset.viewMode;
@@ -746,6 +985,46 @@
       uploadTitle.textContent = type === 'ok' ? '엑셀 파일 재선택' : '엑셀 파일 선택';
       uploadSub.textContent = message || '.xlsx 또는 .xls 파일을 클릭하거나 끌어놓으세요.';
       uploadSub.className = 'upload-sub ' + type;
+    }
+
+    function openCompanyModal() {
+      renderCompanyList();
+      companyModal.classList.add('open');
+      companyModal.setAttribute('aria-hidden', 'false');
+      setTimeout(() => companyNameInput.focus(), 0);
+    }
+
+    function closeCompanyModal() {
+      companyModal.classList.remove('open');
+      companyModal.setAttribute('aria-hidden', 'true');
+      companyNameInput.value = '';
+    }
+
+    function addCompanyFromInput() {
+      const name = normalizeCompanyName(companyNameInput.value);
+      if (!name) return;
+      if (isIncludedCompany(name)) {
+        companyNameInput.value = '';
+        return;
+      }
+      saveIncludedCompanyList([...includedCompanies, name]);
+      companyNameInput.value = '';
+      companyNameInput.focus();
+    }
+
+    function renderCompanyList() {
+      companyCountText.textContent = `${includedCompanies.length}개 업체`;
+      if (!includedCompanies.length) {
+        companyListHost.innerHTML = '<div class="company-empty">포함 업체가 없습니다.</div>';
+        return;
+      }
+      companyListHost.innerHTML = `<div class="company-list">
+        ${includedCompanies.map((company, index) => `<div class="company-row" data-company-index="${index}">
+          <input class="company-input" type="text" value="${esc(company)}" aria-label="포함 업체명">
+          <button class="btn-small primary" type="button" data-company-save>저장</button>
+          <button class="btn-small danger" type="button" data-company-delete>삭제</button>
+        </div>`).join('')}
+      </div>`;
     }
 
     function loadFile(file) {
@@ -988,21 +1267,25 @@
 
     function getDisplayRows() {
       if (state.viewMode === 'ordered') return state.board;
-      const byName = new Map(state.board.map(row => [row.customer, row]));
-      const knownOrder = new Map(KNOWN_SCHOOL_CUSTOMERS.map((name, i) => [name, i]));
-      const rows = KNOWN_SCHOOL_CUSTOMERS.map(customer => {
-        const existing = byName.get(customer);
+      includedCompanies = getIncludedCompanyList();
+      const includedList = includedCompanies;
+      const byName = new Map(state.board.map(row => [normalizeCompanyKey(row.customer), row]));
+      const knownOrder = new Map(includedList.map((name, i) => [normalizeCompanyKey(name), i]));
+      const rows = includedList.map(customer => {
+        const key = normalizeCompanyKey(customer);
+        const existing = byName.get(key);
+        const order = knownOrder.get(key);
         return existing || {
           customer,
           values: emptyValues(),
           total: 0,
-          order: 1000 + knownOrder.get(customer),
+          order: 1000 + order,
           priority: getPriority(customer),
-          knownOrder: knownOrder.get(customer),
+          knownOrder: order,
         };
       });
       state.board.forEach(row => {
-        if (!knownOrder.has(row.customer)) rows.push({ ...row, knownOrder: 999 });
+        if (!isIncludedCompany(row.customer)) rows.push({ ...row, knownOrder: 999 });
       });
       return rows.sort((a, b) => {
         if (a.priority !== b.priority) return a.priority - b.priority;

@@ -259,21 +259,23 @@
     }
 
     .panel-body {
-      padding: 20px;
+      padding: 18px 20px;
     }
 
     .upload-summary-row {
       display: grid;
-      grid-template-columns: minmax(280px, .86fr) minmax(420px, 1.14fr);
+      grid-template-columns: minmax(260px, 420px) 1fr;
       gap: 18px;
       align-items: stretch;
     }
 
     .upload-zone {
-      min-height: 178px;
-      border: 1.5px dashed rgba(255, 255, 255, .20);
+      min-height: 62px;
+      height: 100%;
+      padding: 7px 14px;
+      border: 2px dashed var(--border);
       border-radius: 14px;
-      background: rgba(255, 255, 255, .045);
+      background: var(--card-w);
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -286,32 +288,29 @@
 
     .upload-zone:hover,
     .upload-zone.over {
-      border-color: rgba(34, 211, 238, .56);
-      background: rgba(34, 211, 238, .08);
-      transform: translateY(-1px);
+      border-color: rgba(34, 211, 238, .45);
+      background: rgba(34, 211, 238, .05);
     }
 
     .upload-icon {
-      width: 44px;
-      height: 44px;
-      border-radius: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: rgba(34, 211, 238, .12);
-      font-size: 24px;
+      font-size: 18px;
+      opacity: .45;
+      line-height: 1;
+      margin-bottom: 2px;
     }
 
     .upload-title {
       color: var(--t0);
-      font-size: 15px;
-      font-weight: 800;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1.2;
     }
 
     .upload-sub {
       color: var(--t2);
-      font-size: 12px;
-      line-height: 1.45;
+      font-size: 10.5px;
+      line-height: 1.25;
+      margin-top: 3px;
     }
 
     .upload-sub.running { color: var(--nm); }
@@ -324,67 +323,52 @@
     }
 
     .upload-summary-row .kp {
-      min-height: 82px;
-      padding: 16px 18px;
+      min-height: 62px;
+      padding: 10px 14px;
+      border-radius: 10px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
     }
 
     .upload-summary-placeholder {
-      min-height: 178px;
+      min-height: 62px;
       display: grid;
       grid-template-columns: repeat(4, 1fr);
-      gap: 13px;
+      gap: 10px;
     }
 
     .summary-skeleton {
       border: 1px solid var(--border);
-      border-radius: 16px;
-      background: rgba(255, 255, 255, .035);
-      padding: 16px 18px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, .04);
+      padding: 10px 14px;
+      min-height: 62px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
     }
 
     .summary-skeleton .sk-label {
-      font-size: 13px;
+      font-size: 10px;
       color: var(--t2);
-      margin-bottom: 9px;
+      margin-bottom: 7px;
       font-weight: 700;
+      letter-spacing: .6px;
     }
 
     .summary-skeleton .sk-value {
       font-family: 'JetBrains Mono', monospace;
-      font-size: 25px;
+      font-size: 16px;
       font-weight: 700;
       color: rgba(255, 255, 255, .22);
-    }
-
-    .btn-upload {
-      height: 36px;
-      padding: 0 20px;
-      background: linear-gradient(135deg, #4ade80, #16a34a);
-      color: #fff;
-      border: none;
-      border-radius: 6px;
-      font-family: 'Noto Sans KR', sans-serif;
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      white-space: nowrap;
-      transition: opacity .15s;
-      box-shadow: 0 2px 12px rgba(74, 222, 128, .25);
-      margin-top: 4px;
-    }
-
-    .btn-upload:hover {
-      opacity: .88;
     }
 
     .field-group,
     .date-sep,
     .btn-actions,
-    .btn-fetch {
+    .btn-fetch,
+    .btn-upload {
       display: none;
     }
 
@@ -542,6 +526,35 @@
       color: var(--t2);
       font-family: 'JetBrains Mono', monospace;
       margin-top: 5px;
+    }
+
+    .upload-summary-row .kb {
+      top: 10px;
+      right: 12px;
+      font-size: 17px;
+    }
+
+    .upload-summary-row .kl {
+      font-size: 10px;
+      letter-spacing: .6px;
+      margin-bottom: 7px;
+      line-height: 1.2;
+    }
+
+    .upload-summary-row .kv {
+      font-size: 16px;
+      letter-spacing: 0;
+      line-height: 1.05;
+    }
+
+    .upload-summary-row .kv span {
+      font-size: 10px !important;
+    }
+
+    .upload-summary-row .ks {
+      font-size: 10px;
+      margin-top: 4px;
+      line-height: 1.2;
     }
 
     .cr {
@@ -1011,7 +1024,6 @@
               <div class="upload-icon">📊</div>
               <div class="upload-title" id="uploadTitle">Excel 파일 선택</div>
               <div class="upload-sub" id="uploadSub">.xlsx 또는 .xls 파일을 클릭하거나 끌어놓으세요.</div>
-              <div class="btn-upload">Excel 업로드</div>
               <input type="file" id="manual-file-input" accept=".xlsx,.xls" style="display:none"
                 onchange="handleManualFile(this)">
             </label>

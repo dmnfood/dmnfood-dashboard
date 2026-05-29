@@ -215,7 +215,7 @@
       z-index: 10;
     }
 
-    /* Ecount 패널 */
+    /* Excel 업로드 패널 */
     .auto-panel {
       background: var(--card);
       border: 1px solid var(--border);
@@ -262,86 +262,98 @@
       padding: 20px;
     }
 
-    .auto-row {
-      display: flex;
-      align-items: flex-end;
-      gap: 14px;
-      flex-wrap: wrap;
+    .upload-summary-row {
+      display: grid;
+      grid-template-columns: minmax(280px, .86fr) minmax(420px, 1.14fr);
+      gap: 18px;
+      align-items: stretch;
     }
 
-    .field-group {
+    .upload-zone {
+      min-height: 178px;
+      border: 1.5px dashed rgba(255, 255, 255, .20);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, .045);
       display: flex;
       flex-direction: column;
-      gap: 5px;
-    }
-
-    .field-group label {
-      font-size: 11px;
-      font-weight: 600;
-      color: var(--t2);
-      letter-spacing: .3px;
-      text-transform: uppercase;
-    }
-
-    .field-group select,
-    .field-group input[type="month"] {
-      height: 36px;
-      padding: 0 12px;
-      border: 1px solid var(--in-br);
-      border-radius: 6px;
-      background: var(--in-bg);
-      color: var(--t0);
-      font-size: 13px;
-      font-family: 'Noto Sans KR', sans-serif;
-      outline: none;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      text-align: center;
       cursor: pointer;
+      transition: border-color .18s, background .18s, transform .18s;
     }
 
-    .field-group input[type="month"] {
-      min-width: 140px;
+    .upload-zone:hover,
+    .upload-zone.over {
+      border-color: rgba(34, 211, 238, .56);
+      background: rgba(34, 211, 238, .08);
+      transform: translateY(-1px);
     }
 
-    .field-group select {
-      min-width: 160px;
-    }
-
-    .field-group select option {
-      background: #0b1220;
-    }
-
-    .date-sep {
-      color: var(--t2);
-      font-size: 16px;
-      padding-bottom: 8px;
-    }
-
-    .btn-actions {
-      display: flex;
-      gap: 8px;
-      align-items: flex-end;
-    }
-
-    .btn-fetch {
-      height: 36px;
-      padding: 0 20px;
-      background: linear-gradient(135deg, #22d3ee, #6366f1);
-      color: #fff;
-      border: none;
-      border-radius: 6px;
-      font-family: 'Noto Sans KR', sans-serif;
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
+    .upload-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
       display: flex;
       align-items: center;
-      gap: 6px;
-      white-space: nowrap;
-      transition: opacity .15s;
-      box-shadow: 0 2px 12px rgba(34, 211, 238, .25);
+      justify-content: center;
+      background: rgba(34, 211, 238, .12);
+      font-size: 24px;
     }
 
-    .btn-fetch:hover {
-      opacity: .88;
+    .upload-title {
+      color: var(--t0);
+      font-size: 15px;
+      font-weight: 800;
+    }
+
+    .upload-sub {
+      color: var(--t2);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .upload-sub.running { color: var(--nm); }
+    .upload-sub.done { color: var(--zr); }
+    .upload-sub.error { color: var(--rv); }
+
+    .upload-summary-row .kg {
+      margin-bottom: 0;
+      height: 100%;
+    }
+
+    .upload-summary-row .kp {
+      min-height: 82px;
+      padding: 16px 18px;
+    }
+
+    .upload-summary-placeholder {
+      min-height: 178px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 13px;
+    }
+
+    .summary-skeleton {
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: rgba(255, 255, 255, .035);
+      padding: 16px 18px;
+    }
+
+    .summary-skeleton .sk-label {
+      font-size: 13px;
+      color: var(--t2);
+      margin-bottom: 9px;
+      font-weight: 700;
+    }
+
+    .summary-skeleton .sk-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 25px;
+      font-weight: 700;
+      color: rgba(255, 255, 255, .22);
     }
 
     .btn-upload {
@@ -355,16 +367,25 @@
       font-size: 13px;
       font-weight: 600;
       cursor: pointer;
-      display: flex;
+      display: inline-flex;
       align-items: center;
+      justify-content: center;
       gap: 6px;
       white-space: nowrap;
       transition: opacity .15s;
       box-shadow: 0 2px 12px rgba(74, 222, 128, .25);
+      margin-top: 4px;
     }
 
     .btn-upload:hover {
       opacity: .88;
+    }
+
+    .field-group,
+    .date-sep,
+    .btn-actions,
+    .btn-fetch {
+      display: none;
     }
 
     .auto-status {
@@ -920,6 +941,28 @@
     .auth-hidden {
       display: none !important;
     }
+
+    @media (max-width: 980px) {
+      .upload-summary-row {
+        grid-template-columns: 1fr;
+      }
+
+      .upload-summary-placeholder,
+      .kg {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 640px) {
+      .page-main {
+        padding-inline: 16px;
+      }
+
+      .upload-summary-placeholder,
+      .kg {
+        grid-template-columns: 1fr;
+      }
+    }
   </style>
 </head>
 
@@ -953,40 +996,42 @@
 
     <main class="page-main">
 
-      <!-- Ecount 패널 -->
+      <!-- Excel 업로드 패널 -->
       <div class="auto-panel">
         <div class="panel-header">
-          <div class="panel-icon">🔗</div>
+          <div class="panel-icon">📄</div>
           <div class="panel-header-text">
-            <h2>Ecount 연동</h2>
-            <p>버튼 클릭 한 번으로 Ecount에서 자동 다운로드</p>
+            <h2>Excel 업로드</h2>
+            <p>월별채권증감내역 Excel 파일</p>
           </div>
         </div>
         <div class="panel-body">
-          <div class="auto-row">
-            <div class="field-group">
-              <label>데이터 소스</label>
-              <select>
-                <option>월별채권증감내역</option>
-              </select>
-            </div>
-            <div class="field-group">
-              <label>시작 월</label>
-              <input type="month" id="startMonth">
-            </div>
-            <div class="date-sep">—</div>
-            <div class="field-group">
-              <label>종료 월</label>
-              <input type="month" id="endMonth">
-            </div>
-            <div class="btn-actions">
-              <button class="btn-fetch" onclick="triggerFetch()">⚡ Ecount에서 가져오기</button>
-              <button class="btn-upload" onclick="document.getElementById('manual-file-input').click()">📂 Excel 직접
-                업로드</button>
+          <div class="upload-summary-row">
+            <label class="upload-zone" id="uploadZone" for="manual-file-input">
+              <div class="upload-icon">📊</div>
+              <div class="upload-title" id="uploadTitle">Excel 파일 선택</div>
+              <div class="upload-sub" id="uploadSub">.xlsx 또는 .xls 파일을 클릭하거나 끌어놓으세요.</div>
+              <div class="btn-upload">Excel 업로드</div>
               <input type="file" id="manual-file-input" accept=".xlsx,.xls" style="display:none"
                 onchange="handleManualFile(this)">
-              <input type="file" id="ecount-file-input" accept=".xlsx,.xls" style="display:none"
-                onchange="handleManualFile(this)">
+            </label>
+            <div class="kg upload-summary-placeholder" id="kg">
+              <div class="summary-skeleton">
+                <div class="sk-label">검토 필요</div>
+                <div class="sk-value">0</div>
+              </div>
+              <div class="summary-skeleton">
+                <div class="sk-label">정상 미수금</div>
+                <div class="sk-value">0</div>
+              </div>
+              <div class="summary-skeleton">
+                <div class="sk-label">정리 완료</div>
+                <div class="sk-value">0</div>
+              </div>
+              <div class="summary-skeleton">
+                <div class="sk-label">전체 거래처</div>
+                <div class="sk-value">0</div>
+              </div>
             </div>
           </div>
           <div class="auto-status" id="autoStatus"></div>
@@ -995,7 +1040,6 @@
 
       <!-- 대시보드 -->
       <div id="dash" style="display:none">
-        <div class="kg" id="kg"></div>
         <div class="cr">
           <div class="p cp">
             <div class="pt">분류 현황</div>
@@ -1039,7 +1083,7 @@
       <!-- 초기 안내 -->
       <div class="p empty" id="init">
         <div style="font-size:38px;opacity:.3;margin-bottom:10px;">📊</div>
-        <div style="font-size:13px;color:var(--t2);">Ecount에서 가져오거나 Excel 파일을 직접 업로드하면 분석이 시작됩니다.</div>
+        <div style="font-size:13px;color:var(--t2);">Excel 파일을 업로드하면 분석이 시작됩니다.</div>
       </div>
 
     </main>
@@ -1080,23 +1124,28 @@
     const sortArr = a => [...a].sort((x, y) => { const gi = gIdx(x.그룹) - gIdx(y.그룹); return gi || Math.abs(y.잔액) - Math.abs(x.잔액); });
 
     let D = null, cat = 'rv', dc = null;
+    const uploadZone = document.getElementById('uploadZone');
+    const uploadTitle = document.getElementById('uploadTitle');
+    const uploadSub = document.getElementById('uploadSub');
+
+    uploadZone.addEventListener('dragover', e => {
+      e.preventDefault();
+      uploadZone.classList.add('over');
+    });
+    uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('over'));
+    uploadZone.addEventListener('drop', e => {
+      e.preventDefault();
+      uploadZone.classList.remove('over');
+      if (e.dataTransfer.files[0]) load(e.dataTransfer.files[0]);
+    });
 
     function initApp() {
-      const now = new Date();
-      const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-      document.getElementById('startMonth').value = ym;
-      document.getElementById('endMonth').value = ym;
+      uploadTitle.textContent = 'Excel 파일 선택';
+      uploadSub.textContent = '.xlsx 또는 .xls 파일을 클릭하거나 끌어놓으세요.';
     }
 
     function triggerFetch() {
-      const s = document.getElementById('startMonth').value;
-      const e = document.getElementById('endMonth').value;
-      if (!s || !e) return alert('조회 기간을 모두 입력해주세요.');
-      if (s > e) return alert('시작 월이 종료 월보다 늦을 수 없습니다.');
-      setStatus('running', '⚡ Ecount 자동화 실행 중...');
-      const msg = `#ecount-auto-fetch\n보고서: 월별채권증감내역\n조회기간: ${s} ~ ${e}\nEcount 메뉴: 회계 > 채권/채무 > 월별채권증감내역\n완료 후: 이 탭의 파일 입력(id="ecount-file-input")에 다운로드된 파일을 업로드해줘.`;
-      if (typeof window.sendPrompt === 'function') window.sendPrompt(msg);
-      else setStatus('error', '⚠️ Claude in Chrome이 연결되지 않았습니다.');
+      setStatus('error', 'Excel 파일 업로드 방식만 사용합니다.');
     }
 
     function handleManualFile(input) {
@@ -1108,6 +1157,9 @@
       const el = document.getElementById('autoStatus');
       el.className = 'auto-status ' + type;
       el.innerHTML = type === 'running' ? `<div class="spinner-sm"></div> ${msg}` : msg;
+      uploadTitle.textContent = type === 'done' ? 'Excel 파일 재선택' : 'Excel 파일 선택';
+      uploadSub.textContent = msg.replace(/^[📂✅❌⚡]\s*/, '');
+      uploadSub.className = 'upload-sub ' + type;
     }
 
     function load(file) {
@@ -1181,7 +1233,9 @@
 
     function buildKPI() {
       const s = D.sum, lastMon = D.lastMonth;
-      document.getElementById('kg').innerHTML = [
+      const kg = document.getElementById('kg');
+      kg.classList.remove('upload-summary-placeholder');
+      kg.innerHTML = [
         { c: 'rv', i: '⚠', l: '검토 필요', v: s.rv, s: fmt(s.rvb) + '원' },
         { c: 'nm', i: '✓', l: lastMon + ' 미수금 (정상)', v: s.nm, s: fmt(s.nmb) + '원' },
         { c: 'zr', i: '◉', l: '정리 완료', v: s.zr, s: '잔액 0' },

@@ -1205,6 +1205,382 @@
       font-size: 11px;
       color: var(--gold2);
     }
+
+    /* cash planning */
+    .mode-switch {
+      display: inline-flex;
+      gap: 3px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 4px;
+      margin-bottom: 18px;
+    }
+
+    .mode-btn {
+      min-width: 86px;
+      height: 32px;
+      border: 0;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--t2);
+      font-family: var(--sans);
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .mode-btn:hover {
+      color: var(--t1);
+      background: rgba(255, 255, 255, .05);
+    }
+
+    .mode-btn.active {
+      color: var(--t0);
+      background: rgba(255, 255, 255, .10);
+      border: 1px solid var(--border);
+    }
+
+    .mode-panel.hidden {
+      display: none;
+    }
+
+    .planning-panel {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      backdrop-filter: blur(20px);
+    }
+
+    .planning-controls {
+      display: grid;
+      grid-template-columns: 150px 180px minmax(220px, 1fr) auto auto;
+      gap: 10px;
+      align-items: end;
+      margin-bottom: 14px;
+    }
+
+    .planning-field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .planning-field span {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .7px;
+      color: var(--t2);
+      text-transform: uppercase;
+    }
+
+    .planning-input,
+    .planning-select {
+      width: 100%;
+      min-height: 34px;
+      border: 1px solid var(--in-br);
+      border-radius: 8px;
+      background: var(--in-bg);
+      color: var(--t0);
+      font-family: var(--sans);
+      font-size: 12px;
+      padding: 7px 10px;
+      outline: none;
+    }
+
+    .planning-input[type="number"] {
+      font-family: var(--mono);
+    }
+
+    .planning-input:focus,
+    .planning-select:focus {
+      border-color: rgba(34, 211, 238, .38);
+    }
+
+    .planning-file-label {
+      min-height: 34px;
+      border: 1px dashed var(--border);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, .035);
+      color: var(--t1);
+      display: flex;
+      align-items: center;
+      padding: 7px 10px;
+      font-size: 12px;
+      cursor: pointer;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .planning-file-label:hover {
+      border-color: rgba(34, 211, 238, .35);
+      color: var(--t0);
+    }
+
+    .planning-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .planning-kpi {
+      background: var(--card-s);
+      border: 1px solid var(--border);
+      border-top: 2px solid rgba(34, 211, 238, .65);
+      border-radius: 10px;
+      padding: 12px 14px;
+      min-width: 0;
+    }
+
+    .planning-kpi.warn {
+      border-top-color: var(--rv);
+    }
+
+    .planning-kpi-label {
+      font-size: 10px;
+      color: var(--t2);
+      margin-bottom: 6px;
+      font-weight: 700;
+    }
+
+    .planning-kpi-value {
+      font-family: var(--mono);
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--t0);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .planning-kpi-sub {
+      font-size: 10px;
+      color: var(--t2);
+      margin-top: 4px;
+    }
+
+    .planning-workspace {
+      display: grid;
+      grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
+      gap: 14px;
+      align-items: start;
+    }
+
+    .planning-panel-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .planning-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--t0);
+    }
+
+    .planning-sub {
+      font-size: 11px;
+      color: var(--t2);
+      margin-top: 3px;
+    }
+
+    .fixed-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .fixed-item {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, .035);
+      padding: 10px;
+    }
+
+    .fixed-item-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .fixed-name {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--t0);
+    }
+
+    .status-pill {
+      border-radius: 20px;
+      padding: 2px 7px;
+      font-size: 9px;
+      font-weight: 700;
+      white-space: nowrap;
+      border: 1px solid var(--border);
+      color: var(--t2);
+    }
+
+    .status-pill.auto {
+      color: var(--nm);
+      background: var(--nm-bg);
+      border-color: rgba(96, 165, 250, .24);
+    }
+
+    .status-pill.manual {
+      color: var(--gold2);
+      background: rgba(212, 168, 67, .12);
+      border-color: rgba(212, 168, 67, .25);
+    }
+
+    .status-pill.need {
+      color: var(--rv);
+      background: var(--rv-bg);
+      border-color: rgba(248, 113, 113, .25);
+    }
+
+    .status-pill.done {
+      color: var(--zr);
+      background: var(--zr-bg);
+      border-color: rgba(74, 222, 128, .25);
+    }
+
+    .fixed-fields {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 7px;
+    }
+
+    .calendar-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .month-title {
+      font-family: var(--mono);
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--t0);
+    }
+
+    .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .calendar-dow,
+    .calendar-day {
+      background: rgba(10, 16, 28, .94);
+    }
+
+    .calendar-dow {
+      text-align: center;
+      padding: 9px 4px;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--t2);
+    }
+
+    .calendar-day {
+      min-height: 118px;
+      border: 0;
+      color: inherit;
+      font: inherit;
+      padding: 9px;
+      text-align: left;
+      cursor: pointer;
+      position: relative;
+    }
+
+    .calendar-day.empty {
+      cursor: default;
+      background: rgba(255, 255, 255, .025);
+    }
+
+    .calendar-day:not(.empty):hover {
+      background: rgba(255, 255, 255, .055);
+    }
+
+    .calendar-day.today {
+      box-shadow: inset 0 0 0 2px rgba(34, 211, 238, .55);
+    }
+
+    .calendar-day.min-balance {
+      background: rgba(248, 113, 113, .11);
+    }
+
+    .day-num {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--t2);
+      margin-bottom: 8px;
+      text-align: right;
+    }
+
+    .day-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 6px;
+      font-size: 11px;
+      line-height: 1.55;
+      white-space: nowrap;
+    }
+
+    .day-label {
+      color: var(--t2);
+    }
+
+    .day-income {
+      color: var(--green2);
+      font-family: var(--mono);
+    }
+
+    .day-expense {
+      color: var(--red2);
+      font-family: var(--mono);
+    }
+
+    .day-balance {
+      color: var(--gold2);
+      font-family: var(--mono);
+      font-weight: 700;
+    }
+
+    .planning-empty-note {
+      border: 1px dashed var(--border);
+      border-radius: 12px;
+      padding: 18px;
+      color: var(--t2);
+      font-size: 12px;
+      text-align: center;
+      margin-bottom: 12px;
+    }
+
+    @media (max-width: 1100px) {
+      .planning-controls,
+      .planning-workspace,
+      .planning-summary-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .calendar-day {
+        min-height: 132px;
+      }
+    }
   </style>
 </head>
 
@@ -1234,6 +1610,12 @@
     </header>
 
     <main class="page-main">
+      <div class="mode-switch" role="tablist" aria-label="자금 업무 모드">
+        <button class="mode-btn active" id="analysisModeBtn" type="button" onclick="switchCashMode('analysis')">분석</button>
+        <button class="mode-btn" id="planningModeBtn" type="button" onclick="switchCashMode('planning')">계획</button>
+      </div>
+
+      <div class="mode-panel" id="analysisModePanel">
 
       <!-- ─── 업로드 패널 ─── -->
       <div class="upload-grid">
@@ -1324,6 +1706,81 @@
         <div style="font-size:13px;">통장 거래내역 또는 카드 명세서를 업로드하면 분석이 시작됩니다.</div>
         <div style="font-size:11px;margin-top:6px;color:rgba(255,255,255,.25);">두 파일을 모두 올리면 통합 분석이 가능합니다</div>
       </div>
+      </div>
+
+      <section class="mode-panel hidden" id="planningModePanel">
+        <div class="planning-panel" style="margin-bottom:14px;">
+          <div class="planning-controls">
+            <label class="planning-field">
+              <span>기준일</span>
+              <input class="planning-input" id="cpBaseDate" type="date">
+            </label>
+            <label class="planning-field">
+              <span>현재 잔액</span>
+              <input class="planning-input" id="cpCurrentBalance" type="number" step="1" min="0" placeholder="0">
+            </label>
+            <label class="planning-field">
+              <span>Excel 업로드</span>
+              <label class="planning-file-label" for="cpExcelInput" id="cpExcelLabel">예상 입출금 Excel 선택</label>
+              <input id="cpExcelInput" type="file" accept=".xlsx,.xls" style="display:none" onchange="handlePlanningExcel(this)">
+            </label>
+            <button class="btn-sm primary" type="button" onclick="saveCashPlanningState()">저장</button>
+            <button class="btn-sm danger" type="button" onclick="resetCashPlanningState()">초기화</button>
+          </div>
+          <div class="planning-sub" id="cpUploadStatus">예상 입금/출금 Excel과 현재 잔액만 있으면 월별 자금 계획을 계산합니다.</div>
+        </div>
+
+        <div class="planning-summary-grid">
+          <div class="planning-kpi">
+            <div class="planning-kpi-label">기준일 반영 잔액</div>
+            <div class="planning-kpi-value" id="cpBaseBalance">-</div>
+            <div class="planning-kpi-sub" id="cpBaseBalanceSub">기준일 이후 계획 기준</div>
+          </div>
+          <div class="planning-kpi">
+            <div class="planning-kpi-label">최저 예상 잔액</div>
+            <div class="planning-kpi-value" id="cpMinBalance">-</div>
+            <div class="planning-kpi-sub" id="cpMinBalanceSub">아직 계산 전</div>
+          </div>
+          <div class="planning-kpi">
+            <div class="planning-kpi-label">월말 예상 잔액</div>
+            <div class="planning-kpi-value" id="cpMonthEndBalance">-</div>
+            <div class="planning-kpi-sub" id="cpMonthEndBalanceSub">월말 기준</div>
+          </div>
+          <div class="planning-kpi warn">
+            <div class="planning-kpi-label">부족자금 경고</div>
+            <div class="planning-kpi-value" id="cpShortageWarning">-</div>
+            <div class="planning-kpi-sub" id="cpShortageWarningSub">최저 잔액 기준</div>
+          </div>
+        </div>
+
+        <div class="planning-workspace">
+          <aside class="planning-panel">
+            <div class="planning-panel-head">
+              <div>
+                <div class="planning-title">고정지출 체크</div>
+                <div class="planning-sub">누락되기 쉬운 반복 지출을 월 계획에 반영합니다.</div>
+              </div>
+            </div>
+            <div class="fixed-list" id="cpFixedList"></div>
+          </aside>
+
+          <section class="planning-panel">
+            <div class="calendar-head">
+              <div>
+                <div class="planning-title">자금계획 캘린더</div>
+                <div class="planning-sub">날짜를 클릭하면 입출금 상세를 확인할 수 있습니다.</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <button class="btn-sm" type="button" onclick="changePlanningMonth(-1)">이전</button>
+                <div class="month-title" id="cpMonthTitle">-</div>
+                <button class="btn-sm" type="button" onclick="changePlanningMonth(1)">다음</button>
+              </div>
+            </div>
+            <div class="planning-empty-note" id="cpEmptyNote">Excel을 업로드하거나 고정지출 금액/날짜를 입력하면 일별 예상 잔액이 표시됩니다.</div>
+            <div class="calendar-grid" id="cpCalendar"></div>
+          </section>
+        </div>
+      </section>
 
     </main>
   </div>
@@ -2245,6 +2702,292 @@
       a.download = 'cashflow_overrides.json'; a.click();
     }
 
+    // CASH PLANNING
+    const CP_STATE_KEY = 'dmf_cash_planning_state';
+    const CP_FIXED_KEY = 'dmf_cash_planning_fixed_expenses';
+    const CP_FIXED_DEFAULTS = ['급여', '4대보험', '갑근세', '지방세', '수도세', '전기세', '카드대금', '대출이자', '보험료', '세무사', 'ERP 사용료'];
+    const CP_STATUS_LABELS = { auto: '자동매칭', manual: '수동입력', need: '확인필요', done: '반영완료' };
+    let cpState = { baseDate: todayIso(), currentBalance: 0, transactions: [], fileName: '', viewMonth: todayIso().substring(0, 7) };
+    let cpFixedExpenses = [];
+    let cpResult = { daily: {}, minDate: null, minBalance: 0, monthEndBalance: 0 };
+    let cpPlanningInitialized = false;
+
+    function todayIso() {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    }
+    function cpSafe(text) { return String(text ?? '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m])); }
+    function cpWon(n) {
+      const v = Number(n || 0);
+      if (!v) return '-';
+      return `${v < 0 ? '-' : ''}₩${Math.abs(Math.round(v)).toLocaleString('ko-KR')}`;
+    }
+    function cpReadJson(key, fallback) {
+      try { const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback; }
+      catch (e) { return fallback; }
+    }
+    function initCashPlanning() {
+      cpState = { ...cpState, ...cpReadJson(CP_STATE_KEY, {}) };
+      cpFixedExpenses = cpReadJson(CP_FIXED_KEY, null);
+      if (!Array.isArray(cpFixedExpenses) || !cpFixedExpenses.length) {
+        cpFixedExpenses = CP_FIXED_DEFAULTS.map((name, idx) => ({ id: `fixed-${idx + 1}`, name, expectedDate: '', expectedAmount: 0, status: 'need', matchedTransactionId: '' }));
+        localStorage.setItem(CP_FIXED_KEY, JSON.stringify(cpFixedExpenses));
+      }
+      const baseEl = document.getElementById('cpBaseDate');
+      const balEl = document.getElementById('cpCurrentBalance');
+      if (baseEl) baseEl.value = cpState.baseDate || todayIso();
+      if (balEl) balEl.value = cpState.currentBalance || '';
+      if (cpState.fileName) document.getElementById('cpExcelLabel').textContent = cpState.fileName;
+      if (!cpPlanningInitialized) {
+        baseEl?.addEventListener('change', () => {
+          cpState.baseDate = baseEl.value || todayIso();
+          cpState.viewMonth = cpState.baseDate.substring(0, 7);
+          saveCashPlanningState(false);
+          renderCashPlanning();
+        });
+        balEl?.addEventListener('input', () => {
+          cpState.currentBalance = parseAmount(balEl.value);
+          saveCashPlanningState(false);
+          renderCashPlanning();
+        });
+        cpPlanningInitialized = true;
+      }
+      renderCashPlanning();
+    }
+    function switchCashMode(mode) {
+      const isPlanning = mode === 'planning';
+      document.getElementById('analysisModePanel')?.classList.toggle('hidden', isPlanning);
+      document.getElementById('planningModePanel')?.classList.toggle('hidden', !isPlanning);
+      document.getElementById('analysisModeBtn')?.classList.toggle('active', !isPlanning);
+      document.getElementById('planningModeBtn')?.classList.toggle('active', isPlanning);
+      if (isPlanning) renderCashPlanning();
+    }
+    function saveCashPlanningState(showStatus = true) {
+      cpState.baseDate = document.getElementById('cpBaseDate')?.value || cpState.baseDate || todayIso();
+      cpState.currentBalance = parseAmount(document.getElementById('cpCurrentBalance')?.value || cpState.currentBalance);
+      localStorage.setItem(CP_STATE_KEY, JSON.stringify(cpState));
+      localStorage.setItem(CP_FIXED_KEY, JSON.stringify(cpFixedExpenses));
+      if (showStatus) setPlanningStatus('저장되었습니다.', 'ok');
+    }
+    function resetCashPlanningState() {
+      if (!confirm('자금 계획 데이터를 초기화할까요? 기존 자금 분석 데이터는 유지됩니다.')) return;
+      localStorage.removeItem(CP_STATE_KEY);
+      localStorage.removeItem(CP_FIXED_KEY);
+      cpState = { baseDate: todayIso(), currentBalance: 0, transactions: [], fileName: '', viewMonth: todayIso().substring(0, 7) };
+      cpFixedExpenses = [];
+      const input = document.getElementById('cpExcelInput');
+      if (input) input.value = '';
+      document.getElementById('cpExcelLabel').textContent = '예상 입출금 Excel 선택';
+      initCashPlanning();
+      setPlanningStatus('초기화되었습니다.', 'ok');
+    }
+    function setPlanningStatus(text, type = '') {
+      const el = document.getElementById('cpUploadStatus');
+      if (!el) return;
+      el.textContent = text;
+      el.style.color = type === 'err' ? 'var(--rv)' : type === 'ok' ? 'var(--zr)' : 'var(--t2)';
+    }
+    function handlePlanningExcel(input) {
+      const file = input.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = e => {
+        try {
+          const wb = XLSX.read(e.target.result, { type: 'array' });
+          const parsed = parsePlanningWorkbook(wb);
+          if (!parsed.records.length) {
+            setPlanningStatus('Excel에서 예정 입출금 내역을 찾지 못했습니다. 날짜와 금액 열을 확인하세요.', 'err');
+            return;
+          }
+          cpState.transactions = parsed.records;
+          cpState.fileName = file.name;
+          const dates = parsed.records.map(r => r.date).sort();
+          cpState.viewMonth = dates[0].substring(0, 7);
+          document.getElementById('cpExcelLabel').textContent = file.name;
+          autoMatchFixedExpenses();
+          saveCashPlanningState(false);
+          setPlanningStatus(`${file.name} · ${parsed.records.length.toLocaleString()}건 로드`, 'ok');
+          renderCashPlanning();
+        } catch (err) { setPlanningStatus(`Excel 읽기 실패: ${err.message}`, 'err'); }
+      };
+      reader.readAsArrayBuffer(file);
+    }
+    function parsePlanningWorkbook(wb) {
+      const records = [];
+      for (const sheetName of wb.SheetNames) {
+        const ws = wb.Sheets[sheetName];
+        const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false });
+        records.push(...parsePlanningRows(rows, sheetName));
+      }
+      records.sort((a, b) => a.date.localeCompare(b.date));
+      return { records };
+    }
+    function cpFindCol(headers, patterns) {
+      const norm = headers.map(h => String(h || '').replace(/\s/g, '').toLowerCase());
+      for (const p of patterns) {
+        const needle = p.replace(/\s/g, '').toLowerCase();
+        const idx = norm.findIndex(h => h.includes(needle));
+        if (idx >= 0) return idx;
+      }
+      return -1;
+    }
+    function parseSignedAmount(raw) {
+      if (raw == null || raw === '') return 0;
+      const n = parseFloat(String(raw).replace(/,/g, '').replace(/₩/g, '').trim().replace(/[^\d.-]/g, ''));
+      return Number.isFinite(n) ? n : 0;
+    }
+    function inferPlanningType(typeText, amount) {
+      const t = String(typeText || '').toLowerCase();
+      if (t.includes('입금') || t.includes('수입') || t.includes('income') || t.includes('receipt')) return 'income';
+      if (t.includes('출금') || t.includes('지출') || t.includes('지급') || t.includes('expense') || t.includes('payment')) return 'expense';
+      return Number(amount) < 0 ? 'expense' : 'income';
+    }
+    function parsePlanningRows(rows, sheetName) {
+      let hdrIdx = -1, cols = {};
+      for (let i = 0; i < Math.min(rows.length, 30); i++) {
+        const header = rows[i].map(c => String(c || '').trim());
+        const dateCol = cpFindCol(header, ['날짜', '일자', '예정일', '지급일', '입금일', 'date']);
+        const amountCol = cpFindCol(header, ['금액', '예정금액', 'amount']);
+        const incomeCol = cpFindCol(header, ['입금', '수입', '받을금액', 'income', 'receipt']);
+        const expenseCol = cpFindCol(header, ['출금', '지출', '지급', 'expense', 'payment']);
+        if (dateCol >= 0 && (amountCol >= 0 || incomeCol >= 0 || expenseCol >= 0)) {
+          hdrIdx = i;
+          cols = { dateCol, amountCol, incomeCol, expenseCol, typeCol: cpFindCol(header, ['구분', '유형', 'type']), vendorCol: cpFindCol(header, ['거래처', '업체', '고객', 'vendor', 'customer']), memoCol: cpFindCol(header, ['적요', '내용', '메모', '비고', 'memo', 'description']) };
+          break;
+        }
+      }
+      if (hdrIdx < 0) return [];
+      const records = [];
+      for (let i = hdrIdx + 1; i < rows.length; i++) {
+        const row = rows[i];
+        const date = normalizeDate(row[cols.dateCol]);
+        if (!date) continue;
+        const vendor = cols.vendorCol >= 0 ? String(row[cols.vendorCol] || '').trim() : '';
+        const memo = cols.memoCol >= 0 ? String(row[cols.memoCol] || '').trim() : '';
+        const typeText = cols.typeCol >= 0 ? String(row[cols.typeCol] || '').trim() : '';
+        const addRecord = (type, rawAmount, suffix) => {
+          const signed = parseSignedAmount(rawAmount);
+          const amount = Math.abs(signed);
+          if (!amount) return;
+          records.push({ id: `cp-${Date.now()}-${sheetName}-${i}-${suffix}`, date, originalDate: date, type, amount, vendor, memo, source: 'excel' });
+        };
+        if (cols.incomeCol >= 0 || cols.expenseCol >= 0) {
+          if (cols.incomeCol >= 0) addRecord('income', row[cols.incomeCol], 'in');
+          if (cols.expenseCol >= 0) addRecord('expense', row[cols.expenseCol], 'out');
+        } else {
+          const signed = parseSignedAmount(row[cols.amountCol]);
+          addRecord(inferPlanningType(typeText, signed), row[cols.amountCol], 'amt');
+        }
+      }
+      return records;
+    }
+    function autoMatchFixedExpenses() {
+      cpFixedExpenses = cpFixedExpenses.map(item => {
+        const needle = item.name.replace(/\s/g, '').toLowerCase();
+        const match = cpState.transactions.find(tx => tx.type === 'expense' && `${tx.vendor || ''} ${tx.memo || ''}`.replace(/\s/g, '').toLowerCase().includes(needle));
+        if (!match) return item.expectedDate || item.expectedAmount ? item : { ...item, status: 'need', matchedTransactionId: '' };
+        return { ...item, expectedDate: match.date, expectedAmount: match.amount, status: 'auto', matchedTransactionId: match.id };
+      });
+      localStorage.setItem(CP_FIXED_KEY, JSON.stringify(cpFixedExpenses));
+    }
+    function fixedExpensesAsPlanningRecords() {
+      return cpFixedExpenses.filter(item => item.expectedDate && Number(item.expectedAmount) > 0 && !item.matchedTransactionId).map(item => ({ id: `manual-${item.id}`, date: item.expectedDate, originalDate: item.expectedDate, type: 'expense', amount: Number(item.expectedAmount), vendor: item.name, memo: CP_STATUS_LABELS[item.status] || '', source: 'fixed' }));
+    }
+    function buildPlanningEngine(currentBalance, transactions, fixedExpenses, baseDate, viewMonth) {
+      const allRecords = [...transactions, ...fixedExpenses].filter(r => r.date >= baseDate);
+      const start = new Date(`${viewMonth}-01T00:00:00`);
+      const end = new Date(start.getFullYear(), start.getMonth() + 1, 0);
+      const base = new Date(`${baseDate}T00:00:00`);
+      const calcStart = base < start ? base : start;
+      const daily = {};
+      let balance = Number(currentBalance || 0);
+      let minDate = null, minBalance = balance;
+      for (let d = new Date(calcStart); d <= end; d.setDate(d.getDate() + 1)) {
+        const iso = d.toISOString().substring(0, 10);
+        const records = allRecords.filter(r => r.date === iso);
+        const dailyIncome = records.filter(r => r.type === 'income').reduce((s, r) => s + Number(r.amount || 0), 0);
+        const dailyExpense = records.filter(r => r.type === 'expense').reduce((s, r) => s + Number(r.amount || 0), 0);
+        if (iso >= baseDate) balance += dailyIncome - dailyExpense;
+        daily[iso] = { dailyIncome, dailyExpense, netChange: dailyIncome - dailyExpense, projectedBalance: balance, records };
+        if (iso >= baseDate && (!minDate || balance < minBalance)) { minDate = iso; minBalance = balance; }
+      }
+      const monthEndIso = end.toISOString().substring(0, 10);
+      return { daily, minDate, minBalance, monthEndBalance: daily[monthEndIso]?.projectedBalance ?? balance };
+    }
+    function renderCashPlanning() {
+      cpState.baseDate = document.getElementById('cpBaseDate')?.value || cpState.baseDate || todayIso();
+      cpState.currentBalance = parseAmount(document.getElementById('cpCurrentBalance')?.value || cpState.currentBalance);
+      cpState.viewMonth = cpState.viewMonth || cpState.baseDate.substring(0, 7);
+      cpResult = buildPlanningEngine(cpState.currentBalance, cpState.transactions, fixedExpensesAsPlanningRecords(), cpState.baseDate, cpState.viewMonth);
+      renderPlanningSummary(); renderFixedExpenseList(); renderPlanningCalendar();
+    }
+    function renderPlanningSummary() {
+      document.getElementById('cpBaseBalance').textContent = cpWon(cpState.currentBalance);
+      document.getElementById('cpBaseBalanceSub').textContent = `${cpState.baseDate || '-'} 기준`;
+      document.getElementById('cpMinBalance').textContent = cpWon(cpResult.minBalance);
+      document.getElementById('cpMinBalanceSub').textContent = cpResult.minDate ? `${cpResult.minDate} 최저` : '계산 전';
+      document.getElementById('cpMonthEndBalance').textContent = cpWon(cpResult.monthEndBalance);
+      document.getElementById('cpMonthEndBalanceSub').textContent = `${cpState.viewMonth} 월말`;
+      const shortage = Math.min(0, cpResult.minBalance);
+      document.getElementById('cpShortageWarning').textContent = shortage < 0 ? cpWon(Math.abs(shortage)) : '부족 없음';
+      document.getElementById('cpShortageWarningSub').textContent = shortage < 0 ? `${cpResult.minDate} 확인 필요` : '최저 잔액 0원 이상';
+      document.getElementById('cpEmptyNote').style.display = cpState.transactions.length || fixedExpensesAsPlanningRecords().length ? 'none' : 'block';
+    }
+    function renderFixedExpenseList() {
+      const el = document.getElementById('cpFixedList');
+      if (!el) return;
+      el.innerHTML = cpFixedExpenses.map(item => {
+        const statusClass = item.status === 'auto' ? 'auto' : item.status === 'manual' ? 'manual' : item.status === 'done' ? 'done' : 'need';
+        return `<div class="fixed-item"><div class="fixed-item-top"><div class="fixed-name">${cpSafe(item.name)}</div><span class="status-pill ${statusClass}">${CP_STATUS_LABELS[item.status] || CP_STATUS_LABELS.need}</span></div><div class="fixed-fields"><input class="planning-input" type="date" value="${cpSafe(item.expectedDate || '')}" onchange="updateFixedExpense('${item.id}','expectedDate',this.value)"><input class="planning-input" type="number" min="0" step="1" value="${Number(item.expectedAmount || 0) || ''}" placeholder="금액" onchange="updateFixedExpense('${item.id}','expectedAmount',this.value)"><select class="planning-select" style="grid-column:1 / -1" onchange="updateFixedExpense('${item.id}','status',this.value)">${Object.entries(CP_STATUS_LABELS).map(([value, label]) => `<option value="${value}" ${item.status === value ? 'selected' : ''}>${label}</option>`).join('')}</select></div></div>`;
+      }).join('');
+    }
+    function updateFixedExpense(id, field, value) {
+      cpFixedExpenses = cpFixedExpenses.map(item => {
+        if (item.id !== id) return item;
+        const next = { ...item, [field]: field === 'expectedAmount' ? parseAmount(value) : value };
+        if (field === 'expectedDate' || field === 'expectedAmount') { next.status = 'manual'; next.matchedTransactionId = ''; }
+        return next;
+      });
+      localStorage.setItem(CP_FIXED_KEY, JSON.stringify(cpFixedExpenses));
+      renderCashPlanning();
+    }
+    function changePlanningMonth(delta) {
+      const [y, m] = (cpState.viewMonth || todayIso().substring(0, 7)).split('-').map(Number);
+      const d = new Date(y, m - 1 + delta, 1);
+      cpState.viewMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      saveCashPlanningState(false);
+      renderCashPlanning();
+    }
+    function renderPlanningCalendar() {
+      const grid = document.getElementById('cpCalendar');
+      if (!grid) return;
+      const [year, month] = cpState.viewMonth.split('-').map(Number);
+      const first = new Date(year, month - 1, 1);
+      const last = new Date(year, month, 0);
+      document.getElementById('cpMonthTitle').textContent = cpState.viewMonth;
+      let html = ['일', '월', '화', '수', '목', '금', '토'].map(d => `<div class="calendar-dow">${d}</div>`).join('');
+      for (let i = 0; i < first.getDay(); i++) html += '<div class="calendar-day empty"></div>';
+      for (let day = 1; day <= last.getDate(); day++) {
+        const iso = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const data = cpResult.daily[iso] || { dailyIncome: 0, dailyExpense: 0, projectedBalance: cpState.currentBalance, records: [] };
+        const classes = ['calendar-day'];
+        if (iso === todayIso()) classes.push('today');
+        if (iso === cpResult.minDate) classes.push('min-balance');
+        html += `<button class="${classes.join(' ')}" type="button" onclick="openPlanningDateModal('${iso}')"><div class="day-num">${day}</div><div class="day-row"><span class="day-label">입금</span><span class="day-income">${cpWon(data.dailyIncome)}</span></div><div class="day-row"><span class="day-label">출금</span><span class="day-expense">${cpWon(data.dailyExpense)}</span></div><div class="day-row"><span class="day-label">잔액</span><span class="day-balance">${cpWon(data.projectedBalance)}</span></div></button>`;
+      }
+      grid.innerHTML = html;
+    }
+    function openPlanningDateModal(date) {
+      const data = cpResult.daily[date] || { dailyIncome: 0, dailyExpense: 0, projectedBalance: cpState.currentBalance, records: [] };
+      document.getElementById('mTitle').textContent = `${date} 자금 계획`;
+      document.getElementById('mSub').textContent = `입금 ${cpWon(data.dailyIncome)} / 출금 ${cpWon(data.dailyExpense)} / 잔액 ${cpWon(data.projectedBalance)}`;
+      const rows = data.records.length ? data.records.map(r => `<tr><td>${r.type === 'income' ? '입금' : '출금'}</td><td class="${r.type === 'income' ? 'inp' : 'out'}">${cpWon(r.amount)}</td><td class="memo">${cpSafe(r.vendor || '-')}</td><td class="memo">${cpSafe(r.memo || '-')}</td><td>${r.source === 'fixed' ? '고정지출' : 'Excel'}</td></tr>`).join('') : '<tr><td colspan="5" style="text-align:center;color:var(--t2);padding:18px;">해당 날짜의 예정 입출금이 없습니다.</td></tr>';
+      document.getElementById('mBody').innerHTML = `<table class="modal-table"><thead><tr><th>구분</th><th style="text-align:right">금액</th><th>거래처</th><th>적요</th><th>출처</th></tr></thead><tbody>${rows}</tbody></table>`;
+      document.getElementById('mCount').textContent = `${data.records.length}건`;
+      document.getElementById('mTotal').textContent = `순변동 ${cpWon(data.netChange || 0)}`;
+      document.getElementById('modalOverlay').classList.add('open');
+    }
+
     // ════════════════════════════════════════════
     // MODAL
     // ════════════════════════════════════════════
@@ -2282,6 +3025,7 @@
       }
     }
     document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+    initCashPlanning();
 
   </script>
 </body>

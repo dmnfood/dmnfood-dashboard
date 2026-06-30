@@ -223,6 +223,61 @@
       margin-bottom: 16px;
     }
 
+    .filter-card {
+      padding: 16px 18px;
+      margin-bottom: 16px;
+    }
+
+    .upload-inline-card {
+      margin-bottom: 12px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid rgba(74,222,128,.16);
+      background: linear-gradient(135deg, rgba(74,222,128,.08), rgba(34,211,238,.05));
+    }
+
+    .upload-inline-card .upload-box {
+      border: 1px dashed rgba(74,222,128,.28);
+      border-radius: 10px;
+      padding: 10px 12px;
+      background: rgba(255,255,255,.03);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+      cursor: pointer;
+      transition: border-color .18s ease, background .18s ease;
+    }
+
+    .upload-inline-card .upload-box:hover,
+    .upload-inline-card .upload-box.dragover {
+      border-color: rgba(74,222,128,.42);
+      background: rgba(74,222,128,.08);
+    }
+
+    .upload-inline-card .upload-copy {
+      min-width: 0;
+    }
+
+    .upload-inline-card .upload-title {
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 2px;
+    }
+
+    .upload-inline-card .upload-sub {
+      font-size: 11px;
+      line-height: 1.5;
+    }
+
+    .upload-inline-card .upload-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
     .filter-row {
       display: flex;
       flex-wrap: wrap;
@@ -278,17 +333,29 @@
 
     .kpi-grid {
       display: grid;
-      grid-template-columns: repeat(6, minmax(0, 1fr));
+      grid-template-columns: repeat(5, minmax(0, 1fr));
       gap: 12px;
       margin-bottom: 16px;
     }
 
-    .kpi-card {
+    .kpi-stack-card {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .kpi-card,
+    .kpi-mini-card {
       background: rgba(255,255,255,.04);
       border: 1px solid var(--border);
       border-radius: 12px;
       padding: 14px;
       min-height: 94px;
+    }
+
+    .kpi-mini-card {
+      min-height: 72px;
+      padding: 12px 14px;
     }
 
     .kpi-label {
@@ -309,6 +376,55 @@
       margin-top: 4px;
       font-size: 12px;
       color: var(--t2);
+    }
+
+    .reference-card {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .reference-price-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .reference-price-pill {
+      border-radius: 10px;
+      padding: 8px 9px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,.03);
+    }
+
+    .reference-price-pill.conservative {
+      background: rgba(74,222,128,.08);
+      border-color: rgba(74,222,128,.16);
+    }
+
+    .reference-price-pill.safe {
+      background: rgba(96,165,250,.08);
+      border-color: rgba(96,165,250,.16);
+    }
+
+    .reference-price-pill.aggressive {
+      background: rgba(251,191,36,.08);
+      border-color: rgba(251,191,36,.16);
+    }
+
+    .reference-price-title {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .4px;
+      color: var(--t2);
+      margin-bottom: 3px;
+    }
+
+    .reference-price-value {
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--t0);
     }
 
     .chart-row {
@@ -369,68 +485,6 @@
       display: inline-block;
     }
 
-    .reference-inline {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      justify-content: flex-end;
-      align-items: center;
-    }
-
-    .reference-group {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      align-items: flex-end;
-    }
-
-    .reference-group-title {
-      font-size: 10px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: .5px;
-      color: var(--t2);
-    }
-
-    .reference-chip {
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 8px 9px;
-      min-width: 94px;
-      background: rgba(255,255,255,.03);
-    }
-
-    .reference-chip.conservative {
-      background: rgba(74,222,128,.07);
-      border-color: rgba(74,222,128,.16);
-    }
-
-    .reference-chip.safe {
-      background: rgba(96,165,250,.08);
-      border-color: rgba(96,165,250,.16);
-    }
-
-    .reference-chip.aggressive {
-      background: rgba(251,191,36,.08);
-      border-color: rgba(251,191,36,.16);
-    }
-
-    .chip-title {
-      font-size: 10px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: .4px;
-      color: var(--t2);
-      margin-bottom: 3px;
-    }
-
-    .chip-value {
-      font-size: 14px;
-      font-weight: 800;
-      letter-spacing: -0.1px;
-      color: var(--t0);
-    }
-
     .ref-note {
       margin-top: 12px;
       font-size: 12px;
@@ -440,6 +494,12 @@
 
     .table-wrapper {
       overflow-x: auto;
+    }
+
+    .empty-state {
+      text-align: center;
+      color: var(--t2);
+      padding: 24px 10px;
     }
 
     table {
@@ -499,7 +559,7 @@
         grid-template-columns: 1fr;
       }
 
-      .reference-grid {
+      .reference-price-grid {
         grid-template-columns: 1fr;
       }
     }
@@ -511,6 +571,10 @@
 
       .kpi-grid {
         grid-template-columns: 1fr;
+      }
+
+      .filter-row {
+        gap: 8px;
       }
     }
   </style>
@@ -538,31 +602,24 @@
     </header>
 
     <main class="page-main">
-      <section class="section-card upload-card">
-        <div class="upload-box" id="dropZone">
-          <div class="upload-copy">
-            <div class="upload-title">HAR 파일 업로드</div>
-            <div class="upload-sub">파일을 선택하거나 드래그해 넣으면 list.do 응답 데이터를 자동으로 읽어옵니다.</div>
+      <section id="analysisSection">
+        <section class="section-card filter-card">
+          <div class="upload-inline-card">
+            <div class="upload-box" id="dropZone">
+              <div class="upload-copy">
+                <div class="upload-title">HAR 파일 업로드</div>
+                <div class="upload-sub">파일 선택 혹은 드롭하면 list.do 응답을 자동으로 읽어옵니다.</div>
+              </div>
+              <div class="upload-actions">
+                <label class="btn" for="harFile">파일 선택</label>
+                <input type="file" id="harFile" accept=".har,application/json" />
+              </div>
+            </div>
           </div>
-          <div class="upload-actions">
-            <label class="btn" for="harFile">파일 선택</label>
-            <input type="file" id="harFile" accept=".har,application/json" />
-            <button class="btn-secondary" type="button" id="resetBtn">초기화</button>
-          </div>
-        </div>
-        <div class="status-text" id="statusText">HAR 파일을 올리면 분석이 시작됩니다.</div>
-      </section>
-
-      <section id="analysisSection" class="hidden">
-        <section class="section-card">
           <div class="filter-row">
             <div class="field">
               <label for="fDate">입찰일</label>
               <select id="fDate"></select>
-            </div>
-            <div class="field">
-              <label for="fItem">품목</label>
-              <select id="fItem"></select>
             </div>
             <div class="field">
               <label for="fOrigin">원산지</label>
@@ -589,13 +646,19 @@
               <button class="btn-secondary" type="button" id="clearFilters">초기화</button>
             </div>
           </div>
+          <div class="status-text" id="statusText">HAR 파일을 올리면 분석이 시작됩니다.</div>
         </section>
 
         <section class="kpi-grid">
-          <div class="kpi-card">
-            <div class="kpi-label">분석 건수</div>
-            <div class="kpi-value" id="kCount">-</div>
-            <div class="kpi-sub">현재 필터 기준</div>
+          <div class="kpi-stack-card">
+            <div class="kpi-mini-card">
+              <div class="kpi-label">분석 건수</div>
+              <div class="kpi-value" id="kCount">-</div>
+            </div>
+            <div class="kpi-mini-card">
+              <div class="kpi-label">전체 데이터</div>
+              <div class="kpi-value" id="kTotal">-</div>
+            </div>
           </div>
           <div class="kpi-card">
             <div class="kpi-label">평균 단가</div>
@@ -612,15 +675,23 @@
             <div class="kpi-value" id="kMax">-</div>
             <div class="kpi-sub">낙찰 최고값</div>
           </div>
-          <div class="kpi-card">
-            <div class="kpi-label">총 낙찰 물량</div>
-            <div class="kpi-value" id="kQty">-</div>
-            <div class="kpi-sub">합계</div>
-          </div>
-          <div class="kpi-card">
-            <div class="kpi-label">전체 데이터</div>
-            <div class="kpi-value" id="kTotal">-</div>
-            <div class="kpi-sub">업로드 원본</div>
+          <div class="kpi-card reference-card">
+            <div class="kpi-label">입찰 참고가</div>
+            <div class="reference-price-grid">
+              <div class="reference-price-pill conservative">
+                <div class="reference-price-title">보수권</div>
+                <div class="reference-price-value" id="refConservative">-</div>
+              </div>
+              <div class="reference-price-pill safe">
+                <div class="reference-price-title">안전권</div>
+                <div class="reference-price-value" id="refSafe">-</div>
+              </div>
+              <div class="reference-price-pill aggressive">
+                <div class="reference-price-title">공격권</div>
+                <div class="reference-price-value" id="refAggressive">-</div>
+              </div>
+            </div>
+            <div class="kpi-sub">필터 기준으로 실시간 계산</div>
           </div>
         </section>
 
@@ -631,25 +702,6 @@
                 <div class="card-title">입찰일별 단가 추이</div>
                 <div class="card-caption">필터 기준으로 다시 계산됩니다.</div>
               </div>
-              <div class="reference-inline">
-                <div class="reference-group">
-                  <div class="reference-group-title">입찰 참고가</div>
-                  <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;">
-                    <div class="reference-chip conservative">
-                      <div class="chip-title">보수권</div>
-                      <div class="chip-value" id="refConservative">-</div>
-                    </div>
-                    <div class="reference-chip safe">
-                      <div class="chip-title">안전권</div>
-                      <div class="chip-value" id="refSafe">-</div>
-                    </div>
-                    <div class="reference-chip aggressive">
-                      <div class="chip-title">공격권</div>
-                      <div class="chip-value" id="refAggressive">-</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
             </div>
             <div class="legend">
               <span class="legend-item"><span class="legend-dot" style="background:#f87171"></span>최고 단가</span>
@@ -657,7 +709,7 @@
               <span class="legend-item"><span class="legend-dot" style="background:#4ade80"></span>최저 단가</span>
             </div>
             <div class="chart-wrap"><canvas id="trendChart"></canvas></div>
-            <div class="ref-note" id="refNote">조건을 선택하면 참고가 계산 근거와 변동성을 함께 보여줍니다.</div>
+            <div class="ref-note" id="refNote">HAR 파일을 업로드하면 필터 기준 참고가와 추세가 계산됩니다.</div>
           </section>
         </div>
 
@@ -871,7 +923,6 @@
 
     function initFilters() {
       populateSelect('fDate', state.rawRows.map((row) => row.date));
-      populateSelect('fItem', state.rawRows.map((row) => row.item));
       populateSelect('fOrigin', state.rawRows.map((row) => row.origin));
       populateSelect('fGrade', state.rawRows.map((row) => row.grade));
       populateSelect('fPack', state.rawRows.map((row) => row.pack));
@@ -902,16 +953,16 @@
 
     function renderKpis() {
       const rows = state.filteredRows;
+      const hasRows = rows.length > 0;
       const avgPrices = rows.map((row) => row.avgPrice).filter(Number.isFinite);
       const minPrices = rows.map((row) => row.minPrice).filter(Number.isFinite);
       const maxPrices = rows.map((row) => row.maxPrice).filter(Number.isFinite);
 
-      $('kCount').textContent = fmt(rows.length);
-      $('kAvg').textContent = money(avg(avgPrices));
-      $('kMin').textContent = minPrices.length ? money(Math.min(...minPrices)) : '-';
-      $('kMax').textContent = maxPrices.length ? money(Math.max(...maxPrices)) : '-';
-      $('kQty').textContent = fmt(rows.reduce((sum, row) => sum + (Number.isFinite(row.qty) ? row.qty : 0), 0));
-      $('kTotal').textContent = fmt(state.rawRows.length);
+      $('kCount').textContent = hasRows ? fmt(rows.length) : '-';
+      $('kAvg').textContent = hasRows ? money(avg(avgPrices)) : '-';
+      $('kMin').textContent = hasRows && minPrices.length ? money(Math.min(...minPrices)) : '-';
+      $('kMax').textContent = hasRows && maxPrices.length ? money(Math.max(...maxPrices)) : '-';
+      $('kTotal').textContent = state.rawRows.length ? fmt(state.rawRows.length) : '-';
     }
 
     function renderReference() {
@@ -924,7 +975,7 @@
 
       if (!state.filteredRows.length) {
         ['refConservative', 'refSafe', 'refAggressive', 'refNote'].forEach((id) => {
-          setText(id, id === 'refNote' ? '선택 조건에 해당하는 데이터가 없습니다.' : '-');
+          setText(id, id === 'refNote' ? 'HAR 파일을 업로드하면 필터 기준 참고가가 계산됩니다.' : '-');
         });
         return;
       }
@@ -968,7 +1019,12 @@
 
     function renderTable() {
       const tbody = $('tableBody');
-      $('tableInfo').textContent = `${fmt(state.filteredRows.length)}건 표시`;
+      const hasRows = state.filteredRows.length > 0;
+      $('tableInfo').textContent = hasRows ? `${fmt(state.filteredRows.length)}건 표시` : '0건 표시';
+      if (!hasRows) {
+        tbody.innerHTML = '<tr><td colspan="11" class="empty-state">HAR 파일을 업로드하면 입찰 결과가 여기 표시됩니다.</td></tr>';
+        return;
+      }
       tbody.innerHTML = state.filteredRows.map((row) => `
         <tr>
           <td>${escapeHtml(row.date || '')}</td>
@@ -1000,7 +1056,7 @@
         ctx.fillStyle = 'rgba(255,255,255,0.7)';
         ctx.font = '14px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('표시할 데이터가 없습니다.', canvas.width / 2, canvas.height / 2);
+        ctx.fillText('HAR 파일을 업로드하면 차트가 표시됩니다.', canvas.width / 2, canvas.height / 2);
         return;
       }
 
@@ -1070,7 +1126,6 @@
     function applyFilters() {
       const query = $('q').value.trim().toLowerCase();
       const selectedDate = $('fDate').value;
-      const selectedItem = $('fItem').value;
       const selectedOrigin = $('fOrigin').value;
       const selectedGrade = $('fGrade').value;
       const selectedPack = $('fPack').value;
@@ -1078,13 +1133,12 @@
 
       state.filteredRows = state.rawRows.filter((row) => {
         const matchesDate = !selectedDate || row.date === selectedDate;
-        const matchesItem = !selectedItem || row.item === selectedItem;
         const matchesOrigin = !selectedOrigin || row.origin === selectedOrigin;
         const matchesGrade = !selectedGrade || row.grade === selectedGrade;
         const matchesPack = !selectedPack || row.pack === selectedPack;
         const matchesRegion = !selectedRegion || row.region === selectedRegion;
         const matchesQuery = !query || [row.title, row.item, row.origin, row.grade, row.pack, row.region].join(' ').toLowerCase().includes(query);
-        return matchesDate && matchesItem && matchesOrigin && matchesGrade && matchesPack && matchesRegion && matchesQuery;
+        return matchesDate && matchesOrigin && matchesGrade && matchesPack && matchesRegion && matchesQuery;
       });
 
       render();
@@ -1123,25 +1177,13 @@
     });
     dropZone.addEventListener('drop', (event) => handleFile(event.dataTransfer.files[0]));
 
-    $('resetBtn').addEventListener('click', () => {
-      $('harFile').value = '';
-      state.rawRows = [];
-      state.filteredRows = [];
-      $('analysisSection').classList.add('hidden');
-      ['fDate', 'fItem', 'fOrigin', 'fGrade', 'fPack', 'fRegion', 'q'].forEach((id) => {
-        $(id).value = '';
-      });
-      render();
-      setStatus('초기화했습니다. HAR 파일을 다시 업로드하면 분석을 다시 시작합니다.');
-    });
-
-    ['fDate', 'fItem', 'fOrigin', 'fGrade', 'fPack', 'fRegion', 'q'].forEach((id) => {
+    ['fDate', 'fOrigin', 'fGrade', 'fPack', 'fRegion', 'q'].forEach((id) => {
       $(id).addEventListener('input', applyFilters);
       $(id).addEventListener('change', applyFilters);
     });
 
     $('clearFilters').addEventListener('click', () => {
-      ['fDate', 'fItem', 'fOrigin', 'fGrade', 'fPack', 'fRegion', 'q'].forEach((id) => {
+      ['fDate', 'fOrigin', 'fGrade', 'fPack', 'fRegion', 'q'].forEach((id) => {
         $(id).value = '';
       });
       applyFilters();
@@ -1159,6 +1201,9 @@
       link.click();
       URL.revokeObjectURL(link.href);
     });
+
+    initFilters();
+    render();
 
     function initAuth() {
       const firebaseConfig = {

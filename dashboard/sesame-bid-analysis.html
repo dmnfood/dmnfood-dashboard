@@ -228,54 +228,51 @@
       margin-bottom: 16px;
     }
 
-    .upload-inline-card {
-      margin-bottom: 12px;
-      padding: 12px 14px;
-      border-radius: 12px;
-      border: 1px solid rgba(74,222,128,.16);
-      background: linear-gradient(135deg, rgba(74,222,128,.08), rgba(34,211,238,.05));
+    .upload-inline-field {
+      min-width: 168px;
+      flex: 0 0 168px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
     }
 
-    .upload-inline-card .upload-box {
+    .upload-inline-field label {
+      display: block;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .4px;
+      text-transform: uppercase;
+      color: var(--t2);
+    }
+
+    .upload-inline-field .upload-box {
       border: 1px dashed rgba(74,222,128,.28);
-      border-radius: 10px;
-      padding: 10px 12px;
+      border-radius: 8px;
+      padding: 7px 10px;
       background: rgba(255,255,255,.03);
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      flex-wrap: wrap;
+      justify-content: center;
+      gap: 8px;
       cursor: pointer;
+      min-height: 38px;
       transition: border-color .18s ease, background .18s ease;
     }
 
-    .upload-inline-card .upload-box:hover,
-    .upload-inline-card .upload-box.dragover {
+    .upload-inline-field .upload-box:hover,
+    .upload-inline-field .upload-box.dragover {
       border-color: rgba(74,222,128,.42);
       background: rgba(74,222,128,.08);
     }
 
-    .upload-inline-card .upload-copy {
-      min-width: 0;
+    .upload-inline-field .upload-box input {
+      display: none;
     }
 
-    .upload-inline-card .upload-title {
+    .upload-inline-field .upload-title {
       font-size: 12px;
       font-weight: 700;
-      margin-bottom: 2px;
-    }
-
-    .upload-inline-card .upload-sub {
-      font-size: 11px;
-      line-height: 1.5;
-    }
-
-    .upload-inline-card .upload-actions {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex-wrap: wrap;
+      color: var(--t0);
     }
 
     .filter-row {
@@ -342,6 +339,7 @@
       display: flex;
       flex-direction: row;
       gap: 8px;
+      min-width: 0;
     }
 
     .kpi-card,
@@ -349,51 +347,52 @@
       background: rgba(255,255,255,.04);
       border: 1px solid var(--border);
       border-radius: 12px;
-      padding: 14px;
-      min-height: 94px;
+      padding: 10px 12px;
+      min-height: 74px;
     }
 
     .kpi-mini-card {
       flex: 1;
-      min-height: 94px;
-      padding: 12px 14px;
+      min-height: 74px;
+      padding: 10px 12px;
     }
 
     .kpi-label {
-      font-size: 11px;
+      font-size: 10px;
       text-transform: uppercase;
       letter-spacing: .5px;
       color: var(--t2);
-      margin-bottom: 8px;
+      margin-bottom: 6px;
     }
 
     .kpi-value {
-      font-size: 18px;
+      font-size: 16px;
       font-weight: 700;
       letter-spacing: -0.2px;
     }
 
     .kpi-sub {
-      margin-top: 4px;
-      font-size: 12px;
+      margin-top: 3px;
+      font-size: 11px;
       color: var(--t2);
     }
 
     .reference-card {
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 8px;
+      padding: 10px 12px;
     }
 
     .reference-price-grid {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 8px;
+      gap: 6px;
     }
 
     .reference-price-pill {
       border-radius: 10px;
-      padding: 8px 9px;
+      padding: 7px 8px;
       border: 1px solid var(--border);
       background: rgba(255,255,255,.03);
     }
@@ -618,6 +617,13 @@
             </div>
           </div>
           <div class="filter-row">
+            <div class="upload-inline-field">
+              <label for="harFile">HAR 파일 업로드</label>
+              <div class="upload-box" id="dropZone">
+                <div class="upload-title">드롭 또는 클릭</div>
+                <input type="file" id="harFile" accept=".har,application/json" />
+              </div>
+            </div>
             <div class="field">
               <label for="fDate">입찰일</label>
               <select id="fDate"></select>
@@ -692,7 +698,6 @@
                 <div class="reference-price-value" id="refAggressive">-</div>
               </div>
             </div>
-            <div class="kpi-sub">필터 기준으로 실시간 계산</div>
           </div>
         </section>
 

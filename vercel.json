@@ -21,6 +21,10 @@
             "destination": "/dashboard/planning.html"
         },
         {
+            "source": "/sesame-bid-analysis",
+            "destination": "/dashboard/sesame-bid-analysis.html"
+        },
+        {
             "source": "/school-meal-weekly",
             "destination": "/dashboard/school-meal-weekly.html"
         },

@@ -1,0 +1,1125 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>들메내식품 · 참깨 입찰 분석</title>
+  <link rel="stylesheet" href="/dashboard/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    body {
+      background: var(--bg);
+      color: var(--t0);
+    }
+
+    .page-main {
+      max-width: 1380px;
+      margin: 0 auto;
+      padding: 24px 24px 60px;
+      position: relative;
+      z-index: 10;
+    }
+
+    .hero-card,
+    .section-card,
+    .chart-card,
+    .reference-card,
+    .table-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      backdrop-filter: blur(20px);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .hero-card {
+      padding: 22px 24px;
+      margin-bottom: 16px;
+    }
+
+    .hero-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--t2);
+      margin-bottom: 8px;
+    }
+
+    .hero-title {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      letter-spacing: -0.3px;
+    }
+
+    .hero-text {
+      font-size: 13px;
+      color: var(--t2);
+      line-height: 1.7;
+      max-width: 860px;
+    }
+
+    .upload-card {
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+
+    .upload-box {
+      border: 1px dashed rgba(255,255,255,.20);
+      border-radius: 14px;
+      padding: 18px;
+      background: rgba(255,255,255,.03);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      flex-wrap: wrap;
+      cursor: pointer;
+      transition: border-color .18s ease, background .18s ease;
+    }
+
+    .upload-box:hover,
+    .upload-box.dragover {
+      border-color: rgba(34,211,238,.45);
+      background: rgba(34,211,238,.08);
+    }
+
+    .upload-box input {
+      display: none;
+    }
+
+    .upload-copy {
+      min-width: 0;
+    }
+
+    .upload-title {
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .upload-sub {
+      font-size: 12px;
+      color: var(--t2);
+      line-height: 1.6;
+    }
+
+    .upload-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .btn,
+    .btn-secondary {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      color: var(--t0);
+      background: rgba(255,255,255,.06);
+      transition: background .15s ease, border-color .15s ease;
+    }
+
+    .btn:hover,
+    .btn-secondary:hover {
+      background: rgba(255,255,255,.10);
+      border-color: rgba(34,211,238,.24);
+    }
+
+    .btn-secondary {
+      background: transparent;
+      color: var(--t2);
+    }
+
+    .status-text {
+      margin-top: 10px;
+      font-size: 12px;
+      color: var(--t2);
+    }
+
+    .status-text.error {
+      color: #f87171;
+    }
+
+    .section-card {
+      padding: 16px 18px;
+      margin-bottom: 16px;
+    }
+
+    .filter-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: end;
+    }
+
+    .field {
+      min-width: 132px;
+      flex: 1 1 140px;
+    }
+
+    .field.full {
+      flex: 2 1 220px;
+    }
+
+    .field label {
+      display: block;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .4px;
+      text-transform: uppercase;
+      color: var(--t2);
+      margin-bottom: 6px;
+    }
+
+    .field select,
+    .field input {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: rgba(255,255,255,.06);
+      color: var(--t0);
+      padding: 8px 10px;
+      font-size: 13px;
+    }
+
+    .field select:focus,
+    .field input:focus {
+      outline: 1px solid rgba(34,211,238,.3);
+      border-color: rgba(34,211,238,.24);
+    }
+
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .kpi-card {
+      background: rgba(255,255,255,.04);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      min-height: 94px;
+    }
+
+    .kpi-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      color: var(--t2);
+      margin-bottom: 8px;
+    }
+
+    .kpi-value {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -0.2px;
+    }
+
+    .kpi-sub {
+      margin-top: 4px;
+      font-size: 12px;
+      color: var(--t2);
+    }
+
+    .chart-row {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 16px;
+    }
+
+    .chart-card,
+    .reference-card,
+    .table-card {
+      padding: 16px 18px;
+      margin-bottom: 16px;
+    }
+
+    .card-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .card-title {
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .card-caption {
+      font-size: 12px;
+      color: var(--t2);
+    }
+
+    .chart-wrap {
+      position: relative;
+      height: 320px;
+    }
+
+    .legend {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+      font-size: 12px;
+      color: var(--t2);
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .legend-dot {
+      width: 12px;
+      height: 3px;
+      border-radius: 999px;
+      display: inline-block;
+    }
+
+    .reference-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .reference-box {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      background: rgba(255,255,255,.03);
+    }
+
+    .reference-box.conservative {
+      background: rgba(74,222,128,.07);
+      border-color: rgba(74,222,128,.16);
+    }
+
+    .reference-box.safe {
+      background: rgba(96,165,250,.08);
+      border-color: rgba(96,165,250,.16);
+    }
+
+    .reference-box.aggressive {
+      background: rgba(251,191,36,.08);
+      border-color: rgba(251,191,36,.16);
+    }
+
+    .ref-title {
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .ref-price {
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: -0.2px;
+      margin-bottom: 10px;
+    }
+
+    .ref-metric {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-top: 6px;
+      font-size: 12px;
+      color: var(--t2);
+    }
+
+    .ref-note {
+      margin-top: 12px;
+      font-size: 12px;
+      color: var(--t2);
+      line-height: 1.7;
+    }
+
+    .table-wrapper {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      min-width: 860px;
+    }
+
+    th,
+    td {
+      padding: 10px 8px;
+      text-align: left;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      white-space: nowrap;
+    }
+
+    th {
+      color: var(--t2);
+      font-weight: 700;
+      background: rgba(255,255,255,.03);
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    tbody tr:hover {
+      background: rgba(255,255,255,.03);
+    }
+
+    .text-right {
+      text-align: right;
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0,0,0,0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    @media (max-width: 980px) {
+      .kpi-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .chart-row {
+        grid-template-columns: 1fr;
+      }
+
+      .reference-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .page-main {
+        padding: 16px 14px 40px;
+      }
+
+      .kpi-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="loading-screen" id="loadingScreen">
+    <div class="loading-spinner"></div>
+  </div>
+
+  <div class="blobs">
+    <div class="b1"></div>
+    <div class="b2"></div>
+  </div>
+
+  <div class="auth-hidden" id="mainContent">
+    <header class="app-header">
+      <div class="header-left">
+        <a href="/home" class="back-btn">← 홈</a>
+        <div class="app-title"><span class="dot"></span>참깨 입찰 분석</div>
+      </div>
+      <div class="header-right">
+        <div class="user-chip" id="userChip">—</div>
+      </div>
+    </header>
+
+    <main class="page-main">
+      <section class="hero-card">
+        <div class="hero-eyebrow">HAR 업로드 기반 분석</div>
+        <h1 class="hero-title">참깨 정부 비축물자 입찰 결과를 빠르게 검토합니다.</h1>
+        <p class="hero-text">Chrome DevTools의 Network 탭에서 HAR 파일을 저장해 업로드하면, list.do 응답을 병합해 원산지·등급·포장·지역별 평균 단가 추이를 확인하고 현재 입찰 참고가를 선택할 수 있습니다.</p>
+      </section>
+
+      <section class="section-card upload-card">
+        <div class="upload-box" id="dropZone">
+          <div class="upload-copy">
+            <div class="upload-title">HAR 파일 업로드</div>
+            <div class="upload-sub">파일을 선택하거나 드래그해 넣으면 list.do 응답 데이터를 자동으로 읽어옵니다.</div>
+          </div>
+          <div class="upload-actions">
+            <label class="btn" for="harFile">파일 선택</label>
+            <input type="file" id="harFile" accept=".har,application/json" />
+            <button class="btn-secondary" type="button" id="resetBtn">초기화</button>
+          </div>
+        </div>
+        <div class="status-text" id="statusText">HAR 파일을 올리면 분석이 시작됩니다.</div>
+      </section>
+
+      <section id="analysisSection" class="hidden">
+        <section class="section-card">
+          <div class="filter-row">
+            <div class="field">
+              <label for="fDate">입찰일</label>
+              <select id="fDate"></select>
+            </div>
+            <div class="field">
+              <label for="fItem">품목</label>
+              <select id="fItem"></select>
+            </div>
+            <div class="field">
+              <label for="fOrigin">원산지</label>
+              <select id="fOrigin"></select>
+            </div>
+            <div class="field">
+              <label for="fGrade">등급</label>
+              <select id="fGrade"></select>
+            </div>
+            <div class="field">
+              <label for="fPack">포장</label>
+              <select id="fPack"></select>
+            </div>
+            <div class="field">
+              <label for="fRegion">판매지역</label>
+              <select id="fRegion"></select>
+            </div>
+            <div class="field full">
+              <label for="q">검색</label>
+              <input id="q" type="text" placeholder="입찰명 또는 항목 검색" />
+            </div>
+            <div class="field">
+              <label class="sr-only" for="clearFilters">초기화</label>
+              <button class="btn-secondary" type="button" id="clearFilters">초기화</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="kpi-grid">
+          <div class="kpi-card">
+            <div class="kpi-label">분석 건수</div>
+            <div class="kpi-value" id="kCount">-</div>
+            <div class="kpi-sub">현재 필터 기준</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">평균 단가</div>
+            <div class="kpi-value" id="kAvg">-</div>
+            <div class="kpi-sub">원/개</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">최저 단가</div>
+            <div class="kpi-value" id="kMin">-</div>
+            <div class="kpi-sub">낙찰 최저값</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">최고 단가</div>
+            <div class="kpi-value" id="kMax">-</div>
+            <div class="kpi-sub">낙찰 최고값</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">총 낙찰 물량</div>
+            <div class="kpi-value" id="kQty">-</div>
+            <div class="kpi-sub">합계</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">전체 데이터</div>
+            <div class="kpi-value" id="kTotal">-</div>
+            <div class="kpi-sub">업로드 원본</div>
+          </div>
+        </section>
+
+        <div class="chart-row">
+          <section class="chart-card">
+            <div class="card-title-row">
+              <div>
+                <div class="card-title">입찰일별 단가 추이</div>
+                <div class="card-caption">필터 기준으로 다시 계산됩니다.</div>
+              </div>
+            </div>
+            <div class="legend">
+              <span class="legend-item"><span class="legend-dot" style="background:#f87171"></span>최고 단가</span>
+              <span class="legend-item"><span class="legend-dot" style="background:#60a5fa"></span>평균 단가</span>
+              <span class="legend-item"><span class="legend-dot" style="background:#4ade80"></span>최저 단가</span>
+            </div>
+            <div class="chart-wrap"><canvas id="trendChart"></canvas></div>
+          </section>
+
+          <section class="reference-card">
+            <div class="card-title-row">
+              <div>
+                <div class="card-title">이번 입찰 참고가</div>
+                <div class="card-caption">최근 흐름과 변동성을 함께 반영합니다.</div>
+              </div>
+            </div>
+            <div class="reference-grid">
+              <div class="reference-box conservative">
+                <div class="ref-title">보수권</div>
+                <div class="ref-price" id="refConservative">-</div>
+                <div class="ref-metric"><span>최근 5회 평균</span><strong id="cRecent5">-</strong></div>
+                <div class="ref-metric"><span>최근 10회 평균</span><strong id="cRecent10">-</strong></div>
+                <div class="ref-metric"><span>추세 예측</span><strong id="cForecast">-</strong></div>
+              </div>
+              <div class="reference-box safe">
+                <div class="ref-title">안전권</div>
+                <div class="ref-price" id="refSafe">-</div>
+                <div class="ref-metric"><span>최근 5회 평균</span><strong id="sRecent5">-</strong></div>
+                <div class="ref-metric"><span>최근 10회 평균</span><strong id="sRecent10">-</strong></div>
+                <div class="ref-metric"><span>추세 예측</span><strong id="sForecast">-</strong></div>
+              </div>
+              <div class="reference-box aggressive">
+                <div class="ref-title">공격권</div>
+                <div class="ref-price" id="refAggressive">-</div>
+                <div class="ref-metric"><span>최근 5회 평균</span><strong id="aRecent5">-</strong></div>
+                <div class="ref-metric"><span>최근 10회 평균</span><strong id="aRecent10">-</strong></div>
+                <div class="ref-metric"><span>추세 예측</span><strong id="aForecast">-</strong></div>
+              </div>
+            </div>
+            <div class="ref-note" id="refNote">조건을 선택하면 참고가 계산 근거와 변동성을 함께 보여줍니다.</div>
+          </section>
+        </div>
+
+        <section class="table-card">
+          <div class="card-title-row">
+            <div>
+              <div class="card-title">상세 데이터</div>
+              <div class="card-caption" id="tableInfo">0건 표시</div>
+            </div>
+            <button class="btn-secondary" type="button" id="downloadBtn">CSV 다운로드</button>
+          </div>
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th>입찰일</th>
+                  <th>입찰건명</th>
+                  <th>품목</th>
+                  <th>원산지</th>
+                  <th>등급</th>
+                  <th>포장</th>
+                  <th>판매지역</th>
+                  <th class="text-right">물량</th>
+                  <th class="text-right">최저</th>
+                  <th class="text-right">평균</th>
+                  <th class="text-right">최고</th>
+                </tr>
+              </thead>
+              <tbody id="tableBody"></tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const state = { rawRows: [], filteredRows: [], chart: null };
+
+    const $ = (id) => document.getElementById(id);
+    const fmt = (value) => Number.isFinite(value) ? Math.round(value).toLocaleString('ko-KR') : '-';
+    const money = (value) => Number.isFinite(value) ? `${fmt(value)}원` : '-';
+    const avg = (values) => values.length ? values.reduce((s, x) => s + x, 0) / values.length : NaN;
+    const median = (values) => {
+      const sorted = values.filter(Number.isFinite).sort((a, b) => a - b);
+      if (!sorted.length) return NaN;
+      const mid = Math.floor(sorted.length / 2);
+      return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+    };
+    const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+    const stdev = (values) => {
+      const clean = values.filter(Number.isFinite);
+      if (!clean.length) return 0;
+      const m = avg(clean);
+      return clean.length > 1 ? Math.sqrt(avg(clean.map((x) => (x - m) ** 2))) : 0;
+    };
+
+    function setStatus(message, isError = false) {
+      const el = $('statusText');
+      el.textContent = message;
+      el.classList.toggle('error', isError);
+    }
+
+    function num(value) {
+      const n = Number(String(value ?? '').replace(/,/g, '').trim());
+      return Number.isFinite(n) ? n : NaN;
+    }
+
+    function heroDate(value) {
+      if (!value) return '';
+      const text = String(value).trim();
+      const match = text.match(/(\d{2})\.\s*(\d{1,2})\.\s*(\d{1,2})/);
+      if (match) return `20${match[1]}-${String(match[2]).padStart(2, '0')}-${String(match[3]).padStart(2, '0')}`;
+      const slash = text.match(/(\d{4})[\-./](\d{1,2})[\-./](\d{1,2})/);
+      if (slash) return `${slash[1]}-${String(slash[2]).padStart(2, '0')}-${String(slash[3]).padStart(2, '0')}`;
+      return text;
+    }
+
+    function parseTitle(title) {
+      title = title || '';
+      const inner = [...title.matchAll(/\(([^()]*)\)/g)].map((m) => m[1].trim());
+      const spec = inner.find((x) => x.includes(':') && (/산|등|파렛|점보|일반품/.test(x))) || '';
+      const parts = spec.split(':').map((s) => s.trim()).filter(Boolean);
+      const origin = parts.find((x) => /산$/.test(x)) || '';
+      const grade = parts.find((x) => /등$/.test(x)) || '';
+      let pack = parts.find((x) => /파렛|점보|벌크|톤백|포대/.test(x)) || '';
+      if (!pack) {
+        if (spec.includes('파렛타이징')) pack = '파렛타이징';
+        else if (spec.includes('점보백')) pack = '점보백';
+        else pack = '일반';
+      }
+      const matchDate = title.match(/\((\d{2})\.\s*(\d{1,2})\.\s*(\d{1,2})\./);
+      const date = matchDate ? `20${matchDate[1]}-${String(matchDate[2]).padStart(2, '0')}-${String(matchDate[3]).padStart(2, '0')}` : '';
+      const regionMatch = title.match(/\)\s*([가-힣A-Za-z0-9]+)\s*$/);
+      const region = regionMatch ? regionMatch[1] : '';
+      return { origin, grade, pack, region, date };
+    }
+
+    function parseXmlText(xml) {
+      const doc = new DOMParser().parseFromString(xml, 'text/xml');
+      if (doc.querySelector('parsererror')) return [];
+
+      const rows = [...doc.getElementsByTagName('Row')];
+      if (rows.length) {
+        return rows.map((row) => {
+          const data = {};
+          [...row.getElementsByTagName('Col')].forEach((col) => {
+            const key = col.getAttribute('id') || col.getAttribute('name') || '';
+            data[key] = col.textContent || '';
+          });
+          return data;
+        });
+      }
+
+      const recordRows = [...doc.querySelectorAll('record,Record,ROW')];
+      if (recordRows.length) {
+        return recordRows.map((row) => {
+          const data = {};
+          [...row.children].forEach((child) => {
+            const key = child.getAttribute('id') || child.getAttribute('name') || child.tagName;
+            data[key] = child.textContent || '';
+          });
+          return data;
+        });
+      }
+
+      return [];
+    }
+
+    function decodeContent(content) {
+      let text = content?.text || '';
+      if (content?.encoding === 'base64') {
+        try {
+          text = atob(text);
+        } catch (error) {
+          console.warn('base64 decode failed', error);
+        }
+      }
+      return text;
+    }
+
+    function normalizeRows(rows) {
+      const seen = new Set();
+      return rows
+        .map((row) => {
+          const title = row['입찰건명'] || row['BID_NM'] || row['TITLE'] || row['title'] || '';
+          const parsed = parseTitle(title);
+          const date = parsed.date || heroDate(row['입찰일'] || row['BID_DT'] || row['bidDt'] || row['createdDate'] || row['date'] || '') || '';
+          const item = row['품명'] || row['ITEM_NM'] || row['itemName'] || row['item'] || '';
+          const qty = num(row['총낙찰량'] || row['AWARD_QTY'] || row['awardQty'] || row['qty']);
+          const minPrice = num(row['낙찰최저가'] || row['LOWEST_PRICE'] || row['lowPrice'] || row['minPrice']);
+          const avgPrice = num(row['낙찰평균가'] || row['AVG_PRICE'] || row['avgPrice'] || row['averagePrice']);
+          const maxPrice = num(row['낙찰최고가'] || row['HIGHEST_PRICE'] || row['highPrice'] || row['maxPrice']);
+          const branch = row['지사명'] || row['BRANCH_NM'] || row['branch'] || '';
+          const bidNo = row['입찰번호'] || row['BID_NO'] || row['bidNo'] || row['bidNumber'] || '';
+          const key = [bidNo, title, date, item, avgPrice, minPrice, maxPrice].join('|');
+          return {
+            key,
+            title,
+            item,
+            qty: Number.isFinite(qty) ? qty : NaN,
+            minPrice: Number.isFinite(minPrice) ? minPrice : NaN,
+            avgPrice: Number.isFinite(avgPrice) ? avgPrice : NaN,
+            maxPrice: Number.isFinite(maxPrice) ? maxPrice : NaN,
+            branch,
+            bidNo,
+            date,
+            origin: parsed.origin || row['원산지'] || row['origin'] || '미분류',
+            grade: parsed.grade || row['등급'] || row['grade'] || '미분류',
+            pack: parsed.pack || row['포장'] || row['pack'] || '일반',
+            region: parsed.region || row['판매지역'] || row['region'] || row['지역'] || '미분류'
+          };
+        })
+        .filter((row) => row.title && Number.isFinite(row.avgPrice) && !seen.has(row.key) && seen.add(row.key))
+        .sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.title || '').localeCompare(b.title || ''));
+    }
+
+    function parseInput(text) {
+      text = (text || '').trim();
+      if (!text) return [];
+
+      let rows = [];
+      if (text.startsWith('{')) {
+        const har = JSON.parse(text);
+        const entries = har.log?.entries || [];
+        entries.forEach((entry) => {
+          const url = entry.request?.url || '';
+          const body = decodeContent(entry.response?.content || {});
+          if (url.includes('list.do') || body.includes('<Dataset') || body.includes('<Root') || body.includes('<record')) {
+            rows.push(...parseXmlText(body));
+          }
+        });
+      } else if (text.includes('<Dataset') || text.includes('<Root') || text.includes('<record') || text.includes('<Row')) {
+        rows = parseXmlText(text);
+      } else {
+        throw new Error('HAR JSON 또는 Nexacro XML 형식이 아닙니다.');
+      }
+
+      return normalizeRows(rows);
+    }
+
+    function populateSelect(id, values) {
+      const el = $(id);
+      const current = el.value;
+      const unique = [...new Set(values.filter(Boolean))].sort((a, b) => String(a).localeCompare(String(b), 'ko'));
+      el.innerHTML = '<option value="">전체</option>' + unique.map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join('');
+      if ([...el.options].some((option) => option.value === current)) {
+        el.value = current;
+      }
+    }
+
+    function initFilters() {
+      populateSelect('fDate', state.rawRows.map((row) => row.date));
+      populateSelect('fItem', state.rawRows.map((row) => row.item));
+      populateSelect('fOrigin', state.rawRows.map((row) => row.origin));
+      populateSelect('fGrade', state.rawRows.map((row) => row.grade));
+      populateSelect('fPack', state.rawRows.map((row) => row.pack));
+      populateSelect('fRegion', state.rawRows.map((row) => row.region));
+    }
+
+    function groupByDate(rows) {
+      const map = new Map();
+      rows.forEach((row) => {
+        if (!row.date) return;
+        if (!map.has(row.date)) {
+          map.set(row.date, { date: row.date, min: [], avg: [], max: [] });
+        }
+        const bucket = map.get(row.date);
+        bucket.min.push(row.minPrice);
+        bucket.avg.push(row.avgPrice);
+        bucket.max.push(row.maxPrice);
+      });
+      return [...map.values()]
+        .map((bucket) => ({
+          date: bucket.date,
+          min: avg(bucket.min.filter(Number.isFinite)),
+          avg: avg(bucket.avg.filter(Number.isFinite)),
+          max: avg(bucket.max.filter(Number.isFinite))
+        }))
+        .sort((a, b) => a.date.localeCompare(b.date));
+    }
+
+    function renderKpis() {
+      const rows = state.filteredRows;
+      const avgPrices = rows.map((row) => row.avgPrice).filter(Number.isFinite);
+      const minPrices = rows.map((row) => row.minPrice).filter(Number.isFinite);
+      const maxPrices = rows.map((row) => row.maxPrice).filter(Number.isFinite);
+
+      $('kCount').textContent = fmt(rows.length);
+      $('kAvg').textContent = money(avg(avgPrices));
+      $('kMin').textContent = minPrices.length ? money(Math.min(...minPrices)) : '-';
+      $('kMax').textContent = maxPrices.length ? money(Math.max(...maxPrices)) : '-';
+      $('kQty').textContent = fmt(rows.reduce((sum, row) => sum + (Number.isFinite(row.qty) ? row.qty : 0), 0));
+      $('kTotal').textContent = fmt(state.rawRows.length);
+    }
+
+    function renderReference() {
+      if (!state.filteredRows.length) {
+        ['refConservative', 'refSafe', 'refAggressive', 'cRecent5', 'cRecent10', 'cForecast', 'sRecent5', 'sRecent10', 'sForecast', 'aRecent5', 'aRecent10', 'aForecast', 'refNote'].forEach((id) => {
+          $(id).textContent = id === 'refNote' ? '선택 조건에 해당하는 데이터가 없습니다.' : '-';
+        });
+        return;
+      }
+
+      const sorted = [...state.filteredRows].filter((row) => Number.isFinite(row.avgPrice)).sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.title || '').localeCompare(b.title || ''));
+      const recent5 = sorted.slice(-5);
+      const recent10 = sorted.slice(-10);
+      const recent5Avg = avg(recent5.map((row) => row.avgPrice));
+      const recent10Avg = avg(recent10.map((row) => row.avgPrice));
+      const fullAvg = avg(sorted.map((row) => row.avgPrice));
+      const daily = groupByDate(sorted);
+
+      let trendEstimate = fullAvg;
+      if (daily.length >= 2) {
+        const x = daily.map((_, index) => index + 1);
+        const y = daily.map((d) => d.avg);
+        const meanX = avg(x);
+        const meanY = avg(y);
+        const denom = x.reduce((sum, value, index) => sum + (value - meanX) ** 2, 0);
+        const slope = denom ? x.reduce((sum, value, index) => sum + (value - meanX) * (y[index] - meanY), 0) / denom : 0;
+        trendEstimate = y[y.length - 1] + slope;
+      }
+
+      const recentVol = stdev(sorted.map((row) => row.avgPrice));
+      const dailyMoves = [];
+      for (let i = 1; i < daily.length; i += 1) {
+        dailyMoves.push(Math.abs(daily[i].avg - daily[i - 1].avg));
+      }
+      const volatility = Math.max(recentVol * 0.45, avg(dailyMoves.filter(Number.isFinite)) || 0, 10);
+
+      const weightedBase = recent5Avg * 0.45 + recent10Avg * 0.25 + fullAvg * 0.20 + trendEstimate * 0.10;
+      const conservative = weightedBase - volatility * 0.35;
+      const safe = weightedBase;
+      const aggressive = weightedBase + volatility * 0.35;
+
+      $('refConservative').textContent = money(conservative);
+      $('refSafe').textContent = money(safe);
+      $('refAggressive').textContent = money(aggressive);
+      $('cRecent5').textContent = money(recent5Avg);
+      $('cRecent10').textContent = money(recent10Avg);
+      $('cForecast').textContent = money(trendEstimate);
+      $('sRecent5').textContent = money(recent5Avg);
+      $('sRecent10').textContent = money(recent10Avg);
+      $('sForecast').textContent = money(trendEstimate);
+      $('aRecent5').textContent = money(recent5Avg);
+      $('aRecent10').textContent = money(recent10Avg);
+      $('aForecast').textContent = money(trendEstimate);
+      $('refNote').innerHTML = `계산 기준: 최근 5회 평균 45%, 최근 10회 평균 25%, 전체 평균 20%, 추세 예측 10%. 변동성은 필터 기준 데이터의 분산과 일별 이동폭을 반영해 보수·공격권을 나눴습니다. 이 값은 의사결정 참고용이며, 실제 낙찰가와는 차이가 날 수 있습니다.`;
+    }
+
+    function renderTable() {
+      const tbody = $('tableBody');
+      $('tableInfo').textContent = `${fmt(state.filteredRows.length)}건 표시`;
+      tbody.innerHTML = state.filteredRows.map((row) => `
+        <tr>
+          <td>${escapeHtml(row.date || '')}</td>
+          <td>${escapeHtml(row.title || '')}</td>
+          <td>${escapeHtml(row.item || '')}</td>
+          <td>${escapeHtml(row.origin || '')}</td>
+          <td>${escapeHtml(row.grade || '')}</td>
+          <td>${escapeHtml(row.pack || '')}</td>
+          <td>${escapeHtml(row.region || '')}</td>
+          <td class="text-right">${fmt(row.qty)}</td>
+          <td class="text-right">${money(row.minPrice)}</td>
+          <td class="text-right">${money(row.avgPrice)}</td>
+          <td class="text-right">${money(row.maxPrice)}</td>
+        </tr>
+      `).join('');
+    }
+
+    function renderChart() {
+      const canvas = $('trendChart');
+      const ctx = canvas.getContext('2d');
+      const data = groupByDate(state.filteredRows);
+
+      if (state.chart) {
+        state.chart.destroy();
+      }
+
+      if (!data.length) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = 'rgba(255,255,255,0.7)';
+        ctx.font = '14px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('표시할 데이터가 없습니다.', canvas.width / 2, canvas.height / 2);
+        return;
+      }
+
+      const labels = data.map((item) => item.date);
+      state.chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [
+            {
+              label: '최고 단가',
+              data: data.map((item) => item.max),
+              borderColor: '#f87171',
+              backgroundColor: 'rgba(248,113,113,0.15)',
+              pointRadius: 3,
+              tension: 0.2
+            },
+            {
+              label: '평균 단가',
+              data: data.map((item) => item.avg),
+              borderColor: '#60a5fa',
+              backgroundColor: 'rgba(96,165,250,0.12)',
+              pointRadius: 3,
+              tension: 0.2
+            },
+            {
+              label: '최저 단가',
+              data: data.map((item) => item.min),
+              borderColor: '#4ade80',
+              backgroundColor: 'rgba(74,222,128,0.12)',
+              pointRadius: 3,
+              tension: 0.2
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (context) => `${context.dataset.label}: ${money(context.parsed.y)}`
+              }
+            }
+          },
+          scales: {
+            x: { ticks: { color: 'rgba(255,255,255,0.7)' }, grid: { color: 'rgba(255,255,255,0.08)' } },
+            y: { ticks: { color: 'rgba(255,255,255,0.7)', callback: (value) => `${fmt(value)}` }, grid: { color: 'rgba(255,255,255,0.08)' } }
+          }
+        }
+      });
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+    }
+
+    function render() {
+      renderKpis();
+      renderReference();
+      renderTable();
+      renderChart();
+    }
+
+    function applyFilters() {
+      const query = $('q').value.trim().toLowerCase();
+      const selectedDate = $('fDate').value;
+      const selectedItem = $('fItem').value;
+      const selectedOrigin = $('fOrigin').value;
+      const selectedGrade = $('fGrade').value;
+      const selectedPack = $('fPack').value;
+      const selectedRegion = $('fRegion').value;
+
+      state.filteredRows = state.rawRows.filter((row) => {
+        const matchesDate = !selectedDate || row.date === selectedDate;
+        const matchesItem = !selectedItem || row.item === selectedItem;
+        const matchesOrigin = !selectedOrigin || row.origin === selectedOrigin;
+        const matchesGrade = !selectedGrade || row.grade === selectedGrade;
+        const matchesPack = !selectedPack || row.pack === selectedPack;
+        const matchesRegion = !selectedRegion || row.region === selectedRegion;
+        const matchesQuery = !query || [row.title, row.item, row.origin, row.grade, row.pack, row.region].join(' ').toLowerCase().includes(query);
+        return matchesDate && matchesItem && matchesOrigin && matchesGrade && matchesPack && matchesRegion && matchesQuery;
+      });
+
+      render();
+    }
+
+    async function handleFile(file) {
+      if (!file) return;
+      try {
+        const content = await file.text();
+        const rows = parseInput(content);
+        state.rawRows = rows;
+        state.filteredRows = rows;
+        $('analysisSection').classList.remove('hidden');
+        initFilters();
+        applyFilters();
+        setStatus(`${fmt(rows.length)}건의 데이터를 불러왔습니다.`);
+      } catch (error) {
+        setStatus(error.message, true);
+      }
+    }
+
+    document.getElementById('harFile').addEventListener('change', (event) => handleFile(event.target.files[0]));
+
+    const dropZone = $('dropZone');
+    ['dragenter', 'dragover'].forEach((eventName) => {
+      dropZone.addEventListener(eventName, (event) => {
+        event.preventDefault();
+        dropZone.classList.add('dragover');
+      });
+    });
+    ['dragleave', 'drop'].forEach((eventName) => {
+      dropZone.addEventListener(eventName, (event) => {
+        event.preventDefault();
+        dropZone.classList.remove('dragover');
+      });
+    });
+    dropZone.addEventListener('drop', (event) => handleFile(event.dataTransfer.files[0]));
+
+    $('resetBtn').addEventListener('click', () => {
+      $('harFile').value = '';
+      state.rawRows = [];
+      state.filteredRows = [];
+      $('analysisSection').classList.add('hidden');
+      ['fDate', 'fItem', 'fOrigin', 'fGrade', 'fPack', 'fRegion', 'q'].forEach((id) => {
+        $(id).value = '';
+      });
+      render();
+      setStatus('초기화했습니다. HAR 파일을 다시 업로드하면 분석을 다시 시작합니다.');
+    });
+
+    ['fDate', 'fItem', 'fOrigin', 'fGrade', 'fPack', 'fRegion', 'q'].forEach((id) => {
+      $(id).addEventListener('input', applyFilters);
+      $(id).addEventListener('change', applyFilters);
+    });
+
+    $('clearFilters').addEventListener('click', () => {
+      ['fDate', 'fItem', 'fOrigin', 'fGrade', 'fPack', 'fRegion', 'q'].forEach((id) => {
+        $(id).value = '';
+      });
+      applyFilters();
+    });
+
+    $('downloadBtn').addEventListener('click', () => {
+      const rows = state.filteredRows.map((row, index) => [index + 1, row.date, row.title, row.item, row.origin, row.grade, row.pack, row.region, row.qty, row.minPrice, row.avgPrice, row.maxPrice]);
+      const csv = '\uFEFF' + [['순번', '입찰일', '입찰건명', '품목', '원산지', '등급', '포장', '판매지역', '물량', '최저', '평균', '최고'], ...rows]
+        .map((row) => row.map((value) => `"${String(value ?? '').replace(/"/g, '""')}"`).join(','))
+        .join('\n');
+      const link = document.createElement('a');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+      link.href = URL.createObjectURL(blob);
+      link.download = 'sesame_bid_analysis.csv';
+      link.click();
+      URL.revokeObjectURL(link.href);
+    });
+
+    function initAuth() {
+      const firebaseConfig = {
+        apiKey: 'AIzaSyAlvRWMpYV5Cq2vb0XxpA4t56KuByj8KuE',
+        authDomain: 'dmnfood-erp.firebaseapp.com',
+        projectId: 'dmnfood-erp',
+        storageBucket: 'dmnfood-erp.firebasestorage.app',
+        messagingSenderId: '918686575195',
+        appId: '1:918686575195:web:699d961aa0a092ee9ead7e'
+      };
+
+      import('https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js').then(({ initializeApp }) => {
+        import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js').then(({ getAuth, onAuthStateChanged }) => {
+          const app = initializeApp(firebaseConfig);
+          const auth = getAuth(app);
+          onAuthStateChanged(auth, (user) => {
+            if (!user) {
+              window.location.href = '/';
+              return;
+            }
+            const emailId = user.email ? user.email.split('@')[0] : 'user';
+            $('userChip').textContent = emailId;
+            $('loadingScreen').classList.add('hidden');
+            $('mainContent').classList.remove('auth-hidden');
+          });
+        });
+      });
+    }
+
+    initAuth();
+  </script>
+</body>
+</html>

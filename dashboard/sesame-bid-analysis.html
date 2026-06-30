@@ -20,6 +20,62 @@
       z-index: 10;
     }
 
+    .app-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 0 24px;
+      height: 56px;
+      background: rgba(255,255,255,.05);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(20px);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .app-title-block {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .app-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--t0);
+    }
+
+    .app-title .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #22d3ee, #d946ef);
+      box-shadow: 0 0 0 2px rgba(34,211,238,.16);
+    }
+
+    .app-subtitle {
+      font-size: 11px;
+      color: var(--t2);
+      margin-left: 16px;
+    }
+
     .hero-card,
     .section-card,
     .chart-card,
@@ -186,10 +242,20 @@
       width: 100%;
       border: 1px solid var(--border);
       border-radius: 8px;
-      background: rgba(255,255,255,.06);
+      background: rgba(7, 12, 23, .85);
       color: var(--t0);
       padding: 8px 10px;
       font-size: 13px;
+    }
+
+    .field select {
+      appearance: auto;
+      color-scheme: dark;
+    }
+
+    .field select option {
+      background: #0f172a;
+      color: var(--t0);
     }
 
     .field select:focus,
@@ -235,7 +301,7 @@
 
     .chart-row {
       display: grid;
-      grid-template-columns: 1.2fr 0.8fr;
+      grid-template-columns: 1fr;
       gap: 16px;
     }
 
@@ -291,55 +357,51 @@
       display: inline-block;
     }
 
-    .reference-grid {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 12px;
+    .reference-inline {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: flex-end;
+      align-items: center;
     }
 
-    .reference-box {
+    .reference-chip {
       border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 12px;
+      border-radius: 10px;
+      padding: 7px 8px;
+      min-width: 90px;
       background: rgba(255,255,255,.03);
     }
 
-    .reference-box.conservative {
+    .reference-chip.conservative {
       background: rgba(74,222,128,.07);
       border-color: rgba(74,222,128,.16);
     }
 
-    .reference-box.safe {
+    .reference-chip.safe {
       background: rgba(96,165,250,.08);
       border-color: rgba(96,165,250,.16);
     }
 
-    .reference-box.aggressive {
+    .reference-chip.aggressive {
       background: rgba(251,191,36,.08);
       border-color: rgba(251,191,36,.16);
     }
 
-    .ref-title {
-      font-size: 12px;
+    .chip-title {
+      font-size: 10px;
       font-weight: 700;
-      margin-bottom: 6px;
-    }
-
-    .ref-price {
-      font-size: 20px;
-      font-weight: 800;
-      letter-spacing: -0.2px;
-      margin-bottom: 10px;
-    }
-
-    .ref-metric {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 8px;
-      margin-top: 6px;
-      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: .4px;
       color: var(--t2);
+      margin-bottom: 2px;
+    }
+
+    .chip-value {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: -0.1px;
+      color: var(--t0);
     }
 
     .ref-note {
@@ -440,7 +502,10 @@
     <header class="app-header">
       <div class="header-left">
         <a href="/home" class="back-btn">← 홈</a>
-        <div class="app-title"><span class="dot"></span>참깨 입찰 분석</div>
+        <div class="app-title-block">
+          <div class="app-title"><span class="dot"></span>참깨 입찰 분석</div>
+          <div class="app-subtitle">HAR 기반 입찰 단가 분석</div>
+        </div>
       </div>
       <div class="header-right">
         <div class="user-chip" id="userChip">—</div>
@@ -547,6 +612,20 @@
                 <div class="card-title">입찰일별 단가 추이</div>
                 <div class="card-caption">필터 기준으로 다시 계산됩니다.</div>
               </div>
+              <div class="reference-inline">
+                <div class="reference-chip conservative">
+                  <div class="chip-title">보수권</div>
+                  <div class="chip-value" id="refConservative">-</div>
+                </div>
+                <div class="reference-chip safe">
+                  <div class="chip-title">안전권</div>
+                  <div class="chip-value" id="refSafe">-</div>
+                </div>
+                <div class="reference-chip aggressive">
+                  <div class="chip-title">공격권</div>
+                  <div class="chip-value" id="refAggressive">-</div>
+                </div>
+              </div>
             </div>
             <div class="legend">
               <span class="legend-item"><span class="legend-dot" style="background:#f87171"></span>최고 단가</span>
@@ -554,38 +633,6 @@
               <span class="legend-item"><span class="legend-dot" style="background:#4ade80"></span>최저 단가</span>
             </div>
             <div class="chart-wrap"><canvas id="trendChart"></canvas></div>
-          </section>
-
-          <section class="reference-card">
-            <div class="card-title-row">
-              <div>
-                <div class="card-title">이번 입찰 참고가</div>
-                <div class="card-caption">최근 흐름과 변동성을 함께 반영합니다.</div>
-              </div>
-            </div>
-            <div class="reference-grid">
-              <div class="reference-box conservative">
-                <div class="ref-title">보수권</div>
-                <div class="ref-price" id="refConservative">-</div>
-                <div class="ref-metric"><span>최근 5회 평균</span><strong id="cRecent5">-</strong></div>
-                <div class="ref-metric"><span>최근 10회 평균</span><strong id="cRecent10">-</strong></div>
-                <div class="ref-metric"><span>추세 예측</span><strong id="cForecast">-</strong></div>
-              </div>
-              <div class="reference-box safe">
-                <div class="ref-title">안전권</div>
-                <div class="ref-price" id="refSafe">-</div>
-                <div class="ref-metric"><span>최근 5회 평균</span><strong id="sRecent5">-</strong></div>
-                <div class="ref-metric"><span>최근 10회 평균</span><strong id="sRecent10">-</strong></div>
-                <div class="ref-metric"><span>추세 예측</span><strong id="sForecast">-</strong></div>
-              </div>
-              <div class="reference-box aggressive">
-                <div class="ref-title">공격권</div>
-                <div class="ref-price" id="refAggressive">-</div>
-                <div class="ref-metric"><span>최근 5회 평균</span><strong id="aRecent5">-</strong></div>
-                <div class="ref-metric"><span>최근 10회 평균</span><strong id="aRecent10">-</strong></div>
-                <div class="ref-metric"><span>추세 예측</span><strong id="aForecast">-</strong></div>
-              </div>
-            </div>
             <div class="ref-note" id="refNote">조건을 선택하면 참고가 계산 근거와 변동성을 함께 보여줍니다.</div>
           </section>
         </div>
@@ -844,9 +891,16 @@
     }
 
     function renderReference() {
+      const setText = (id, value) => {
+        const el = $(id);
+        if (el) {
+          el.textContent = value;
+        }
+      };
+
       if (!state.filteredRows.length) {
-        ['refConservative', 'refSafe', 'refAggressive', 'cRecent5', 'cRecent10', 'cForecast', 'sRecent5', 'sRecent10', 'sForecast', 'aRecent5', 'aRecent10', 'aForecast', 'refNote'].forEach((id) => {
-          $(id).textContent = id === 'refNote' ? '선택 조건에 해당하는 데이터가 없습니다.' : '-';
+        ['refConservative', 'refSafe', 'refAggressive', 'refNote'].forEach((id) => {
+          setText(id, id === 'refNote' ? '선택 조건에 해당하는 데이터가 없습니다.' : '-');
         });
         return;
       }
@@ -882,19 +936,10 @@
       const safe = weightedBase;
       const aggressive = weightedBase + volatility * 0.35;
 
-      $('refConservative').textContent = money(conservative);
-      $('refSafe').textContent = money(safe);
-      $('refAggressive').textContent = money(aggressive);
-      $('cRecent5').textContent = money(recent5Avg);
-      $('cRecent10').textContent = money(recent10Avg);
-      $('cForecast').textContent = money(trendEstimate);
-      $('sRecent5').textContent = money(recent5Avg);
-      $('sRecent10').textContent = money(recent10Avg);
-      $('sForecast').textContent = money(trendEstimate);
-      $('aRecent5').textContent = money(recent5Avg);
-      $('aRecent10').textContent = money(recent10Avg);
-      $('aForecast').textContent = money(trendEstimate);
-      $('refNote').innerHTML = `계산 기준: 최근 5회 평균 45%, 최근 10회 평균 25%, 전체 평균 20%, 추세 예측 10%. 변동성은 필터 기준 데이터의 분산과 일별 이동폭을 반영해 보수·공격권을 나눴습니다. 이 값은 의사결정 참고용이며, 실제 낙찰가와는 차이가 날 수 있습니다.`;
+      setText('refConservative', money(conservative));
+      setText('refSafe', money(safe));
+      setText('refAggressive', money(aggressive));
+      setText('refNote', `계산 기준: 최근 5회 평균 45%, 최근 10회 평균 25%, 전체 평균 20%, 추세 예측 10%. 변동성은 필터 기준 데이터의 분산과 일별 이동폭을 반영해 보수·공격권을 나눴습니다. 이 값은 의사결정 참고용이며, 실제 낙찰가와는 차이가 날 수 있습니다.`);
     }
 
     function renderTable() {

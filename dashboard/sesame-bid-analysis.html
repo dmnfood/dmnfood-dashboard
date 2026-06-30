@@ -21,59 +21,71 @@
     }
 
     .app-header {
+      background: rgba(255,255,255,0.05);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(20px);
+      padding: 0 28px;
+      height: 52px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 16px;
-      padding: 0 24px;
-      height: 56px;
-      background: rgba(255,255,255,.05);
-      border-bottom: 1px solid var(--border);
-      backdrop-filter: blur(20px);
       position: sticky;
       top: 0;
       z-index: 100;
     }
 
-    .header-left {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .header-right {
+    .header-left, .header-right {
       display: flex;
       align-items: center;
       gap: 8px;
     }
 
-    .app-title-block {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
+    .back-btn, .btn-logout-sm {
+      height: 30px;
+      padding: 0 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: transparent;
+      color: var(--t2);
+      font-family: 'Noto Sans KR', sans-serif;
+      font-size: 12px;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: background .15s, color .15s;
+    }
+
+    .back-btn:hover, .btn-logout-sm:hover {
+      background: rgba(255,255,255,.07);
+      color: var(--t0);
     }
 
     .app-title {
       display: flex;
       align-items: center;
       gap: 8px;
+      color: var(--t0);
       font-size: 14px;
       font-weight: 700;
-      color: var(--t0);
     }
 
     .app-title .dot {
       width: 8px;
       height: 8px;
       border-radius: 50%;
-      background: linear-gradient(135deg, #22d3ee, #d946ef);
-      box-shadow: 0 0 0 2px rgba(34,211,238,.16);
+      background: #22d3ee;
     }
 
-    .app-subtitle {
+    .user-chip {
       font-size: 11px;
       color: var(--t2);
-      margin-left: 16px;
+      background: rgba(255,255,255,.05);
+      border: 1px solid var(--border);
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-family: 'JetBrains Mono', monospace;
     }
 
     .hero-card,
@@ -365,11 +377,26 @@
       align-items: center;
     }
 
+    .reference-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      align-items: flex-end;
+    }
+
+    .reference-group-title {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      color: var(--t2);
+    }
+
     .reference-chip {
       border: 1px solid var(--border);
       border-radius: 10px;
-      padding: 7px 8px;
-      min-width: 90px;
+      padding: 8px 9px;
+      min-width: 94px;
       background: rgba(255,255,255,.03);
     }
 
@@ -394,12 +421,12 @@
       text-transform: uppercase;
       letter-spacing: .4px;
       color: var(--t2);
-      margin-bottom: 2px;
+      margin-bottom: 3px;
     }
 
     .chip-value {
-      font-size: 13px;
-      font-weight: 700;
+      font-size: 14px;
+      font-weight: 800;
       letter-spacing: -0.1px;
       color: var(--t0);
     }
@@ -502,23 +529,15 @@
     <header class="app-header">
       <div class="header-left">
         <a href="/home" class="back-btn">← 홈</a>
-        <div class="app-title-block">
-          <div class="app-title"><span class="dot"></span>참깨 입찰 분석</div>
-          <div class="app-subtitle">HAR 기반 입찰 단가 분석</div>
-        </div>
+        <div class="app-title"><span class="dot"></span>참깨 입찰 분석</div>
       </div>
       <div class="header-right">
         <div class="user-chip" id="userChip">—</div>
+        <button class="btn-logout-sm" type="button" id="logoutBtn">로그아웃</button>
       </div>
     </header>
 
     <main class="page-main">
-      <section class="hero-card">
-        <div class="hero-eyebrow">HAR 업로드 기반 분석</div>
-        <h1 class="hero-title">참깨 정부 비축물자 입찰 결과를 빠르게 검토합니다.</h1>
-        <p class="hero-text">Chrome DevTools의 Network 탭에서 HAR 파일을 저장해 업로드하면, list.do 응답을 병합해 원산지·등급·포장·지역별 평균 단가 추이를 확인하고 현재 입찰 참고가를 선택할 수 있습니다.</p>
-      </section>
-
       <section class="section-card upload-card">
         <div class="upload-box" id="dropZone">
           <div class="upload-copy">
@@ -613,17 +632,22 @@
                 <div class="card-caption">필터 기준으로 다시 계산됩니다.</div>
               </div>
               <div class="reference-inline">
-                <div class="reference-chip conservative">
-                  <div class="chip-title">보수권</div>
-                  <div class="chip-value" id="refConservative">-</div>
-                </div>
-                <div class="reference-chip safe">
-                  <div class="chip-title">안전권</div>
-                  <div class="chip-value" id="refSafe">-</div>
-                </div>
-                <div class="reference-chip aggressive">
-                  <div class="chip-title">공격권</div>
-                  <div class="chip-value" id="refAggressive">-</div>
+                <div class="reference-group">
+                  <div class="reference-group-title">입찰 참고가</div>
+                  <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;">
+                    <div class="reference-chip conservative">
+                      <div class="chip-title">보수권</div>
+                      <div class="chip-value" id="refConservative">-</div>
+                    </div>
+                    <div class="reference-chip safe">
+                      <div class="chip-title">안전권</div>
+                      <div class="chip-value" id="refSafe">-</div>
+                    </div>
+                    <div class="reference-chip aggressive">
+                      <div class="chip-title">공격권</div>
+                      <div class="chip-value" id="refAggressive">-</div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1147,7 +1171,7 @@
       };
 
       import('https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js').then(({ initializeApp }) => {
-        import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js').then(({ getAuth, onAuthStateChanged }) => {
+        import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js').then(({ getAuth, onAuthStateChanged, signOut }) => {
           const app = initializeApp(firebaseConfig);
           const auth = getAuth(app);
           onAuthStateChanged(auth, (user) => {
@@ -1159,6 +1183,12 @@
             $('userChip').textContent = emailId;
             $('loadingScreen').classList.add('hidden');
             $('mainContent').classList.remove('auth-hidden');
+          });
+
+          $('logoutBtn').addEventListener('click', () => {
+            signOut(auth).catch(() => {
+              window.location.href = '/';
+            });
           });
         });
       });

@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>들메내식품 · CCP-1 가열공정 점검표</title>
+    <link rel="stylesheet" href="/dashboard/style.css">
+    <style>
+        .auth-hidden {
+            display: none !important;
+        }
+
+        .loading-screen {
+            position: fixed;
+            inset: 0;
+            background: #070b14;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 12px;
+            z-index: 999;
+        }
+
+        .loading-screen.hidden {
+            display: none;
+        }
+
+        .loading-spinner {
+            width: 36px;
+            height: 36px;
+            border: 3px solid rgba(255, 255, 255, .12);
+            border-top-color: #22d3ee;
+            border-radius: 50%;
+            animation: spin .8s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .app-header {
+            background: rgba(255, 255, 255, 0.05);
+            border-bottom: 1px solid var(--border);
+            backdrop-filter: blur(20px);
+            padding: 0 32px;
+            height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .back-btn {
+            height: 30px;
+            padding: 0 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: transparent;
+            color: var(--t2);
+            font-family: 'Noto Sans KR', sans-serif;
+            font-size: 12px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .back-btn:hover {
+            background: rgba(255, 255, 255, .07);
+            color: var(--t0);
+        }
+
+        .app-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--t0);
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .app-title .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #22d3ee;
+        }
+
+        .page-main {
+            max-width: 1080px;
+            margin: 0 auto;
+            padding: 36px 24px 80px;
+        }
+
+        .page-card {
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            background: var(--card);
+            box-shadow: var(--shadow);
+            padding: 24px;
+        }
+
+        .page-kicker {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 8px;
+            border-radius: 999px;
+            background: rgba(34, 211, 238, .12);
+            color: #22d3ee;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: .3px;
+            margin-bottom: 10px;
+        }
+
+        .page-card h1 {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--t0);
+            margin-bottom: 8px;
+            letter-spacing: -0.3px;
+        }
+
+        .page-card p {
+            font-size: 13px;
+            color: var(--t2);
+            line-height: 1.7;
+            margin-bottom: 20px;
+        }
+
+        .empty-state {
+            border: 1px dashed var(--border);
+            border-radius: 14px;
+            padding: 24px;
+            text-align: center;
+            color: var(--t2);
+            background: rgba(255, 255, 255, .03);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="loading-screen" id="loadingScreen">
+        <div class="loading-spinner"></div>
+    </div>
+
+    <div class="blobs">
+        <div class="b1"></div>
+        <div class="b2"></div>
+    </div>
+
+    <div class="auth-hidden" id="mainContent">
+        <header class="app-header">
+            <div class="header-left">
+                <a href="/haccp" class="back-btn">← HACCP으로</a>
+                <div class="app-title"><span class="dot"></span>CCP-1 가열공정 점검표</div>
+            </div>
+        </header>
+
+        <main class="page-main">
+            <section class="page-card">
+                <div class="page-kicker">공정 기록</div>
+                <h1>CCP-1 가열공정 점검표</h1>
+                <p>가열공정의 기본 정보와 점검 요소를 위한 진입 화면입니다. 다음 단계에서 상세 작성 양식이 추가됩니다.</p>
+                <div class="empty-state">상세 작성 화면을 준비 중입니다.</div>
+            </section>
+        </main>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+        import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+
+        const FIREBASE_CONFIG = {
+            apiKey: 'AIzaSyAlvRWMpYV5Cq2vb0XxpA4t56KuByj8KuE',
+            authDomain: 'dmnfood-erp.firebaseapp.com',
+            projectId: 'dmnfood-erp',
+            storageBucket: 'dmnfood-erp.firebasestorage.app',
+            messagingSenderId: '918686575195',
+            appId: '1:918686575195:web:699d961aa0a092ee9ead7e',
+        };
+
+        const app = initializeApp(FIREBASE_CONFIG);
+        const auth = getAuth(app);
+
+        onAuthStateChanged(auth, user => {
+            if (!user) {
+                window.location.href = '/';
+                return;
+            }
+            document.getElementById('loadingScreen').classList.add('hidden');
+            document.getElementById('mainContent').classList.remove('auth-hidden');
+        });
+    </script>
+</body>
+
+</html>

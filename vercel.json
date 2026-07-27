@@ -29,6 +29,18 @@
             "destination": "/dashboard/school-meal-weekly.html"
         },
         {
+            "source": "/haccp",
+            "destination": "/dashboard/haccp.html"
+        },
+        {
+            "source": "/haccp-heating",
+            "destination": "/dashboard/haccp-heating.html"
+        },
+        {
+            "source": "/haccp-filtering",
+            "destination": "/dashboard/haccp-filtering.html"
+        },
+        {
             "source": "/cost-management",
             "destination": "/dashboard/cost-management.html"
         },

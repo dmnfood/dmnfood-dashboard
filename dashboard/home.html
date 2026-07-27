@@ -226,10 +226,19 @@
       border-radius: 20px;
     }
 
+    .menu-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px 16px;
+      flex-wrap: wrap;
+      margin-bottom: 18px;
+    }
+
     .category-tabs {
       display: flex;
       gap: 4px;
-      margin-bottom: 18px;
+      margin-bottom: 0;
       background: rgba(255, 255, 255, .05);
       border: 1px solid var(--border);
       border-radius: 12px;
@@ -237,6 +246,40 @@
       width: fit-content;
       max-width: 100%;
       overflow-x: auto;
+    }
+
+    .production-menu-group {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, .05);
+      width: fit-content;
+    }
+
+    .production-menu-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 0;
+      border-radius: 8px;
+      padding: 8px 16px;
+      background: transparent;
+      color: var(--t2);
+      font-family: 'Noto Sans KR', sans-serif;
+      font-size: 12px;
+      font-weight: 700;
+      text-decoration: none;
+      cursor: pointer;
+      transition: background .15s, color .15s;
+      white-space: nowrap;
+    }
+
+    .production-menu-button:hover {
+      background: rgba(255, 255, 255, .07);
+      color: var(--t0);
     }
 
     .category-tab {
@@ -565,12 +608,22 @@
       </div>
 
       <div class="section">
-        <div class="category-tabs" role="tablist" aria-label="대시보드 분류">
-          <button class="category-tab active" type="button" role="tab" aria-selected="true" data-category="office">일반 사무</button>
-          <button class="category-tab" type="button" role="tab" aria-selected="false" data-category="finance">회계 재무</button>
-          <button class="category-tab" type="button" role="tab" aria-selected="false" data-category="management">경영관리</button>
-          <button class="category-tab" type="button" role="tab" aria-selected="false" data-category="cost">원가 관리</button>
-          <button class="category-tab" type="button" role="tab" aria-selected="false" data-category="all">전체</button>
+        <div class="menu-toolbar">
+          <div class="category-tabs" role="tablist" aria-label="대시보드 분류">
+            <button class="category-tab active" type="button" role="tab" aria-selected="true" data-category="office">일반
+              사무</button>
+            <button class="category-tab" type="button" role="tab" aria-selected="false" data-category="finance">회계
+              재무</button>
+            <button class="category-tab" type="button" role="tab" aria-selected="false"
+              data-category="management">경영관리</button>
+            <button class="category-tab" type="button" role="tab" aria-selected="false" data-category="cost">원가
+              관리</button>
+            <button class="category-tab" type="button" role="tab" aria-selected="false" data-category="all">전체</button>
+          </div>
+
+          <div class="production-menu-group" aria-label="생산관리 메뉴">
+            <a class="production-menu-button" href="/haccp">HACCP</a>
+          </div>
         </div>
 
         <div class="category-panel active" id="category-office" role="tabpanel">

@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>들메내식품 · HACCP 기록 관리</title>
+    <link rel="stylesheet" href="/dashboard/style.css">
+    <style>
+        .auth-hidden {
+            display: none !important;
+        }
+
+        .loading-screen {
+            position: fixed;
+            inset: 0;
+            background: #070b14;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 12px;
+            z-index: 999;
+        }
+
+        .loading-screen.hidden {
+            display: none;
+        }
+
+        .loading-spinner {
+            width: 36px;
+            height: 36px;
+            border: 3px solid rgba(255, 255, 255, .12);
+            border-top-color: #22d3ee;
+            border-radius: 50%;
+            animation: spin .8s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .app-header {
+            background: rgba(255, 255, 255, 0.05);
+            border-bottom: 1px solid var(--border);
+            backdrop-filter: blur(20px);
+            padding: 0 32px;
+            height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .back-btn {
+            height: 30px;
+            padding: 0 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: transparent;
+            color: var(--t2);
+            font-family: 'Noto Sans KR', sans-serif;
+            font-size: 12px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .back-btn:hover {
+            background: rgba(255, 255, 255, .07);
+            color: var(--t0);
+        }
+
+        .app-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--t0);
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .app-title .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #22d3ee;
+        }
+
+        .page-main {
+            max-width: 1080px;
+            margin: 0 auto;
+            padding: 36px 24px 80px;
+        }
+
+        .page-hero {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 24px;
+            padding: 24px 26px;
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            background: rgba(255, 255, 255, .04);
+            backdrop-filter: blur(16px);
+        }
+
+        .page-kicker {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 8px;
+            border-radius: 999px;
+            background: rgba(34, 211, 238, .12);
+            color: #22d3ee;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: .3px;
+            margin-bottom: 10px;
+        }
+
+        .page-hero h1 {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--t0);
+            margin-bottom: 8px;
+            letter-spacing: -0.3px;
+        }
+
+        .page-hero p {
+            font-size: 13px;
+            color: var(--t2);
+            line-height: 1.7;
+            max-width: 680px;
+        }
+
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 10px;
+            border-radius: 999px;
+            border: 1px solid rgba(74, 222, 128, .25);
+            background: rgba(74, 222, 128, .12);
+            color: var(--zr);
+            font-size: 11px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px;
+            margin-bottom: 28px;
+        }
+
+        .summary-card {
+            padding: 16px;
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            background: var(--card);
+            box-shadow: var(--shadow);
+        }
+
+        .summary-label {
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: .2px;
+            color: var(--t2);
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+
+        .summary-value {
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--t0);
+            margin-bottom: 6px;
+        }
+
+        .summary-foot {
+            font-size: 11px;
+            color: var(--t2);
+        }
+
+        .section-block {
+            margin-bottom: 24px;
+        }
+
+        .section-heading {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .section-heading h2 {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--t0);
+        }
+
+        .section-heading p {
+            font-size: 12px;
+            color: var(--t2);
+        }
+
+        .record-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px;
+        }
+
+        .record-card {
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            background: var(--card);
+            padding: 22px;
+            box-shadow: var(--shadow);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            transition: transform .15s, border-color .2s;
+        }
+
+        .record-card:hover {
+            transform: translateY(-2px);
+            border-color: rgba(34, 211, 238, .28);
+        }
+
+        .record-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .record-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 44px;
+            padding: 5px 8px;
+            border-radius: 999px;
+            background: rgba(34, 211, 238, .12);
+            border: 1px solid rgba(34, 211, 238, .24);
+            color: #22d3ee;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .record-card h3 {
+            font-size: 16px;
+            color: var(--t0);
+            font-weight: 700;
+            margin: 0;
+        }
+
+        .record-card p {
+            font-size: 12px;
+            line-height: 1.7;
+            color: var(--t2);
+            margin: 0;
+        }
+
+        .record-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .record-meta .badge {
+            font-size: 10px;
+            padding: 4px 8px;
+        }
+
+        .record-action {
+            margin-top: auto;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: fit-content;
+            padding: 8px 12px;
+            border-radius: 8px;
+            border: 1px solid rgba(34, 211, 238, .26);
+            background: rgba(34, 211, 238, .10);
+            color: #22d3ee;
+            text-decoration: none;
+            font-size: 12px;
+            font-weight: 700;
+            transition: background .15s, color .15s;
+        }
+
+        .record-action:hover {
+            background: rgba(34, 211, 238, .16);
+            color: var(--t0);
+        }
+
+        @media (max-width: 760px) {
+            .page-hero {
+                flex-direction: column;
+            }
+
+            .record-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="loading-screen" id="loadingScreen">
+        <div class="loading-spinner"></div>
+    </div>
+
+    <div class="blobs">
+        <div class="b1"></div>
+        <div class="b2"></div>
+    </div>
+
+    <div class="auth-hidden" id="mainContent">
+        <header class="app-header">
+            <div class="header-left">
+                <a href="/home" class="back-btn">← 홈으로</a>
+                <div class="app-title"><span class="dot"></span>HACCP 기록 관리</div>
+            </div>
+        </header>
+
+        <main class="page-main">
+            <section class="page-hero">
+                <div>
+                    <div class="page-kicker">품질 운영</div>
+                    <h1>HACCP 기록 관리</h1>
+                    <p>오늘의 HACCP 기록 현황을 확인하고 공정별 점검일지를 작성합니다.</p>
+                </div>
+                <div class="status-pill">데이터 연동 전</div>
+            </section>
+
+            <section class="section-block">
+                <div class="section-heading">
+                    <div>
+                        <h2>오늘의 HACCP 현황</h2>
+                        <p>현재 날짜 기준의 기본 운영 요약입니다.</p>
+                    </div>
+                    <p id="todayDate">—</p>
+                </div>
+                <div class="dashboard-grid">
+                    <div class="summary-card">
+                        <div class="summary-label">오늘 작성 기록</div>
+                        <div class="summary-value">—</div>
+                        <div class="summary-foot">데이터 연동 전</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-label">확인 대기</div>
+                        <div class="summary-value">—</div>
+                        <div class="summary-foot">데이터 연동 전</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-label">이탈·조치 필요</div>
+                        <div class="summary-value">—</div>
+                        <div class="summary-foot">데이터 연동 전</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-label">최근 작성</div>
+                        <div class="summary-value">—</div>
+                        <div class="summary-foot">데이터 연동 전</div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="section-block">
+                <div class="section-heading">
+                    <div>
+                        <h2>CCP 공정 일지</h2>
+                        <p>다음 공정별 점검 일지를 선택해 작성할 수 있습니다.</p>
+                    </div>
+                </div>
+                <div class="record-grid">
+                    <article class="record-card">
+                        <div class="record-top">
+                            <div class="record-badge">CCP-1</div>
+                            <span class="badge badge-live"><span class="badge-dot"></span> 준비 중</span>
+                        </div>
+                        <h3>CCP-1 가열공정 점검표</h3>
+                        <p>가열 조건, 가열 시간, 제품 온도, 판정 결과와 조치 내용을 기록하는 공정 점검표입니다.</p>
+                        <div class="record-meta">
+                            <span class="badge badge-basic">가열공정</span>
+                            <span class="badge badge-soon">초안 단계</span>
+                        </div>
+                        <a href="/haccp-heating" class="record-action">일지 작성 →</a>
+                    </article>
+
+                    <article class="record-card">
+                        <div class="record-top">
+                            <div class="record-badge">CCP-2</div>
+                            <span class="badge badge-live"><span class="badge-dot"></span> 준비 중</span>
+                        </div>
+                        <h3>CCP-2 여과공정 점검표</h3>
+                        <p>필터 메쉬 상태, 압력, 이물 유무, 판정 결과와 조치 내용을 기록하는 공정 점검표입니다.</p>
+                        <div class="record-meta">
+                            <span class="badge badge-basic">여과공정</span>
+                            <span class="badge badge-soon">초안 단계</span>
+                        </div>
+                        <a href="/haccp-filtering" class="record-action">일지 작성 →</a>
+                    </article>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+        import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+
+        const FIREBASE_CONFIG = {
+            apiKey: 'AIzaSyAlvRWMpYV5Cq2vb0XxpA4t56KuByj8KuE',
+            authDomain: 'dmnfood-erp.firebaseapp.com',
+            projectId: 'dmnfood-erp',
+            storageBucket: 'dmnfood-erp.firebasestorage.app',
+            messagingSenderId: '918686575195',
+            appId: '1:918686575195:web:699d961aa0a092ee9ead7e',
+        };
+
+        const app = initializeApp(FIREBASE_CONFIG);
+        const auth = getAuth(app);
+
+        onAuthStateChanged(auth, user => {
+            if (!user) {
+                window.location.href = '/';
+                return;
+            }
+            document.getElementById('todayDate').textContent = new Date().toLocaleDateString('ko-KR', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+            });
+            document.getElementById('loadingScreen').classList.add('hidden');
+            document.getElementById('mainContent').classList.remove('auth-hidden');
+        });
+    </script>
+</body>
+
+</html>

@@ -11,6 +11,10 @@
             display: none !important;
         }
 
+        body {
+            min-height: 100vh;
+        }
+
         .loading-screen {
             position: fixed;
             inset: 0;
@@ -346,77 +350,23 @@
                 <div>
                     <div class="page-kicker">품질 운영</div>
                     <h1>HACCP 기록 관리</h1>
-                    <p>오늘의 HACCP 기록 현황을 확인하고 공정별 점검일지를 작성합니다.</p>
+                    <p>이 페이지는 홈의 HACCP 탭으로 통합되었습니다. 홈 화면에서 공정별 기록을 바로 확인하세요.</p>
                 </div>
-                <div class="status-pill">데이터 연동 전</div>
+                <div class="status-pill">홈 탭으로 이동</div>
             </section>
 
             <section class="section-block">
                 <div class="section-heading">
                     <div>
-                        <h2>오늘의 HACCP 현황</h2>
-                        <p>현재 날짜 기준의 기본 운영 요약입니다.</p>
-                    </div>
-                    <p id="todayDate">—</p>
-                </div>
-                <div class="dashboard-grid">
-                    <div class="summary-card">
-                        <div class="summary-label">오늘 작성 기록</div>
-                        <div class="summary-value">—</div>
-                        <div class="summary-foot">데이터 연동 전</div>
-                    </div>
-                    <div class="summary-card">
-                        <div class="summary-label">확인 대기</div>
-                        <div class="summary-value">—</div>
-                        <div class="summary-foot">데이터 연동 전</div>
-                    </div>
-                    <div class="summary-card">
-                        <div class="summary-label">이탈·조치 필요</div>
-                        <div class="summary-value">—</div>
-                        <div class="summary-foot">데이터 연동 전</div>
-                    </div>
-                    <div class="summary-card">
-                        <div class="summary-label">최근 작성</div>
-                        <div class="summary-value">—</div>
-                        <div class="summary-foot">데이터 연동 전</div>
-                    </div>
-                </div>
-            </section>
-
-            <section class="section-block">
-                <div class="section-heading">
-                    <div>
-                        <h2>CCP 공정 일지</h2>
-                        <p>다음 공정별 점검 일지를 선택해 작성할 수 있습니다.</p>
+                        <h2>홈 화면으로 이동</h2>
+                        <p>이전 주소로도 접근할 수 있도록 홈의 HACCP 탭으로 안내합니다.</p>
                     </div>
                 </div>
                 <div class="record-grid">
                     <article class="record-card">
-                        <div class="record-top">
-                            <div class="record-badge">CCP-1</div>
-                            <span class="badge badge-live"><span class="badge-dot"></span> 준비 중</span>
-                        </div>
-                        <h3>CCP-1 가열공정 점검표</h3>
-                        <p>가열 조건, 가열 시간, 제품 온도, 판정 결과와 조치 내용을 기록하는 공정 점검표입니다.</p>
-                        <div class="record-meta">
-                            <span class="badge badge-basic">가열공정</span>
-                            <span class="badge badge-soon">초안 단계</span>
-                        </div>
-                        <a href="/haccp-heating" class="record-action">일지 작성 →</a>
-                    </article>
-
-                    <article class="record-card">
-                        <div class="record-top">
-                            <div class="record-badge">CCP-2</div>
-                            <span class="badge badge-live"><span class="badge-dot"></span> 준비 중</span>
-                        </div>
-                        <h3>CCP-2 여과공정 점검표</h3>
-                        <p>필터 메쉬 상태, 압력, 이물 유무, 판정 결과와 조치 내용을 기록하는 공정 점검표입니다.</p>
-                        <div class="record-meta">
-                            <span class="badge badge-basic">여과공정</span>
-                            <span class="badge badge-soon">초안 단계</span>
-                        </div>
-                        <a href="/haccp-filtering" class="record-action">일지 작성 →</a>
+                        <h3>HACCP 탭 열기</h3>
+                        <p>대시보드 홈에서 HACCP 탭을 선택하면 오늘의 현황과 CCP 공정 일지 카드가 바로 표시됩니다.</p>
+                        <a href="/home?category=haccp" class="record-action">홈으로 이동 →</a>
                     </article>
                 </div>
             </section>
@@ -444,13 +394,7 @@
                 window.location.href = '/';
                 return;
             }
-            document.getElementById('todayDate').textContent = new Date().toLocaleDateString('ko-KR', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-            });
-            document.getElementById('loadingScreen').classList.add('hidden');
-            document.getElementById('mainContent').classList.remove('auth-hidden');
+            window.location.href = '/home?category=haccp';
         });
     </script>
 </body>

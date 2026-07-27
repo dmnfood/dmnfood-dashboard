@@ -229,8 +229,7 @@
     .menu-toolbar {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      gap: 12px 16px;
+      gap: 8px;
       flex-wrap: wrap;
       margin-bottom: 18px;
     }
@@ -275,6 +274,12 @@
       cursor: pointer;
       transition: background .15s, color .15s;
       white-space: nowrap;
+    }
+
+    .production-menu-group .production-menu-button.active {
+      background: rgba(255, 255, 255, .10);
+      color: var(--t0);
+      border: 1px solid var(--border);
     }
 
     .production-menu-button:hover {
@@ -622,7 +627,8 @@
           </div>
 
           <div class="production-menu-group" aria-label="생산관리 메뉴">
-            <a class="production-menu-button" href="/haccp">HACCP</a>
+            <button class="production-menu-button" type="button" role="tab" aria-selected="false"
+              data-category="haccp">HACCP</button>
           </div>
         </div>
 
@@ -737,6 +743,72 @@
               <div class="card-desc">신규 세트 구성과 예상 단가를 조합해 사전 원가를 검토합니다.</div>
               <div class="card-meta">
                 <span class="badge badge-soon">준비 중</span>
+                <span class="card-arrow">→</span>
+              </div>
+            </a>
+          </div>
+        </div>
+
+        <div class="category-panel" id="category-haccp" role="tabpanel">
+          <div class="section-header">
+            <span class="section-title">오늘의 HACCP 현황</span>
+            <span class="section-count">준비 중</span>
+          </div>
+          <div class="card-grid" style="margin-bottom: 18px;">
+            <div class="dashboard-card card-placeholder">
+              <div class="card-icon">🧪</div>
+              <div class="card-title">오늘 작성 기록</div>
+              <div class="card-desc">오늘 작성해야 할 HACCP 기록과 공정별 진행 상태를 확인합니다.</div>
+              <div class="card-meta">
+                <span class="badge badge-soon">데이터 연동 전</span>
+              </div>
+            </div>
+            <div class="dashboard-card card-placeholder">
+              <div class="card-icon">⏳</div>
+              <div class="card-title">확인 대기</div>
+              <div class="card-desc">점검 결과와 조치가 필요한 항목을 확인할 수 있는 요약 영역입니다.</div>
+              <div class="card-meta">
+                <span class="badge badge-soon">데이터 연동 전</span>
+              </div>
+            </div>
+            <div class="dashboard-card card-placeholder">
+              <div class="card-icon">⚠️</div>
+              <div class="card-title">이탈·조치 필요</div>
+              <div class="card-desc">한계 기준을 벗어난 항목과 후속 조치가 필요한 공정을 확인합니다.</div>
+              <div class="card-meta">
+                <span class="badge badge-soon">데이터 연동 전</span>
+              </div>
+            </div>
+            <div class="dashboard-card card-placeholder">
+              <div class="card-icon">🗓️</div>
+              <div class="card-title">최근 작성</div>
+              <div class="card-desc">최근 작성된 기록과 해당 공정의 상태를 빠르게 확인할 수 있습니다.</div>
+              <div class="card-meta">
+                <span class="badge badge-soon">데이터 연동 전</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="section-header">
+            <span class="section-title">CCP 공정 일지</span>
+            <span class="section-count">2</span>
+          </div>
+          <div class="card-grid">
+            <a href="/haccp-heating" class="dashboard-card card-active">
+              <div class="card-icon">🔥</div>
+              <div class="card-title">CCP-1 가열공정 점검표</div>
+              <div class="card-desc">가열 조건, 가열 시간, 제품 온도, 판정 결과와 조치 내용을 기록하는 공정 점검표입니다.</div>
+              <div class="card-meta">
+                <span class="badge badge-live"><span class="badge-dot"></span> 준비 중</span>
+                <span class="card-arrow">→</span>
+              </div>
+            </a>
+            <a href="/haccp-filtering" class="dashboard-card card-active">
+              <div class="card-icon">💧</div>
+              <div class="card-title">CCP-2 여과공정 점검표</div>
+              <div class="card-desc">여과망 상태, 압력, 이물 유무, 판정 결과와 조치 내용을 기록하는 공정 점검표입니다.</div>
+              <div class="card-meta">
+                <span class="badge badge-live"><span class="badge-dot"></span> 준비 중</span>
                 <span class="card-arrow">→</span>
               </div>
             </a>
@@ -908,19 +980,27 @@
       if (el) el.textContent = s;
     }, 1000);
 
-    document.querySelectorAll('.category-tab').forEach(tab => {
+    const tabButtons = document.querySelectorAll('.category-tab, .production-menu-button');
+
+    function activateCategory(category) {
+      tabButtons.forEach(btn => {
+        const isActive = btn.dataset.category === category;
+        btn.classList.toggle('active', isActive);
+        btn.setAttribute('aria-selected', String(isActive));
+      });
+      document.querySelectorAll('.category-panel').forEach(panel => {
+        panel.classList.toggle('active', panel.id === `category-${category}`);
+      });
+    }
+
+    tabButtons.forEach(tab => {
       tab.addEventListener('click', () => {
-        const category = tab.dataset.category;
-        document.querySelectorAll('.category-tab').forEach(btn => {
-          const isActive = btn === tab;
-          btn.classList.toggle('active', isActive);
-          btn.setAttribute('aria-selected', String(isActive));
-        });
-        document.querySelectorAll('.category-panel').forEach(panel => {
-          panel.classList.toggle('active', panel.id === `category-${category}`);
-        });
+        activateCategory(tab.dataset.category);
       });
     });
+
+    const initialCategory = new URLSearchParams(window.location.search).get('category') || 'office';
+    activateCategory(initialCategory);
 
     const allColumns = Array.from(document.querySelectorAll('#category-all .all-category-column'));
     const allGrid = document.querySelector('#category-all .all-category-grid');

@@ -100,7 +100,7 @@
         }
 
         .page-main {
-            max-width: 1080px;
+            max-width: 1100px;
             margin: 0 auto;
             padding: 36px 24px 80px;
         }
@@ -139,7 +139,263 @@
             font-size: 13px;
             color: var(--t2);
             line-height: 1.7;
-            margin-bottom: 20px;
+            margin-bottom: 18px;
+        }
+
+        .section-grid {
+            display: grid;
+            gap: 18px;
+        }
+
+        .panel {
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            background: rgba(255, 255, 255, .04);
+            padding: 18px;
+        }
+
+        .panel-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--t0);
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .field-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 14px;
+        }
+
+        .field {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .field.full {
+            grid-column: 1 / -1;
+        }
+
+        .field label {
+            font-size: 12px;
+            color: var(--t1);
+            font-weight: 600;
+        }
+
+        .field input,
+        .field select,
+        .field textarea {
+            width: 100%;
+            padding: 10px 12px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: var(--in-bg);
+            color: var(--t0);
+            font: inherit;
+        }
+
+        .field input::placeholder,
+        .field textarea::placeholder {
+            color: var(--in-ph);
+        }
+
+        .field textarea {
+            min-height: 92px;
+            resize: vertical;
+        }
+
+        .input-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .input-row input {
+            flex: 1;
+        }
+
+        .mini-btn {
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, .05);
+            padding: 9px 10px;
+            border-radius: 9px;
+            color: var(--t0);
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .mini-btn:hover {
+            background: rgba(255, 255, 255, .09);
+        }
+
+        .status-group {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .status-option {
+            padding: 9px 10px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, .03);
+            color: var(--t1);
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .status-option.active {
+            border-color: rgba(34, 211, 238, .28);
+            color: var(--t0);
+            background: rgba(34, 211, 238, .12);
+        }
+
+        .status-option.fail.active {
+            border-color: rgba(248, 113, 113, .32);
+            background: rgba(248, 113, 113, .12);
+            color: var(--rv);
+        }
+
+        .error-text {
+            color: var(--rv);
+            font-size: 11px;
+            display: none;
+        }
+
+        .error-text.show {
+            display: block;
+        }
+
+        .action-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 16px;
+        }
+
+        .btn-primary,
+        .btn-secondary {
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px 14px;
+            font: inherit;
+            cursor: pointer;
+            font-weight: 700;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, rgba(34, 211, 238, .24), rgba(217, 70, 239, .18));
+            color: var(--t0);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, .05);
+            color: var(--t2);
+        }
+
+        .toast {
+            margin-top: 12px;
+            padding: 10px 12px;
+            border-radius: 10px;
+            border: 1px solid rgba(74, 222, 128, .24);
+            background: rgba(74, 222, 128, .12);
+            color: var(--zr);
+            font-size: 12px;
+            display: none;
+        }
+
+        .toast.show {
+            display: block;
+        }
+
+        .table-card {
+            margin-top: 22px;
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            background: rgba(255, 255, 255, .04);
+            padding: 18px;
+        }
+
+        .table-wrap {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 860px;
+        }
+
+        th,
+        td {
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border);
+            text-align: left;
+            font-size: 12px;
+            color: var(--t1);
+        }
+
+        th {
+            color: var(--t0);
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: .06em;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 8px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .badge-success {
+            background: rgba(74, 222, 128, .12);
+            color: var(--zr);
+            border: 1px solid rgba(74, 222, 128, .24);
+        }
+
+        .badge-danger {
+            background: rgba(248, 113, 113, .12);
+            color: var(--rv);
+            border: 1px solid rgba(248, 113, 113, .24);
+        }
+
+        .muted {
+            color: var(--t2);
+            font-size: 11px;
+        }
+
+        .record-link {
+            color: #22d3ee;
+            background: none;
+            border: 0;
+            cursor: pointer;
+            padding: 0;
+            font: inherit;
+        }
+
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 12px;
+            align-items: center;
+        }
+
+        .toolbar select,
+        .toolbar input {
+            width: auto;
+            min-width: 140px;
         }
 
         .empty-state {
@@ -150,6 +406,20 @@
             color: var(--t2);
             background: rgba(255, 255, 255, .03);
         }
+
+        @media (max-width: 760px) {
+            .field-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .page-main {
+                padding: 24px 16px 60px;
+            }
+
+            .app-header {
+                padding: 0 16px;
+            }
+        }
     </style>
 </head>
 
@@ -157,7 +427,6 @@
     <div class="loading-screen" id="loadingScreen">
         <div class="loading-spinner"></div>
     </div>
-
     <div class="blobs">
         <div class="b1"></div>
         <div class="b2"></div>
@@ -166,7 +435,7 @@
     <div class="auth-hidden" id="mainContent">
         <header class="app-header">
             <div class="header-left">
-                <a href="/haccp" class="back-btn">← HACCP으로</a>
+                <a href="/home?category=haccp" class="back-btn">← HACCP 홈</a>
                 <div class="app-title"><span class="dot"></span>CCP-2 여과공정 점검표</div>
             </div>
         </header>
@@ -175,8 +444,138 @@
             <section class="page-card">
                 <div class="page-kicker">공정 기록</div>
                 <h1>CCP-2 여과공정 점검표</h1>
-                <p>여과공정의 기본 정보와 점검 요소를 위한 진입 화면입니다. 다음 단계에서 상세 작성 양식이 추가됩니다.</p>
-                <div class="empty-state">상세 작성 화면을 준비 중입니다.</div>
+                <p>여과공정의 기록을 입력하고 저장하면 즉시 목록에 반영됩니다.</p>
+
+                <div class="section-grid">
+                    <section class="panel">
+                        <div class="panel-title">기본 정보</div>
+                        <div class="field-grid">
+                            <div class="field">
+                                <label for="recordDate">작성일자</label>
+                                <input id="recordDate" type="date">
+                            </div>
+                            <div class="field">
+                                <label for="workerName">점검자</label>
+                                <input id="workerName" type="text" placeholder="로그인 사용자 이름 자동 입력">
+                            </div>
+                            <div class="field">
+                                <label for="productName">품명</label>
+                                <input id="productName" type="text" placeholder="예: 여과된 원액">
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="panel">
+                        <div class="panel-title">측정값</div>
+                        <div class="field-grid">
+                            <div class="field">
+                                <label for="checkedTime">확인시각</label>
+                                <div class="input-row">
+                                    <input id="checkedTime" type="time">
+                                    <button type="button" class="mini-btn" id="setCurrentTimeBtn">현재 시각 입력</button>
+                                </div>
+                            </div>
+                            <div class="field">
+                                <label for="filterMeshStatus">여과망 상태</label>
+                                <select id="filterMeshStatus">
+                                    <option value="">선택</option>
+                                    <option value="정상">정상</option>
+                                    <option value="파손">파손</option>
+                                    <option value="오염">오염</option>
+                                </select>
+                            </div>
+                            <div class="field">
+                                <label for="pressurePsi">압력 psi</label>
+                                <input id="pressurePsi" type="number" min="0" step="0.1" placeholder="예: 120">
+                            </div>
+                            <div class="field full">
+                                <label for="foreignMatter">걸러진 이물 종류 및 크기</label>
+                                <textarea id="foreignMatter" placeholder="이물 유무와 크기 정보를 입력해 주세요."></textarea>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="panel">
+                        <div class="panel-title">판정</div>
+                        <div class="field-grid">
+                            <div class="field full">
+                                <label>판정</label>
+                                <div class="status-group" role="radiogroup" aria-label="판정">
+                                    <button type="button" class="status-option" data-judgement="PASS"
+                                        id="judgementPassBtn">PASS</button>
+                                    <button type="button" class="status-option fail" data-judgement="FAIL"
+                                        id="judgementFailBtn">FAIL</button>
+                                </div>
+                                <div class="error-text" id="judgementError">판정을 선택해 주세요.</div>
+                            </div>
+                            <div class="field full">
+                                <label for="deviationDetail">한계기준 이탈내용</label>
+                                <textarea id="deviationDetail" placeholder="FAIL 선택 시 내용을 입력해 주세요."></textarea>
+                                <div class="error-text" id="deviationError">FAIL 시 이탈 내용을 입력해 주세요.</div>
+                            </div>
+                            <div class="field full">
+                                <label for="correctiveAction">개선조치 및 결과</label>
+                                <textarea id="correctiveAction" placeholder="FAIL 선택 시 조치 내용을 기록해 주세요."></textarea>
+                                <div class="error-text" id="correctiveActionError">FAIL 시 조치 내용을 입력해 주세요.</div>
+                            </div>
+                            <div class="field">
+                                <label for="actionBy">조치자</label>
+                                <input id="actionBy" type="text" placeholder="예: 박OO">
+                            </div>
+                            <div class="field">
+                                <label for="verifiedBy">확인자</label>
+                                <input id="verifiedBy" type="text" placeholder="예: 김OO">
+                            </div>
+                            <div class="field full">
+                                <label for="notes">비고</label>
+                                <textarea id="notes" placeholder="추가 메모를 남겨 주세요."></textarea>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="panel">
+                        <div class="action-row">
+                            <button type="button" class="btn-primary" id="saveBtn">기록 저장</button>
+                            <button type="button" class="btn-secondary" id="resetBtn">입력 초기화</button>
+                            <button type="button" class="btn-secondary" id="cancelEditBtn" style="display:none;">수정
+                                취소</button>
+                        </div>
+                        <div class="toast" id="formToast"></div>
+                    </section>
+                </div>
+
+                <section class="table-card">
+                    <div class="toolbar">
+                        <label class="field" style="min-width: 180px;">
+                            <span class="muted">작성일</span>
+                            <input id="dateFilter" type="date">
+                        </label>
+                        <label class="field" style="min-width: 140px;">
+                            <span class="muted">결과</span>
+                            <select id="resultFilter">
+                                <option value="all">전체</option>
+                                <option value="PASS">PASS</option>
+                                <option value="FAIL">FAIL</option>
+                            </select>
+                        </label>
+                    </div>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>작성일</th>
+                                    <th>기록시각</th>
+                                    <th>품명</th>
+                                    <th>핵심 측정값</th>
+                                    <th>판정</th>
+                                    <th>점검자</th>
+                                    <th>수정</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recordsTableBody"></tbody>
+                        </table>
+                    </div>
+                </section>
             </section>
         </main>
     </div>
@@ -184,6 +583,8 @@
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
         import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+        import { formatDateValue, formatTimeValue, getCurrentUserIdentity, badgeClassForJudgement, escapeHtml } from '/dashboard/js/haccp-form-common.js';
+        import { listRecords, saveRecord, getRecordById } from '/dashboard/js/haccp-record-store.js';
 
         const FIREBASE_CONFIG = {
             apiKey: 'AIzaSyAlvRWMpYV5Cq2vb0XxpA4t56KuByj8KuE',
@@ -196,14 +597,248 @@
 
         const app = initializeApp(FIREBASE_CONFIG);
         const auth = getAuth(app);
+        let currentUser = null;
+        let editingRecordId = null;
+
+        const formElements = {
+            recordDate: document.getElementById('recordDate'),
+            workerName: document.getElementById('workerName'),
+            productName: document.getElementById('productName'),
+            checkedTime: document.getElementById('checkedTime'),
+            filterMeshStatus: document.getElementById('filterMeshStatus'),
+            pressurePsi: document.getElementById('pressurePsi'),
+            foreignMatter: document.getElementById('foreignMatter'),
+            deviationDetail: document.getElementById('deviationDetail'),
+            correctiveAction: document.getElementById('correctiveAction'),
+            actionBy: document.getElementById('actionBy'),
+            verifiedBy: document.getElementById('verifiedBy'),
+            notes: document.getElementById('notes'),
+            judgementPassBtn: document.getElementById('judgementPassBtn'),
+            judgementFailBtn: document.getElementById('judgementFailBtn'),
+            judgementError: document.getElementById('judgementError'),
+            deviationError: document.getElementById('deviationError'),
+            correctiveActionError: document.getElementById('correctiveActionError'),
+            saveBtn: document.getElementById('saveBtn'),
+            resetBtn: document.getElementById('resetBtn'),
+            cancelEditBtn: document.getElementById('cancelEditBtn'),
+            formToast: document.getElementById('formToast'),
+            dateFilter: document.getElementById('dateFilter'),
+            resultFilter: document.getElementById('resultFilter'),
+            recordsTableBody: document.getElementById('recordsTableBody'),
+        };
+
+        function setToast(message, isError = false) {
+            formElements.formToast.textContent = message;
+            formElements.formToast.className = `toast${isError ? ' error' : ''}`;
+            formElements.formToast.style.display = 'block';
+            formElements.formToast.style.borderColor = isError ? 'rgba(248,113,113,.24)' : 'rgba(74,222,128,.24)';
+            formElements.formToast.style.background = isError ? 'rgba(248,113,113,.12)' : 'rgba(74,222,128,.12)';
+            formElements.formToast.style.color = isError ? 'var(--rv)' : 'var(--zr)';
+        }
+
+        function hideToast() { formElements.formToast.style.display = 'none'; }
+
+        function setJudgement(judgement) {
+            const isFail = judgement === 'FAIL';
+            formElements.judgementPassBtn.classList.toggle('active', judgement === 'PASS');
+            formElements.judgementFailBtn.classList.toggle('active', isFail);
+            formElements.judgementPassBtn.classList.toggle('fail', false);
+            formElements.judgementFailBtn.classList.toggle('fail', isFail);
+            formElements.judgementError.style.display = 'none';
+            toggleFailureFields(isFail);
+        }
+
+        function toggleFailureFields(isFail) {
+            const fields = [formElements.deviationDetail, formElements.correctiveAction, formElements.actionBy, formElements.verifiedBy];
+            fields.forEach((field) => field.toggleAttribute('data-required', isFail));
+            formElements.deviationError.style.display = isFail ? 'block' : 'none';
+            formElements.correctiveActionError.style.display = isFail ? 'block' : 'none';
+        }
+
+        function resetForm() {
+            editingRecordId = null;
+            formElements.saveBtn.textContent = '기록 저장';
+            formElements.cancelEditBtn.style.display = 'none';
+            formElements.recordDate.value = formatDateValue(new Date());
+            formElements.workerName.value = currentUser ? getCurrentUserIdentity(currentUser).workerName : '';
+            formElements.productName.value = '';
+            formElements.checkedTime.value = formatTimeValue(new Date());
+            formElements.filterMeshStatus.value = '';
+            formElements.pressurePsi.value = '';
+            formElements.foreignMatter.value = '';
+            formElements.deviationDetail.value = '';
+            formElements.correctiveAction.value = '';
+            formElements.actionBy.value = '';
+            formElements.verifiedBy.value = '';
+            formElements.notes.value = '';
+            setJudgement('');
+            hideToast();
+        }
+
+        function getFormValues() {
+            const judgement = document.querySelector('.status-option.active')?.dataset.judgement || '';
+            return {
+                recordDate: formElements.recordDate.value,
+                workerName: formElements.workerName.value.trim(),
+                productName: formElements.productName.value.trim(),
+                judgement,
+                deviationDetail: formElements.deviationDetail.value.trim(),
+                correctiveAction: formElements.correctiveAction.value.trim(),
+                actionBy: formElements.actionBy.value.trim(),
+                verifiedBy: formElements.verifiedBy.value.trim(),
+                notes: formElements.notes.value.trim(),
+                measurements: {
+                    checkedTime: formElements.checkedTime.value,
+                    filterMeshStatus: formElements.filterMeshStatus.value,
+                    pressurePsi: formElements.pressurePsi.value,
+                    foreignMatter: formElements.foreignMatter.value.trim(),
+                },
+            };
+        }
+
+        function validateForm(values) {
+            const errors = [];
+            if (!values.recordDate) { errors.push('작성일자를 입력해 주세요.'); }
+            if (!values.workerName) { errors.push('점검자를 입력해 주세요.'); }
+            if (!values.productName) { errors.push('품명을 입력해 주세요.'); }
+            if (!values.judgement) { errors.push('판정을 선택해 주세요.'); }
+            if (!values.measurements.filterMeshStatus) { errors.push('여과망 상태를 선택해 주세요.'); }
+            if (values.measurements.pressurePsi === '') { errors.push('압력 값을 입력해 주세요.'); }
+            if (!/^(0|[1-9]\d*)(\.\d+)?$/.test(values.measurements.pressurePsi)) { errors.push('압력은 0 이상의 숫자로 입력해 주세요.'); }
+            if (values.judgement === 'FAIL') {
+                if (!values.deviationDetail) { errors.push('FAIL 시 한계기준 이탈내용을 입력해 주세요.'); }
+                if (!values.correctiveAction) { errors.push('FAIL 시 개선조치 및 결과를 입력해 주세요.'); }
+                if (!values.actionBy) { errors.push('FAIL 시 조치자를 입력해 주세요.'); }
+                if (!values.verifiedBy) { errors.push('FAIL 시 확인자를 입력해 주세요.'); }
+                if (!values.measurements.foreignMatter) { errors.push('FAIL 시 이물 종류 및 크기를 입력해 주세요.'); }
+            }
+            return errors;
+        }
+
+        function populateForm(record) {
+            formElements.recordDate.value = record.recordDate || formatDateValue(new Date());
+            formElements.workerName.value = record.workerName || '';
+            formElements.productName.value = record.productName || '';
+            formElements.checkedTime.value = record.measurements?.checkedTime || '';
+            formElements.filterMeshStatus.value = record.measurements?.filterMeshStatus || '';
+            formElements.pressurePsi.value = record.measurements?.pressurePsi || '';
+            formElements.foreignMatter.value = record.measurements?.foreignMatter || '';
+            formElements.deviationDetail.value = record.deviationDetail || '';
+            formElements.correctiveAction.value = record.correctiveAction || '';
+            formElements.actionBy.value = record.actionBy || '';
+            formElements.verifiedBy.value = record.verifiedBy || '';
+            formElements.notes.value = record.notes || '';
+            setJudgement(record.judgement || '');
+            editingRecordId = record.id;
+            formElements.saveBtn.textContent = '수정 저장';
+            formElements.cancelEditBtn.style.display = 'inline-flex';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function buildRecordFromForm(values) {
+            return {
+                id: editingRecordId || crypto.randomUUID(),
+                schemaVersion: 1,
+                formType: 'filtering',
+                recordDate: values.recordDate,
+                workerId: currentUser?.uid || '',
+                workerName: values.workerName,
+                productName: values.productName,
+                judgement: values.judgement,
+                deviationDetail: values.deviationDetail,
+                correctiveAction: values.correctiveAction,
+                actionBy: values.actionBy,
+                verifiedBy: values.verifiedBy,
+                notes: values.notes,
+                measurements: values.measurements,
+                createdAt: editingRecordId ? getRecordById(editingRecordId)?.createdAt || new Date().toISOString() : undefined,
+                updatedAt: new Date().toISOString(),
+            };
+        }
+
+        function renderTable() {
+            const filterDate = formElements.dateFilter.value;
+            const filterResult = formElements.resultFilter.value;
+            const rows = listRecords('filtering').filter((record) => {
+                const matchesDate = !filterDate || record.recordDate === filterDate;
+                const matchesResult = filterResult === 'all' || record.judgement === filterResult;
+                return matchesDate && matchesResult;
+            });
+            if (!rows.length) {
+                formElements.recordsTableBody.innerHTML = '<tr><td colspan="7" class="empty-state">조건에 맞는 기록이 없습니다.</td></tr>';
+                return;
+            }
+            formElements.recordsTableBody.innerHTML = rows.map((record) => {
+                const key = `${record.measurements?.filterMeshStatus || '-'} / ${record.measurements?.pressurePsi || '-'} psi / ${record.measurements?.foreignMatter || '-'}`;
+                return `
+                    <tr>
+                        <td>${escapeHtml(record.recordDate || '-')}</td>
+                        <td>${escapeHtml(record.createdAt ? formatTimeValue(new Date(record.createdAt)) : '-')}</td>
+                        <td>${escapeHtml(record.productName || '-')}</td>
+                        <td>${escapeHtml(key)}</td>
+                        <td><span class="${badgeClassForJudgement(record.judgement)}">${escapeHtml(record.judgement || '-')}</span></td>
+                        <td>${escapeHtml(record.workerName || '-')}</td>
+                        <td><button class="record-link" type="button" data-record-id="${record.id}">수정</button></td>
+                    </tr>`;
+            }).join('');
+        }
+
+        function handleSave() {
+            const values = getFormValues();
+            const errors = validateForm(values);
+            if (errors.length) {
+                setToast(errors[0], true);
+                return;
+            }
+            const record = buildRecordFromForm(values);
+            const saved = saveRecord(record);
+            if (!saved) {
+                setToast('저장 중 문제가 발생했습니다. 브라우저 저장공간을 확인해 주세요.', true);
+                return;
+            }
+            setToast('기록이 저장되었습니다.');
+            renderTable();
+            resetForm();
+            formElements.recordDate.value = formatDateValue(new Date());
+            formElements.workerName.value = currentUser ? getCurrentUserIdentity(currentUser).workerName : '';
+            formElements.checkedTime.value = formatTimeValue(new Date());
+            setJudgement('');
+        }
+
+        document.getElementById('judgementPassBtn').addEventListener('click', () => setJudgement('PASS'));
+        document.getElementById('judgementFailBtn').addEventListener('click', () => setJudgement('FAIL'));
+        document.getElementById('setCurrentTimeBtn').addEventListener('click', () => { formElements.checkedTime.value = formatTimeValue(new Date()); });
+        formElements.saveBtn.addEventListener('click', handleSave);
+        formElements.resetBtn.addEventListener('click', () => { resetForm(); });
+        formElements.cancelEditBtn.addEventListener('click', () => { resetForm(); });
+        formElements.dateFilter.addEventListener('change', renderTable);
+        formElements.resultFilter.addEventListener('change', renderTable);
+        formElements.recordsTableBody.addEventListener('click', (event) => {
+            const button = event.target.closest('button[data-record-id]');
+            if (!button) return;
+            const record = getRecordById(button.dataset.recordId);
+            if (record) {
+                populateForm(record);
+                setToast('기록을 불러왔습니다. 내용을 수정한 뒤 저장해 주세요.');
+            }
+        });
 
         onAuthStateChanged(auth, user => {
             if (!user) {
                 window.location.href = '/';
                 return;
             }
+            currentUser = user;
+            const identity = getCurrentUserIdentity(user);
+            formElements.workerName.value = identity.workerName;
+            formElements.recordDate.value = formatDateValue(new Date());
+            formElements.checkedTime.value = formatTimeValue(new Date());
+            setJudgement('');
             document.getElementById('loadingScreen').classList.add('hidden');
             document.getElementById('mainContent').classList.remove('auth-hidden');
+            renderTable();
+            formElements.dateFilter.value = formatDateValue(new Date());
+            formElements.resultFilter.value = 'all';
         });
     </script>
 </body>

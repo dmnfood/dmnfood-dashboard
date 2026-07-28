@@ -144,21 +144,21 @@
 
         .section-grid {
             display: grid;
-            gap: 18px;
+            gap: 8px;
         }
 
         .panel {
             border: 1px solid var(--border);
             border-radius: 14px;
             background: rgba(255, 255, 255, .04);
-            padding: 18px;
+            padding: 14px;
         }
 
         .panel-title {
             font-size: 13px;
             font-weight: 700;
             color: var(--t0);
-            margin-bottom: 12px;
+            margin-bottom: 10px;
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -168,13 +168,13 @@
         .field-grid {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 14px;
+            gap: 10px;
         }
 
         .field {
             display: flex;
             flex-direction: column;
-            gap: 6px;
+            gap: 4px;
         }
 
         .field.full {
@@ -182,21 +182,23 @@
         }
 
         .field label {
-            font-size: 12px;
+            font-size: 11px;
             color: var(--t1);
             font-weight: 600;
+            letter-spacing: 0.3px;
         }
 
         .field input,
         .field select,
         .field textarea {
             width: 100%;
-            padding: 10px 12px;
-            border-radius: 10px;
+            padding: 8px 10px;
+            border-radius: 8px;
             border: 1px solid var(--border);
             background: var(--in-bg);
             color: var(--t0);
             font: inherit;
+            font-size: 12px;
         }
 
         .field input::placeholder,
@@ -205,13 +207,17 @@
         }
 
         .field textarea {
-            min-height: 92px;
+            min-height: 60px;
             resize: vertical;
+        }
+
+        .field textarea.compact {
+            min-height: 54px;
         }
 
         .input-row {
             display: flex;
-            gap: 8px;
+            gap: 6px;
             align-items: center;
         }
 
@@ -219,18 +225,53 @@
             flex: 1;
         }
 
+        .roaster-buttons {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .roaster-btn {
+            flex: 1;
+            min-width: 44px;
+            padding: 7px 8px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, .03);
+            color: var(--t1);
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 700;
+            text-align: center;
+            transition: all 140ms ease;
+        }
+
+        .roaster-btn:hover {
+            background: rgba(255, 255, 255, .06);
+            color: var(--t0);
+        }
+
+        .roaster-btn.active {
+            background: rgba(34, 211, 238, .18);
+            border-color: rgba(34, 211, 238, .28);
+            color: #22d3ee;
+        }
+
         .mini-btn {
             border: 1px solid var(--border);
             background: rgba(255, 255, 255, .05);
-            padding: 9px 10px;
-            border-radius: 9px;
-            color: var(--t0);
+            padding: 7px 8px;
+            border-radius: 8px;
+            color: var(--t1);
             cursor: pointer;
-            font-size: 12px;
+            font-size: 11px;
+            font-weight: 700;
+            white-space: nowrap;
         }
 
         .mini-btn:hover {
             background: rgba(255, 255, 255, .09);
+            color: var(--t0);
         }
 
         .inline-help {
@@ -240,19 +281,20 @@
 
         .status-group {
             display: flex;
-            gap: 8px;
+            gap: 6px;
             flex-wrap: wrap;
         }
 
         .status-option {
-            padding: 9px 10px;
-            border-radius: 999px;
+            padding: 7px 10px;
+            border-radius: 8px;
             border: 1px solid var(--border);
             background: rgba(255, 255, 255, .03);
             color: var(--t1);
             cursor: pointer;
             font-size: 12px;
             font-weight: 700;
+            transition: all 140ms ease;
         }
 
         .status-option.active {
@@ -267,10 +309,34 @@
             color: var(--rv);
         }
 
+        .fail-section {
+            display: none;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid var(--border);
+            animation: slideDown 200ms ease;
+        }
+
+        .fail-section.show {
+            display: grid;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                max-height: 0;
+            }
+            to {
+                opacity: 1;
+                max-height: 500px;
+            }
+        }
+
         .error-text {
             color: var(--rv);
-            font-size: 11px;
+            font-size: 10px;
             display: none;
+            margin-top: 2px;
         }
 
         .error-text.show {
@@ -280,18 +346,19 @@
         .action-row {
             display: flex;
             flex-wrap: wrap;
-            gap: 10px;
-            margin-top: 16px;
+            gap: 8px;
+            margin-top: 12px;
         }
 
         .btn-primary,
         .btn-secondary {
             border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 10px 14px;
+            border-radius: 8px;
+            padding: 8px 12px;
             font: inherit;
             cursor: pointer;
             font-weight: 700;
+            font-size: 12px;
         }
 
         .btn-primary {
@@ -305,13 +372,13 @@
         }
 
         .toast {
-            margin-top: 12px;
-            padding: 10px 12px;
-            border-radius: 10px;
+            margin-top: 10px;
+            padding: 8px 10px;
+            border-radius: 8px;
             border: 1px solid rgba(74, 222, 128, .24);
             background: rgba(74, 222, 128, .12);
             color: var(--zr);
-            font-size: 12px;
+            font-size: 11px;
             display: none;
         }
 
@@ -320,11 +387,11 @@
         }
 
         .table-card {
-            margin-top: 22px;
+            margin-top: 16px;
             border: 1px solid var(--border);
             border-radius: 14px;
             background: rgba(255, 255, 255, .04);
-            padding: 18px;
+            padding: 14px;
         }
 
         .table-wrap {
@@ -339,16 +406,16 @@
 
         th,
         td {
-            padding: 10px 12px;
+            padding: 8px 10px;
             border-bottom: 1px solid var(--border);
             text-align: left;
-            font-size: 12px;
+            font-size: 11px;
             color: var(--t1);
         }
 
         th {
             color: var(--t0);
-            font-size: 11px;
+            font-size: 10px;
             text-transform: uppercase;
             letter-spacing: .06em;
         }
@@ -358,8 +425,8 @@
             align-items: center;
             gap: 4px;
             padding: 3px 8px;
-            border-radius: 999px;
-            font-size: 11px;
+            border-radius: 8px;
+            font-size: 10px;
             font-weight: 700;
         }
 
@@ -377,7 +444,7 @@
 
         .muted {
             color: var(--t2);
-            font-size: 11px;
+            font-size: 10px;
         }
 
         .record-link {
@@ -387,6 +454,8 @@
             cursor: pointer;
             padding: 0;
             font: inherit;
+            font-size: 11px;
+            font-weight: 700;
         }
 
         .toolbar {
@@ -401,6 +470,8 @@
         .toolbar input {
             width: auto;
             min-width: 140px;
+            font-size: 11px;
+            padding: 6px 8px;
         }
 
         .empty-state {
@@ -417,12 +488,30 @@
                 grid-template-columns: 1fr;
             }
 
+            .roaster-buttons {
+                gap: 4px;
+            }
+
+            .roaster-btn {
+                min-width: 40px;
+                padding: 6px 6px;
+                font-size: 10px;
+            }
+
             .page-main {
                 padding: 24px 16px 60px;
             }
 
             .app-header {
                 padding: 0 16px;
+            }
+
+            .page-card {
+                padding: 14px;
+            }
+
+            .input-row {
+                gap: 4px;
             }
         }
     </style>
@@ -452,9 +541,10 @@
                 <p>가열공정의 기록을 입력하고 저장하면 즉시 목록에 반영됩니다.</p>
 
                 <div class="section-grid">
+                    <!-- 단일 통합 입력 폼 -->
                     <section class="panel">
-                        <div class="panel-title">기본 정보</div>
                         <div class="field-grid">
+                            <!-- Row 1: 작성일자 / 점검자 -->
                             <div class="field">
                                 <label for="recordDate">작성일자</label>
                                 <input id="recordDate" type="date">
@@ -463,133 +553,133 @@
                                 <label for="workerName">점검자</label>
                                 <input id="workerName" type="text" placeholder="로그인 사용자 이름 자동 입력">
                             </div>
+
+                            <!-- Row 2: 품명 / 볶음기 -->
                             <div class="field">
                                 <label for="productName">품명</label>
                                 <input id="productName" type="text" placeholder="예: 학교급식 세트">
                             </div>
                             <div class="field">
-                                <label for="roasterNo">볶음기 번호</label>
-                                <select id="roasterNo">
-                                    <option value="">선택</option>
-                                    <option value="1">1호기</option>
-                                    <option value="2">2호기</option>
-                                    <option value="3">3호기</option>
-                                    <option value="4">4호기</option>
-                                </select>
+                                <label>볶음기 번호</label>
+                                <div class="roaster-buttons" id="roasterButtons">
+                                    <button type="button" class="roaster-btn" data-roaster="1">1</button>
+                                    <button type="button" class="roaster-btn" data-roaster="2">2</button>
+                                    <button type="button" class="roaster-btn" data-roaster="3">3</button>
+                                    <button type="button" class="roaster-btn" data-roaster="4">4</button>
+                                </div>
+                                <input id="roasterNo" type="hidden">
                             </div>
-                        </div>
-                    </section>
 
-                    <section class="panel">
-                        <div class="panel-title">측정값</div>
-                        <div class="field-grid">
+                            <!-- Row 3: 세팅온도 / 측정시각 -->
                             <div class="field">
-                                <label for="setTemperature">세팅온도</label>
+                                <label for="setTemperature">세팅온도(℃)</label>
                                 <input id="setTemperature" type="number" step="0.1" placeholder="예: 180">
                             </div>
                             <div class="field">
                                 <label for="measuredTime">측정시각</label>
                                 <div class="input-row">
                                     <input id="measuredTime" type="time">
-                                    <button type="button" class="mini-btn" id="setCurrentTimeBtn">현재 시각 입력</button>
+                                    <button type="button" class="mini-btn" id="setCurrentTimeBtn">현재시각</button>
+                                </div>
+                            </div>
+
+                            <!-- Row 4: 가열시간 / 적외선 온도 -->
+                            <div class="field">
+                                <label>가열시간</label>
+                                <div class="input-row">
+                                    <input id="heatingMinutes" type="number" min="0" step="1" placeholder="분">
+                                    <span style="font-size: 10px; color: var(--t2); min-width: 18px;">분</span>
+                                    <input id="heatingSeconds" type="number" min="0" step="1" placeholder="초">
+                                    <span style="font-size: 10px; color: var(--t2); min-width: 18px;">초</span>
                                 </div>
                             </div>
                             <div class="field">
-                                <label for="heatingMinutes">가열시간 - 분</label>
-                                <input id="heatingMinutes" type="number" min="0" step="1" placeholder="0">
-                            </div>
-                            <div class="field">
-                                <label for="heatingSeconds">가열시간 - 초</label>
-                                <input id="heatingSeconds" type="number" min="0" step="1" placeholder="0">
-                            </div>
-                            <div class="field">
-                                <label for="productTemperature">적외선 측정 제품 품온</label>
+                                <label for="productTemperature">적외선 온도(℃)</label>
                                 <input id="productTemperature" type="number" step="0.1" placeholder="예: 88.5">
                             </div>
-                        </div>
-                    </section>
 
-                    <section class="panel">
-                        <div class="panel-title">판정</div>
-                        <div class="field-grid">
+                            <!-- Row 5: 판정 -->
                             <div class="field full">
                                 <label>판정</label>
                                 <div class="status-group" role="radiogroup" aria-label="판정">
-                                    <button type="button" class="status-option" data-judgement="PASS"
-                                        id="judgementPassBtn">PASS</button>
-                                    <button type="button" class="status-option fail" data-judgement="FAIL"
-                                        id="judgementFailBtn">FAIL</button>
+                                    <button type="button" class="status-option" data-judgement="PASS" id="judgementPassBtn">PASS</button>
+                                    <button type="button" class="status-option fail" data-judgement="FAIL" id="judgementFailBtn">FAIL</button>
                                 </div>
                                 <div class="error-text" id="judgementError">판정을 선택해 주세요.</div>
                             </div>
-                            <div class="field full">
-                                <label for="deviationDetail">한계기준 이탈내용</label>
-                                <textarea id="deviationDetail" placeholder="FAIL 선택 시 내용을 입력해 주세요."></textarea>
-                                <div class="error-text" id="deviationError">FAIL 시 이탈 내용을 입력해 주세요.</div>
-                            </div>
-                            <div class="field full">
-                                <label for="correctiveAction">개선조치 및 결과</label>
-                                <textarea id="correctiveAction" placeholder="FAIL 선택 시 조치 내용을 기록해 주세요."></textarea>
-                                <div class="error-text" id="correctiveActionError">FAIL 시 조치 내용을 입력해 주세요.</div>
-                            </div>
-                            <div class="field">
-                                <label for="actionBy">조치자</label>
-                                <input id="actionBy" type="text" placeholder="예: 박OO">
-                            </div>
-                            <div class="field">
-                                <label for="verifiedBy">확인자</label>
-                                <input id="verifiedBy" type="text" placeholder="예: 김OO">
-                            </div>
+
+                            <!-- Row 6: 비고 (PASS/FAIL 공용) -->
                             <div class="field full">
                                 <label for="notes">비고</label>
-                                <textarea id="notes" placeholder="추가 메모를 남겨 주세요."></textarea>
+                                <textarea id="notes" class="compact" placeholder="추가 메모(선택)"></textarea>
+                            </div>
+
+                            <!-- FAIL 전용 필드 (숨김) -->
+                            <div id="failSection" class="fail-section">
+                                <div class="field full">
+                                    <label for="deviationDetail">한계기준 이탈내용</label>
+                                    <textarea id="deviationDetail" class="compact" placeholder="FAIL 선택 시 내용을 입력해 주세요."></textarea>
+                                    <div class="error-text" id="deviationError">FAIL 시 이탈 내용을 입력해 주세요.</div>
+                                </div>
+                                <div class="field full">
+                                    <label for="correctiveAction">개선조치 및 결과</label>
+                                    <textarea id="correctiveAction" class="compact" placeholder="FAIL 선택 시 조치 내용을 기록해 주세요."></textarea>
+                                    <div class="error-text" id="correctiveActionError">FAIL 시 조치 내용을 입력해 주세요.</div>
+                                </div>
+                                <div class="field">
+                                    <label for="actionBy">조치자</label>
+                                    <input id="actionBy" type="text" placeholder="예: 박OO">
+                                </div>
+                                <div class="field">
+                                    <label for="verifiedBy">확인자</label>
+                                    <input id="verifiedBy" type="text" placeholder="예: 김OO">
+                                </div>
                             </div>
                         </div>
-                    </section>
 
-                    <section class="panel">
+                        <!-- 액션 버튼 -->
                         <div class="action-row">
                             <button type="button" class="btn-primary" id="saveBtn">기록 저장</button>
                             <button type="button" class="btn-secondary" id="resetBtn">입력 초기화</button>
-                            <button type="button" class="btn-secondary" id="cancelEditBtn" style="display:none;">수정
-                                취소</button>
+                            <button type="button" class="btn-secondary" id="cancelEditBtn" style="display:none;">수정 취소</button>
                         </div>
                         <div class="toast" id="formToast"></div>
                     </section>
-                </div>
 
-                <section class="table-card">
-                    <div class="toolbar">
-                        <label class="field" style="min-width: 180px;">
-                            <span class="muted">작성일</span>
-                            <input id="dateFilter" type="date">
-                        </label>
-                        <label class="field" style="min-width: 140px;">
-                            <span class="muted">결과</span>
-                            <select id="resultFilter">
-                                <option value="all">전체</option>
-                                <option value="PASS">PASS</option>
-                                <option value="FAIL">FAIL</option>
-                            </select>
-                        </label>
-                    </div>
-                    <div class="table-wrap">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>작성일</th>
-                                    <th>기록시각</th>
-                                    <th>품명</th>
-                                    <th>핵심 측정값</th>
-                                    <th>판정</th>
-                                    <th>점검자</th>
-                                    <th>수정</th>
-                                </tr>
-                            </thead>
-                            <tbody id="recordsTableBody"></tbody>
-                        </table>
-                    </div>
-                </section>
+                    <!-- 저장 기록 테이블 -->
+                    <section class="table-card">
+                        <div class="toolbar">
+                            <label class="field" style="min-width: 180px;">
+                                <span class="muted">작성일</span>
+                                <input id="dateFilter" type="date">
+                            </label>
+                            <label class="field" style="min-width: 140px;">
+                                <span class="muted">결과</span>
+                                <select id="resultFilter">
+                                    <option value="all">전체</option>
+                                    <option value="PASS">PASS</option>
+                                    <option value="FAIL">FAIL</option>
+                                </select>
+                            </label>
+                        </div>
+                        <div class="table-wrap">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>작성일</th>
+                                        <th>기록시각</th>
+                                        <th>품명</th>
+                                        <th>핵심 측정값</th>
+                                        <th>판정</th>
+                                        <th>점검자</th>
+                                        <th>수정</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="recordsTableBody"></tbody>
+                            </table>
+                        </div>
+                    </section>
+                </div>
             </section>
         </main>
     </div>
@@ -641,7 +731,23 @@
             dateFilter: document.getElementById('dateFilter'),
             resultFilter: document.getElementById('resultFilter'),
             recordsTableBody: document.getElementById('recordsTableBody'),
+            failSection: document.getElementById('failSection'),
         };
+
+        // Roaster button handler
+        document.getElementById('roasterButtons').addEventListener('click', (e) => {
+            const btn = e.target.closest('.roaster-btn');
+            if (!btn) return;
+            const value = btn.dataset.roaster;
+            const isActive = btn.classList.contains('active');
+            document.querySelectorAll('.roaster-btn').forEach(b => b.classList.remove('active'));
+            if (!isActive) {
+                btn.classList.add('active');
+                formElements.roasterNo.value = value;
+            } else {
+                formElements.roasterNo.value = '';
+            }
+        });
 
         function setToast(message, isError = false) {
             formElements.formToast.textContent = message;
@@ -663,6 +769,7 @@
             formElements.judgementPassBtn.classList.toggle('fail', false);
             formElements.judgementFailBtn.classList.toggle('fail', isFail);
             formElements.judgementError.style.display = 'none';
+            formElements.failSection.classList.toggle('show', isFail);
             toggleFailureFields(isFail);
         }
 
@@ -691,6 +798,7 @@
             formElements.actionBy.value = '';
             formElements.verifiedBy.value = '';
             formElements.notes.value = '';
+            document.querySelectorAll('.roaster-btn').forEach(b => b.classList.remove('active'));
             setJudgement('');
             hideToast();
         }
@@ -745,7 +853,13 @@
             formElements.recordDate.value = record.recordDate || formatDateValue(new Date());
             formElements.workerName.value = record.workerName || '';
             formElements.productName.value = record.productName || '';
-            formElements.roasterNo.value = record.measurements?.roasterNo || '';
+            const roasterValue = record.measurements?.roasterNo;
+            document.querySelectorAll('.roaster-btn').forEach(b => b.classList.remove('active'));
+            if (roasterValue) {
+                const btn = document.querySelector(`.roaster-btn[data-roaster="${roasterValue}"]`);
+                if (btn) btn.classList.add('active');
+            }
+            formElements.roasterNo.value = roasterValue || '';
             formElements.setTemperature.value = record.measurements?.setTemperature || '';
             formElements.measuredTime.value = record.measurements?.measuredTime || '';
             formElements.heatingMinutes.value = record.measurements?.heatingMinutes || '';

@@ -881,9 +881,9 @@
     </div>
 
     <script type="module">
-        import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+        import { onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
         import { formatDateValue, formatTimeValue, badgeClassForJudgement, escapeHtml } from '/dashboard/js/haccp-form-common.js';
-        import { auth } from '/dashboard/js/firebase-client.js';
+        import { auth, isApprovedActiveProfile, loadUserProfile } from '/dashboard/js/firebase-client.js';
         import { DEFAULT_HEATING_SETTINGS, deleteHeatingRecord, loadHeatingSettings, saveHeatingRecord, subscribeToHeatingRecords } from '/dashboard/js/haccp-heating-firestore.js';
 
         // TODO: Replace these interim defaults with the form-specific responsible-person settings.
@@ -897,6 +897,14 @@
         let heatingRecords = [];
         let unsubscribeFromRecords = null;
         let isSaving = false;
+        let navigationCommitted = false;
+
+        function navigateOnce(url, reason) {
+            if (navigationCommitted) return;
+            navigationCommitted = true;
+            console.info('[auth] redirect', { page: 'haccp-heating', target: url, reason });
+            window.location.replace(url);
+        }
 
         const formElements = {
             recordDate: document.getElementById('recordDate'),
@@ -1184,9 +1192,23 @@
         });
 
         onAuthStateChanged(auth, async user => {
+            console.info('[auth] auth state resolved', { page: 'haccp-heating', projectId: 'dmnfood-erp', uid: user?.uid || null });
             if (!user) {
                 unsubscribeFromRecords?.();
-                window.location.href = '/';
+                navigateOnce('/', 'signed-out');
+                return;
+            }
+            try {
+                const profile = await loadUserProfile(user.uid);
+                if (!isApprovedActiveProfile(profile)) {
+                    console.info('[auth] profile blocked', { page: 'haccp-heating', uid: user.uid });
+                    await signOut(auth).catch(error => console.error('[auth] blocked-user sign-out failed', error));
+                    navigateOnce('/', 'profile-blocked');
+                    return;
+                }
+            } catch (error) {
+                console.error('[auth] profile read failed', { page: 'haccp-heating', code: error.code || 'unknown', error });
+                navigateOnce('/', 'profile-read-failed');
                 return;
             }
             currentUser = user;

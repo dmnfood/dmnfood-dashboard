@@ -944,24 +944,36 @@
   </div>
 
   <script type="module">
-    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-    import { getAuth, onAuthStateChanged, signOut }
+    import { onAuthStateChanged, signOut }
       from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+    import { auth, isApprovedActiveProfile, loadUserProfile, profileAccessMessage } from '/dashboard/js/firebase-client.js';
 
-    const FIREBASE_CONFIG = {
-      apiKey: "AIzaSyAlvRWMpYV5Cq2vb0XxpA4t56KuByj8KuE",
-      authDomain: "dmnfood-erp.firebaseapp.com",
-      projectId: "dmnfood-erp",
-      storageBucket: "dmnfood-erp.firebasestorage.app",
-      messagingSenderId: "918686575195",
-      appId: "1:918686575195:web:699d961aa0a092ee9ead7e",
-    };
+    let navigationCommitted = false;
+    function navigateOnce(url, reason) {
+      if (navigationCommitted) return;
+      navigationCommitted = true;
+      console.info('[auth] redirect', { page: 'home', target: url, reason });
+      window.location.replace(url);
+    }
 
-    const app = initializeApp(FIREBASE_CONFIG);
-    const auth = getAuth(app);
-
-    onAuthStateChanged(auth, user => {
-      if (!user) { window.location.href = '/'; return; }
+    onAuthStateChanged(auth, async user => {
+      console.info('[auth] auth state resolved', { page: 'home', projectId: 'dmnfood-erp', uid: user?.uid || null });
+      if (!user) { navigateOnce('/', 'signed-out'); return; }
+      try {
+        console.info('[auth] profile path', { page: 'home', path: `users/${user.uid}` });
+        const profile = await loadUserProfile(user.uid);
+        if (!isApprovedActiveProfile(profile)) {
+          console.info('[auth] profile blocked', { page: 'home', reason: profileAccessMessage(profile) });
+          await signOut(auth);
+          navigateOnce('/', 'profile-blocked');
+          return;
+        }
+      } catch (error) {
+        console.error('[auth] profile read failed', { page: 'home', code: error.code || 'unknown', error });
+        await signOut(auth).catch(() => {});
+        navigateOnce('/', 'profile-read-failed');
+        return;
+      }
       const emailId = user.email.split('@')[0];
       document.getElementById('userAvatar').textContent = emailId.charAt(0).toUpperCase();
       document.getElementById('userIdDisplay').textContent = emailId;
@@ -1095,7 +1107,7 @@
     window.handleLogout = async () => {
       if (!confirm('로그아웃 하시겠습니까?')) return;
       await signOut(auth);
-      window.location.href = '/';
+      navigateOnce('/', 'logout');
     };
   </script>
 </body>

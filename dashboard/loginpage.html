@@ -217,15 +217,22 @@
     import { createUserWithEmailAndPassword, onAuthStateChanged, sendPasswordResetEmail, signInWithEmailAndPassword, signOut }
       from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
     import { doc, serverTimestamp, setDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
-    import { auth, db, loadUserProfile } from '/dashboard/js/firebase-client.js';
+    import { auth, db, isApprovedActiveProfile, loadUserProfile, profileAccessMessage } from '/dashboard/js/firebase-client.js';
 
     let loginInProgress = false;
     let registrationInProgress = false;
+    let navigationCommitted = false;
     let lastFocusedElement = null;
     let activeModalId = '';
 
     const el = id => document.getElementById(id);
-    const validRoles = new Set(['worker', 'manager', 'admin']);
+
+    function navigateOnce(url, reason) {
+      if (navigationCommitted) return;
+      navigationCommitted = true;
+      console.info('[auth] redirect', { page: 'login', target: url, reason });
+      window.location.replace(url);
+    }
 
     function loginMessageFor(error) {
       console.error('Firebase login failed:', error);
@@ -242,12 +249,12 @@
 
     async function accessResult(user) {
       try {
+        console.info('[auth] profile path', { page: 'login', path: `users/${user.uid}` });
         const profile = await loadUserProfile(user.uid);
         if (!profile) return { allowed: false, message: '사용자 프로필이 등록되지 않았습니다. 관리자에게 문의해 주세요.' };
-        const legacyApproved = profile.isActive === true && validRoles.has(profile.role) && !profile.approvalStatus;
-        if (profile.approvalStatus === 'rejected') return { allowed: false, message: '가입 승인이 거절된 계정입니다. 관리자에게 문의해 주세요.' };
-        if ((profile.approvalStatus === 'approved' && profile.isActive === true) || legacyApproved) return { allowed: true };
-        return { allowed: false, message: '관리자 승인 대기 중입니다. 승인 후 로그인할 수 있습니다.' };
+        console.info('[auth] profile status', { page: 'login', uid: user.uid, approvalStatus: profile.approvalStatus || 'legacy', isActive: profile.isActive === true, role: profile.role || '' });
+        if (isApprovedActiveProfile(profile)) return { allowed: true };
+        return { allowed: false, message: profileAccessMessage(profile) };
       } catch (error) {
         console.error('Failed to load user profile:', { code: error.code || 'unknown', error });
         if (error.code === 'permission-denied' || error.code === 'firestore/permission-denied') {
@@ -263,9 +270,10 @@
     }
 
     onAuthStateChanged(auth, async user => {
+      console.info('[auth] auth state resolved', { page: 'login', projectId: 'dmnfood-erp', uid: user?.uid || null });
       if (!user || loginInProgress || registrationInProgress) return;
       const result = await accessResult(user);
-      if (result.allowed) window.location.href = '/home';
+      if (result.allowed) navigateOnce('/home', 'approved-auth-state');
       else await denyAccess(result.message);
     });
 
@@ -284,7 +292,7 @@
       try {
         const credential = await signInWithEmailAndPassword(auth, email, password);
         const result = await accessResult(credential.user);
-        if (result.allowed) window.location.href = '/home';
+        if (result.allowed) navigateOnce('/home', 'approved-login');
         else await denyAccess(result.message);
       } catch (error) {
         showError(loginMessageFor(error));

@@ -4,12 +4,12 @@ import { doc, getDoc, getFirestore } from 'https://www.gstatic.com/firebasejs/10
 
 // Firebase web-app configuration. This is public client configuration, not a server credential.
 export const firebaseConfig = {
-    apiKey: 'AIzaSyAlvRWMpYV5Cq2vb0XxpA4t56KuByj8KuE',
-    authDomain: 'dmnfood-erp.firebaseapp.com',
-    projectId: 'dmnfood-erp',
-    storageBucket: 'dmnfood-erp.firebasestorage.app',
-    messagingSenderId: '918686575195',
-    appId: '1:918686575195:web:699d961aa0a092ee9ead7e',
+    apiKey: "AIzaSyDrBi1E23fKRmd1EkkCFBLQQdqccjHrwLk",
+    authDomain: "dmnfood-haccp.firebaseapp.com",
+    projectId: "dmnfood-haccp",
+    storageBucket: "dmnfood-haccp.firebasestorage.app",
+    messagingSenderId: "287394117612",
+    appId: "1:287394117612:web:e464b82612b559b09632c9"
 };
 
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);

@@ -752,7 +752,8 @@
     </main>
   </div>
 
-  <script>
+  <script type="module">
+    import { logoutToLogin, requireApprovedActiveUser } from '/dashboard/js/firebase-client.js';
     const state = { rawRows: [], filteredRows: [], chart: null };
 
     const $ = (id) => document.getElementById(id);
@@ -1211,41 +1212,17 @@
     initFilters();
     render();
 
-    function initAuth() {
-      const firebaseConfig = {
-        apiKey: 'AIzaSyAlvRWMpYV5Cq2vb0XxpA4t56KuByj8KuE',
-        authDomain: 'dmnfood-erp.firebaseapp.com',
-        projectId: 'dmnfood-erp',
-        storageBucket: 'dmnfood-erp.firebasestorage.app',
-        messagingSenderId: '918686575195',
-        appId: '1:918686575195:web:699d961aa0a092ee9ead7e'
-      };
+    requireApprovedActiveUser({ page: 'sesame-bid-analysis' }).then(session => {
+      if (!session) return;
+      const emailId = session.user.email ? session.user.email.split('@')[0] : 'user';
+      $('userChip').textContent = emailId;
+      $('loadingScreen').classList.add('hidden');
+      $('mainContent').classList.remove('auth-hidden');
+    });
 
-      import('https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js').then(({ initializeApp }) => {
-        import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js').then(({ getAuth, onAuthStateChanged, signOut }) => {
-          const app = initializeApp(firebaseConfig);
-          const auth = getAuth(app);
-          onAuthStateChanged(auth, (user) => {
-            if (!user) {
-              window.location.href = '/';
-              return;
-            }
-            const emailId = user.email ? user.email.split('@')[0] : 'user';
-            $('userChip').textContent = emailId;
-            $('loadingScreen').classList.add('hidden');
-            $('mainContent').classList.remove('auth-hidden');
-          });
-
-          $('logoutBtn').addEventListener('click', () => {
-            signOut(auth).catch(() => {
-              window.location.href = '/';
-            });
-          });
-        });
-      });
-    }
-
-    initAuth();
+    $('logoutBtn').addEventListener('click', async () => {
+      await logoutToLogin({ page: 'sesame-bid-analysis' });
+    });
   </script>
 </body>
 </html>

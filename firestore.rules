@@ -5,6 +5,31 @@ service cloud.firestore {
     function profile() { return get(/databases/$(database)/documents/users/$(request.auth.uid)); }
     function activeUser() { return signedIn() && profile().data.isActive == true; }
     function managerOrAdmin() { return activeUser() && (profile().data.role == 'manager' || profile().data.role == 'admin'); }
+    function administrator() { return activeUser() && profile().data.role == 'admin'; }
+    function validRole(role) { return role == 'worker' || role == 'manager' || role == 'admin'; }
+    function validApprovalStatus(status) { return status == 'pending' || status == 'approved' || status == 'rejected'; }
+    function validInitialProfile(data) {
+      return data.keys().hasOnly(['email', 'displayName', 'employeeName', 'role', 'approvalStatus', 'isActive', 'createdAt', 'updatedAt'])
+        && data.email == request.auth.token.email
+        && data.displayName is string
+        && data.employeeName is string
+        && data.role == 'worker'
+        && data.approvalStatus == 'pending'
+        && data.isActive == false;
+    }
+    function personalProfileUpdate() {
+      return request.resource.data.email == resource.data.email
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.approvalStatus == resource.data.approvalStatus
+        && request.resource.data.isActive == resource.data.isActive
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'employeeName', 'updatedAt']);
+    }
+    function managerWorkerApproval() {
+      return resource.data.role == 'worker'
+        && request.resource.data.role == 'worker'
+        && request.resource.data.email == resource.data.email
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['approvalStatus', 'isActive', 'updatedAt']);
+    }
     function validJudgment(data) {
       return (data.productSurfaceTemperature >= 170 && data.productSurfaceTemperature <= 200 && data.judgment == 'PASS')
         || ((data.productSurfaceTemperature < 170 || data.productSurfaceTemperature > 200) && data.judgment == 'FAIL');
@@ -26,10 +51,15 @@ service cloud.firestore {
         && validJudgment(data);
     }
 
-    // Profiles are provisioned and role-managed outside the client app.
     match /users/{uid} {
       allow read: if signedIn() && (request.auth.uid == uid || managerOrAdmin());
-      allow write: if false;
+      allow create: if signedIn() && request.auth.uid == uid && validInitialProfile(request.resource.data);
+      allow update: if signedIn() && (
+        (request.auth.uid == uid && personalProfileUpdate())
+        || (managerOrAdmin() && managerWorkerApproval())
+        || administrator()
+      );
+      allow delete: if administrator();
     }
 
     match /haccpHeatingRecords/{recordId} {

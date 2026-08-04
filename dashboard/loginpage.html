@@ -7,15 +7,6 @@
   <title>들메내식품 · 로그인</title>
   <link rel="stylesheet" href="/dashboard/style.css">
   <style>
-    /* 로그인 전용 추가 스타일 */
-    .company-code-wrap input {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 15px;
-      font-weight: 500;
-      letter-spacing: 2px;
-      text-transform: uppercase;
-    }
-
     .btn-login {
       width: 100%;
       height: 46px;
@@ -82,6 +73,69 @@
       margin-top: 28px;
       line-height: 1.6;
     }
+
+    .login-actions {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 0;
+      margin-top: 16px;
+      color: var(--t2);
+    }
+
+    .login-text-action {
+      appearance: none;
+      border: 0;
+      background: transparent;
+      color: var(--t2);
+      font: inherit;
+      font-size: 12px;
+      padding: 4px 10px;
+      cursor: pointer;
+    }
+
+    .login-text-action:hover,
+    .login-text-action:focus-visible { color: #22d3ee; outline: none; }
+    .login-action-divider { color: var(--border); padding: 4px 0; }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: rgba(3, 7, 18, .74);
+      z-index: 100;
+    }
+
+    .modal-backdrop.show { display: flex; }
+    .modal-card {
+      width: min(100%, 420px);
+      max-height: calc(100dvh - 40px);
+      overflow: auto;
+      padding: 24px;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: #101827;
+      box-shadow: var(--shadow);
+    }
+
+    .modal-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+    .modal-title { color: var(--t0); font-size: 17px; font-weight: 700; }
+    .modal-close { border: 0; background: transparent; color: var(--t2); font-size: 22px; line-height: 1; cursor: pointer; padding: 2px 5px; }
+    .modal-close:hover, .modal-close:focus-visible { color: var(--t0); outline: 1px solid rgba(34,211,238,.45); border-radius: 4px; }
+    .modal-note { color: var(--t2); font-size: 12px; line-height: 1.6; margin-bottom: 16px; }
+    .modal-status { display: none; margin-top: 12px; font-size: 12px; line-height: 1.5; }
+    .modal-status.show { display: block; }
+    .modal-status.error { color: var(--rv); }
+    .modal-status.success { color: var(--zr); }
+    body.modal-open { overflow: hidden; }
+
+    @media (max-width: 420px) {
+      .modal-card { padding: 20px 16px; }
+      .login-text-action { padding: 4px 7px; }
+    }
   </style>
 </head>
 
@@ -106,14 +160,8 @@
 
       <!-- 폼 -->
       <div class="form-group">
-        <label class="form-label">회사코드</label>
-        <div class="company-code-wrap">
-          <input class="input" type="text" id="companyCode" placeholder="회사코드 입력" autocomplete="off" maxlength="20" />
-        </div>
-      </div>
-      <div class="form-group">
-        <label class="form-label">아이디</label>
-        <input class="input" type="text" id="userId" placeholder="Ecount 아이디" autocomplete="username" />
+        <label class="form-label" for="email">아이디 또는 이메일</label>
+        <input class="input" type="email" id="email" placeholder="이메일 주소 입력" autocomplete="username" />
       </div>
       <div class="form-group">
         <label class="form-label">비밀번호</label>
@@ -127,67 +175,227 @@
         <span id="loginBtnText">로그인</span>
       </button>
 
+      <div class="login-actions" aria-label="계정 도움말">
+        <button class="login-text-action" id="openSignUpBtn" type="button">회원가입</button>
+        <span class="login-action-divider" aria-hidden="true">|</span>
+        <button class="login-text-action" id="openRecoveryBtn" type="button">아이디·PW 찾기</button>
+      </div>
+
       <div class="footer-note">
         접속 문의: 이승표 대표<br>Ecount 로그인 정보와 동일하게 입력하세요
       </div>
     </div>
   </div>
 
+  <div class="modal-backdrop" id="signUpModal" aria-hidden="true">
+    <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="signUpTitle">
+      <div class="modal-header"><h2 class="modal-title" id="signUpTitle">회원가입</h2><button class="modal-close" type="button" data-close-modal="signUpModal" aria-label="회원가입 창 닫기">×</button></div>
+      <form id="signUpForm">
+        <div class="form-group"><label class="form-label" for="signUpName">이름</label><input class="input" id="signUpName" type="text" autocomplete="name" required></div>
+        <div class="form-group"><label class="form-label" for="signUpEmail">이메일</label><input class="input" id="signUpEmail" type="email" autocomplete="email" required></div>
+        <div class="form-group"><label class="form-label" for="signUpPassword">비밀번호</label><input class="input" id="signUpPassword" type="password" autocomplete="new-password" minlength="6" required></div>
+        <div class="form-group"><label class="form-label" for="signUpPasswordConfirm">비밀번호 확인</label><input class="input" id="signUpPasswordConfirm" type="password" autocomplete="new-password" minlength="6" required></div>
+        <button class="btn-login" id="signUpSubmitBtn" type="submit">가입 신청</button>
+        <div class="modal-status" id="signUpStatus" role="status"></div>
+      </form>
+    </section>
+  </div>
+
+  <div class="modal-backdrop" id="recoveryModal" aria-hidden="true">
+    <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="recoveryTitle">
+      <div class="modal-header"><h2 class="modal-title" id="recoveryTitle">아이디·PW 찾기</h2><button class="modal-close" type="button" data-close-modal="recoveryModal" aria-label="비밀번호 찾기 창 닫기">×</button></div>
+      <p class="modal-note">로그인 아이디는 가입할 때 등록한 이메일 주소입니다.<br>이메일 주소를 모르는 경우 관리자에게 문의해 주세요.</p>
+      <form id="recoveryForm">
+        <div class="form-group"><label class="form-label" for="recoveryEmail">등록 이메일</label><input class="input" id="recoveryEmail" type="email" autocomplete="email" required></div>
+        <button class="btn-login" id="recoverySubmitBtn" type="submit">비밀번호 재설정 메일 보내기</button>
+        <div class="modal-status" id="recoveryStatus" role="status"></div>
+      </form>
+    </section>
+  </div>
+
   <script type="module">
-    import { signInWithEmailAndPassword, onAuthStateChanged }
+    import { createUserWithEmailAndPassword, onAuthStateChanged, sendPasswordResetEmail, signInWithEmailAndPassword, signOut }
       from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
-    import { auth } from '/dashboard/js/firebase-client.js';
-    const COMPANY_CODE_EXPECTED = "626882";
+    import { doc, serverTimestamp, setDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+    import { auth, db, loadUserProfile } from '/dashboard/js/firebase-client.js';
 
+    let loginInProgress = false;
+    let registrationInProgress = false;
+    let lastFocusedElement = null;
+    let activeModalId = '';
 
-    onAuthStateChanged(auth, user => {
-      if (user) window.location.href = '/home';
+    const el = id => document.getElementById(id);
+    const validRoles = new Set(['worker', 'manager', 'admin']);
+
+    function loginMessageFor(error) {
+      console.error('Firebase login failed:', error);
+      return {
+        'auth/invalid-credential': '이메일 또는 비밀번호가 올바르지 않습니다.',
+        'auth/user-not-found': '이메일 또는 비밀번호가 올바르지 않습니다.',
+        'auth/wrong-password': '이메일 또는 비밀번호가 올바르지 않습니다.',
+        'auth/invalid-email': '올바른 이메일 주소를 입력해 주세요.',
+        'auth/user-disabled': '사용이 중지된 계정입니다. 관리자에게 문의해 주세요.',
+        'auth/too-many-requests': '로그인 시도가 너무 많습니다. 잠시 후 다시 시도해 주세요.',
+        'auth/network-request-failed': '네트워크 연결을 확인한 뒤 다시 시도해 주세요.',
+      }[error.code] || '로그인하지 못했습니다. 관리자에게 문의해 주세요.';
+    }
+
+    async function accessResult(user) {
+      try {
+        const profile = await loadUserProfile(user.uid);
+        if (!profile) return { allowed: false, message: '사용자 프로필이 등록되지 않았습니다. 관리자에게 문의해 주세요.' };
+        const legacyApproved = profile.isActive === true && validRoles.has(profile.role) && !profile.approvalStatus;
+        if (profile.approvalStatus === 'rejected') return { allowed: false, message: '가입 승인이 거절된 계정입니다. 관리자에게 문의해 주세요.' };
+        if ((profile.approvalStatus === 'approved' && profile.isActive === true) || legacyApproved) return { allowed: true };
+        return { allowed: false, message: '관리자 승인 대기 중입니다. 승인 후 로그인할 수 있습니다.' };
+      } catch (error) {
+        console.error('Failed to load user profile:', error);
+        return { allowed: false, message: '사용자 승인 정보를 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.' };
+      }
+    }
+
+    async function denyAccess(message) {
+      await signOut(auth).catch(error => console.error('Failed to sign out blocked user:', error));
+      showError(message);
+    }
+
+    onAuthStateChanged(auth, async user => {
+      if (!user || loginInProgress || registrationInProgress) return;
+      const result = await accessResult(user);
+      if (result.allowed) window.location.href = '/home';
+      else await denyAccess(result.message);
     });
 
-    document.addEventListener('keydown', e => { if (e.key === 'Enter') handleLogin(); });
-
     window.handleLogin = async function () {
-      const el = id => document.getElementById(id);
+      if (loginInProgress) return;
       el('errorMsg').classList.remove('visible');
-      const companyCode = el('companyCode').value.trim().toUpperCase();
-      const userId = el('userId').value.trim();
+      const email = el('email').value.trim();
       const password = el('password').value;
+      if (!email) return showError('이메일을 입력해 주세요.');
+      if (!password) return showError('비밀번호를 입력해 주세요.');
 
-      if (!companyCode) return showError('회사코드를 입력해주세요.');
-      if (!userId) return showError('아이디를 입력해주세요.');
-      if (!password) return showError('비밀번호를 입력해주세요.');
-      if (companyCode !== COMPANY_CODE_EXPECTED) return showError('회사코드가 올바르지 않습니다.');
-
+      loginInProgress = true;
       el('loginBtn').disabled = true;
       el('spinner').style.display = 'block';
       el('loginBtnText').textContent = '확인 중...';
-
       try {
-        const email = `${userId.toLowerCase()}@${companyCode.toLowerCase()}.dmnfood`;
-        await signInWithEmailAndPassword(auth, email, password);
-        window.location.href = '/home';
-      } catch (err) {
-        const msg = {
-          'auth/user-not-found': '등록되지 않은 아이디입니다.',
-          'auth/wrong-password': '비밀번호가 올바르지 않습니다.',
-          'auth/invalid-credential': '아이디 또는 비밀번호가 올바르지 않습니다.',
-          'auth/too-many-requests': '로그인 시도가 너무 많습니다. 잠시 후 다시 시도해주세요.',
-          'auth/network-request-failed': '네트워크 연결을 확인한 뒤 다시 시도해 주세요.',
-          'auth/user-disabled': '사용이 중지된 계정입니다. 관리자에게 문의해 주세요.',
-        }[err.code] || '로그인하지 못했습니다. 관리자에게 문의해 주세요.';
-        showError(msg);
+        const credential = await signInWithEmailAndPassword(auth, email, password);
+        const result = await accessResult(credential.user);
+        if (result.allowed) window.location.href = '/home';
+        else await denyAccess(result.message);
+      } catch (error) {
+        showError(loginMessageFor(error));
       } finally {
+        loginInProgress = false;
         el('loginBtn').disabled = false;
         el('spinner').style.display = 'none';
         el('loginBtnText').textContent = '로그인';
       }
     };
 
-    function showError(msg) {
-      const el = document.getElementById('errorMsg');
-      el.textContent = msg;
-      el.classList.add('visible');
+    function showError(message) {
+      el('errorMsg').textContent = message;
+      el('errorMsg').classList.add('visible');
     }
+
+    function showModalStatus(id, message = '', type = '') {
+      const status = el(id);
+      status.textContent = message;
+      status.className = `modal-status${message ? ` show ${type}` : ''}`;
+    }
+
+    function openModal(id, focusId) {
+      lastFocusedElement = document.activeElement;
+      activeModalId = id;
+      el(id).classList.add('show');
+      el(id).setAttribute('aria-hidden', 'false');
+      document.body.classList.add('modal-open');
+      showModalStatus(id === 'signUpModal' ? 'signUpStatus' : 'recoveryStatus');
+      setTimeout(() => el(focusId).focus(), 0);
+    }
+
+    function closeModal(id) {
+      if (registrationInProgress || id === 'recoveryModal' && el('recoverySubmitBtn').disabled) return;
+      el(id).classList.remove('show');
+      el(id).setAttribute('aria-hidden', 'true');
+      document.body.classList.remove('modal-open');
+      activeModalId = '';
+      lastFocusedElement?.focus();
+    }
+
+    el('openSignUpBtn').addEventListener('click', () => openModal('signUpModal', 'signUpName'));
+    el('openRecoveryBtn').addEventListener('click', () => openModal('recoveryModal', 'recoveryEmail'));
+    document.querySelectorAll('[data-close-modal]').forEach(button => button.addEventListener('click', () => closeModal(button.dataset.closeModal)));
+    document.querySelectorAll('.modal-backdrop').forEach(modal => modal.addEventListener('click', event => { if (event.target === modal) closeModal(modal.id); }));
+    document.addEventListener('keydown', event => { if (event.key === 'Escape' && activeModalId) closeModal(activeModalId); });
+
+    el('signUpForm').addEventListener('submit', async event => {
+      event.preventDefault();
+      if (registrationInProgress) return;
+      const name = el('signUpName').value.trim();
+      const email = el('signUpEmail').value.trim();
+      const password = el('signUpPassword').value;
+      if (!name || !email || !password) return showModalStatus('signUpStatus', '모든 필수 항목을 입력해 주세요.', 'error');
+      if (password !== el('signUpPasswordConfirm').value) return showModalStatus('signUpStatus', '비밀번호 확인이 일치하지 않습니다.', 'error');
+
+      registrationInProgress = true;
+      el('signUpSubmitBtn').disabled = true;
+      showModalStatus('signUpStatus');
+      try {
+        const credential = await createUserWithEmailAndPassword(auth, email, password);
+        try {
+          await setDoc(doc(db, 'users', credential.user.uid), {
+            email,
+            displayName: name,
+            employeeName: name,
+            role: 'worker',
+            approvalStatus: 'pending',
+            isActive: false,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          });
+        } catch (profileError) {
+          console.error('Firebase account was created but profile setup failed:', profileError);
+          await signOut(auth);
+          showModalStatus('signUpStatus', '계정은 생성되었지만 가입 설정을 완료하지 못했습니다. 관리자에게 문의해 주세요.', 'error');
+          return;
+        }
+        await signOut(auth);
+        el('signUpForm').reset();
+        showModalStatus('signUpStatus', '회원가입이 완료되었습니다. 관리자 승인 후 로그인할 수 있습니다.', 'success');
+      } catch (error) {
+        console.error('Firebase registration failed:', error);
+        const message = {
+          'auth/email-already-in-use': '이미 사용 중인 이메일입니다.',
+          'auth/invalid-email': '올바른 이메일 주소를 입력해 주세요.',
+          'auth/weak-password': '비밀번호는 6자 이상으로 입력해 주세요.',
+          'auth/operation-not-allowed': '현재 회원가입을 사용할 수 없습니다. 관리자에게 문의해 주세요.',
+          'auth/network-request-failed': '네트워크 연결을 확인한 뒤 다시 시도해 주세요.',
+        }[error.code] || '회원가입을 완료하지 못했습니다. 관리자에게 문의해 주세요.';
+        showModalStatus('signUpStatus', message, 'error');
+      } finally {
+        registrationInProgress = false;
+        el('signUpSubmitBtn').disabled = false;
+      }
+    });
+
+    el('recoveryForm').addEventListener('submit', async event => {
+      event.preventDefault();
+      const email = el('recoveryEmail').value.trim();
+      if (!email) return showModalStatus('recoveryStatus', '이메일을 입력해 주세요.', 'error');
+      el('recoverySubmitBtn').disabled = true;
+      showModalStatus('recoveryStatus');
+      auth.languageCode = 'ko';
+      try {
+        await sendPasswordResetEmail(auth, email);
+      } catch (error) {
+        console.error('Password reset request failed:', error);
+      } finally {
+        // Keep the response private: do not disclose whether the account exists.
+        showModalStatus('recoveryStatus', '등록된 계정인 경우 비밀번호 재설정 메일을 발송합니다.', 'success');
+        el('recoverySubmitBtn').disabled = false;
+      }
+    });
   </script>
 </body>
 

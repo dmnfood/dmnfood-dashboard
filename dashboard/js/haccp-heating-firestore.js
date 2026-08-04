@@ -10,6 +10,7 @@ import {
     query,
     serverTimestamp,
     setDoc,
+    where,
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { db } from '/dashboard/js/firebase-client.js';
 import { normalizeHeatingValues } from '/dashboard/js/haccp-form-common.js';
@@ -100,6 +101,13 @@ export function toCompatibleHeatingRecord(snapshot) {
 export function subscribeToHeatingRecords(onRecords, onError) {
     const recordsQuery = query(collection(db, RECORDS_COLLECTION), orderBy('createdAt', 'desc'), limit(100));
     return onSnapshot(recordsQuery, (snapshot) => {
+        onRecords(snapshot.docs.map(toCompatibleHeatingRecord));
+    }, onError);
+}
+
+export function subscribeHeatingRecordsByDate(recordDate, onRecords, onError) {
+    const recordsQuery = query(collection(db, RECORDS_COLLECTION), where('recordDate', '==', recordDate));
+    return onSnapshot(recordsQuery, snapshot => {
         onRecords(snapshot.docs.map(toCompatibleHeatingRecord));
     }, onError);
 }

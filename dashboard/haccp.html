@@ -374,26 +374,10 @@
     </div>
 
     <script type="module">
-        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-        import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+        import { requireApprovedActiveUser } from '/dashboard/js/firebase-client.js';
 
-        const FIREBASE_CONFIG = {
-            apiKey: 'AIzaSyAlvRWMpYV5Cq2vb0XxpA4t56KuByj8KuE',
-            authDomain: 'dmnfood-erp.firebaseapp.com',
-            projectId: 'dmnfood-erp',
-            storageBucket: 'dmnfood-erp.firebasestorage.app',
-            messagingSenderId: '918686575195',
-            appId: '1:918686575195:web:699d961aa0a092ee9ead7e',
-        };
-
-        const app = initializeApp(FIREBASE_CONFIG);
-        const auth = getAuth(app);
-
-        onAuthStateChanged(auth, user => {
-            if (!user) {
-                window.location.href = '/';
-                return;
-            }
+        requireApprovedActiveUser({ page: 'haccp' }).then(session => {
+            if (!session) return;
             window.location.href = '/home?category=haccp';
         });
     </script>

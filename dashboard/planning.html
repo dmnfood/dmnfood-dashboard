@@ -425,26 +425,11 @@
   <script src="/dashboard/js/planning-reminders.js"></script>
   <script src="/dashboard/js/planning-ui.js"></script>
   <script type="module">
-    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-    import { getAuth, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+    import { requireApprovedActiveUser, logoutToLogin } from '/dashboard/js/firebase-client.js';
 
-    const FIREBASE_CONFIG = {
-      apiKey: "AIzaSyAlvRWMpYV5Cq2vb0XxpA4t56KuByj8KuE",
-      authDomain: "dmnfood-erp.firebaseapp.com",
-      projectId: "dmnfood-erp",
-      storageBucket: "dmnfood-erp.firebasestorage.app",
-      messagingSenderId: "918686575195",
-      appId: "1:918686575195:web:699d961aa0a092ee9ead7e",
-    };
-
-    const app = initializeApp(FIREBASE_CONFIG);
-    const auth = getAuth(app);
-
-    onAuthStateChanged(auth, user => {
-      if (!user) {
-        window.location.href = '/';
-        return;
-      }
+    requireApprovedActiveUser({ page: 'planning' }).then(session => {
+      if (!session) return;
+      const user = session.user;
       const emailId = user.email.split('@')[0];
       document.getElementById('userChip').textContent = emailId;
       document.getElementById('loadingScreen').classList.add('hidden');
@@ -454,8 +439,7 @@
 
     window.handleLogout = async () => {
       if (!confirm('로그아웃 하시겠습니까?')) return;
-      await signOut(auth);
-      window.location.href = '/';
+      await logoutToLogin({ page: 'planning' });
     };
   </script>
 </body>

@@ -52,7 +52,9 @@ service cloud.firestore {
     }
 
     match /users/{uid} {
-      allow read: if signedIn() && (request.auth.uid == uid || managerOrAdmin());
+      // Bootstrap read: a signed-in user must be able to inspect only their own profile before approval.
+      allow get: if signedIn() && request.auth.uid == uid;
+      allow get, list: if managerOrAdmin();
       allow create: if signedIn() && request.auth.uid == uid && validInitialProfile(request.resource.data);
       allow update: if signedIn() && (
         (request.auth.uid == uid && personalProfileUpdate())

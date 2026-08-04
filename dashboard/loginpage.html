@@ -249,7 +249,10 @@
         if ((profile.approvalStatus === 'approved' && profile.isActive === true) || legacyApproved) return { allowed: true };
         return { allowed: false, message: '관리자 승인 대기 중입니다. 승인 후 로그인할 수 있습니다.' };
       } catch (error) {
-        console.error('Failed to load user profile:', error);
+        console.error('Failed to load user profile:', { code: error.code || 'unknown', error });
+        if (error.code === 'permission-denied' || error.code === 'firestore/permission-denied') {
+          return { allowed: false, message: '사용자 프로필 조회 권한이 없습니다. Firestore 규칙과 사용자 UID를 확인해 주세요.' };
+        }
         return { allowed: false, message: '사용자 승인 정보를 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.' };
       }
     }

@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>들메내식품 · CCP-1 가열공정 점검표</title>
     <link rel="stylesheet" href="/dashboard/style.css">
+    <link rel="stylesheet" href="/dashboard/css/journal-modal.css">
     <style>
         .auth-hidden {
             display: none !important;
@@ -719,7 +720,7 @@
             <section class="page-card">
                 <div class="page-heading">
                     <div><div class="page-kicker">공정 기록</div><h1>중요관리점(CCP-1) 모니터링일지 [가열 공정]</h1><p>제품 표면온도 및 가열시간을 확인하고 기록합니다.</p></div>
-                    <div style="display:flex;gap:6px;"><a class="btn-secondary settings-btn" href="/haccp-heating-journal">일지 조회 / 인쇄</a><button type="button" class="btn-secondary settings-btn" id="openSettingsBtn">기본 설정</button></div>
+                    <div style="display:flex;gap:6px;"><button type="button" class="btn-secondary settings-btn" id="openJournalBtn">일지 조회 / 인쇄</button><button type="button" class="btn-secondary settings-btn" id="openSettingsBtn">기본 설정</button></div>
                 </div>
 
                 <div class="section-grid">
@@ -906,6 +907,8 @@
         </main>
     </div>
 
+    <div class="journal-modal-overlay" id="heatingJournalModal" aria-hidden="true"><section class="journal-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="heatingJournalModalTitle"><header class="journal-modal-header"><div><h2 class="journal-modal-title" id="heatingJournalModalTitle">가열공정 일지 조회 / 인쇄</h2><p class="journal-modal-subtitle">날짜별 CCP-1 모니터링 기록을 조회하고 인쇄합니다.</p></div><button type="button" class="journal-modal-close" data-journal-close aria-label="일지 조회 창 닫기">×</button></header><div class="journal-modal-preview"><iframe class="journal-modal-frame" title="CCP-1 가열공정 일지"></iframe></div></section></div>
+
     <div class="settings-modal" id="settingsModal" aria-hidden="true">
         <section class="settings-dialog" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
             <div class="settings-header"><h2 id="settingsTitle">기본 설정</h2><button class="settings-close" id="closeSettingsBtn" type="button" aria-label="기본 설정 닫기">×</button></div>
@@ -933,6 +936,7 @@
         import { formatDateValue, formatTimeValue, badgeClassForJudgement, escapeHtml } from '/dashboard/js/haccp-form-common.js';
         import { auth, isApprovedActiveProfile, loadUserProfile } from '/dashboard/js/firebase-client.js';
         import { DEFAULT_HEATING_SETTINGS, deleteHeatingRecord, loadHeatingSettings, saveHeatingRecord, saveHeatingSettings, subscribeToHeatingRecords } from '/dashboard/js/haccp-heating-firestore.js';
+        import { createJournalModal } from '/dashboard/js/journal-modal.js';
 
         // TODO: Replace these interim defaults with the form-specific responsible-person settings.
         const DEFAULT_INSPECTOR_NAME = "김석기";
@@ -992,6 +996,8 @@
             inspector: document.getElementById('settingsInspector'), product: document.getElementById('settingsProduct'), tempMin: document.getElementById('settingsTempMin'), tempMax: document.getElementById('settingsTempMax'), heatTarget: document.getElementById('settingsHeatTarget'), heatTolerance: document.getElementById('settingsHeatTolerance'),
             roasters: ['1', '2', '3', '4'].map(number => document.getElementById(`settingsRoaster${number}`)),
         };
+        const heatingJournalModal = createJournalModal({ modalId: 'heatingJournalModal', title: '가열공정 일지 조회 / 인쇄', subtitle: '', frameUrl: '/haccp-heating-journal?embedded=1' });
+        document.getElementById('openJournalBtn').addEventListener('click', () => heatingJournalModal.open());
 
         // Roaster button handler
         document.getElementById('roasterButtons').addEventListener('click', (e) => {

@@ -100,17 +100,17 @@
         }
 
         .page-main {
-            max-width: 1100px;
+            max-width: 1200px;
             margin: 0 auto;
-            padding: 36px 24px 80px;
+            padding: 24px 20px 80px;
         }
 
         .page-card {
             border: 1px solid var(--border);
-            border-radius: 18px;
+            border-radius: 16px;
             background: var(--card);
             box-shadow: var(--shadow);
-            padding: 24px;
+            padding: 20px;
         }
 
         .page-kicker {
@@ -124,38 +124,112 @@
             font-size: 11px;
             font-weight: 700;
             letter-spacing: .3px;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
         }
 
         .page-card h1 {
-            font-size: 24px;
+            font-size: 20px;
             font-weight: 700;
             color: var(--t0);
-            margin-bottom: 8px;
+            margin-bottom: 4px;
             letter-spacing: -0.3px;
         }
 
         .page-card p {
-            font-size: 13px;
+            font-size: 12px;
             color: var(--t2);
-            line-height: 1.7;
-            margin-bottom: 18px;
+            line-height: 1.6;
+            margin-bottom: 16px;
+        }
+
+        /* Guidance panels */
+        .guidance-panel {
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, .02);
+            padding: 12px;
+            margin-bottom: 12px;
+            font-size: 11px;
+        }
+
+        .guidance-panel h3 {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--t0);
+            margin-bottom: 6px;
+            display: flex;
+            gap: 4px;
+            align-items: center;
+        }
+
+        .guidance-panel h3::before {
+            content: "→";
+            color: #22d3ee;
+            font-weight: 700;
+        }
+
+        .guidance-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px;
+            margin-bottom: 6px;
+        }
+
+        .guidance-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .guidance-item {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .guidance-label {
+            color: var(--t2);
+            font-weight: 600;
+        }
+
+        .guidance-value {
+            color: var(--t0);
+            font-weight: 700;
+        }
+
+        .guidance-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            color: var(--t1);
+            line-height: 1.5;
+        }
+
+        .guidance-list li {
+            margin-bottom: 4px;
+            padding-left: 12px;
+            position: relative;
+        }
+
+        .guidance-list li::before {
+            content: "•";
+            position: absolute;
+            left: 0;
+            color: #22d3ee;
         }
 
         .section-grid {
             display: grid;
-            gap: 8px;
+            gap: 0;
         }
 
         .panel {
             border: 1px solid var(--border);
-            border-radius: 14px;
+            border-radius: 12px;
             background: rgba(255, 255, 255, .04);
-            padding: 14px;
+            padding: 12px;
         }
 
         .panel-title {
-            font-size: 13px;
+            font-size: 12px;
             font-weight: 700;
             color: var(--t0);
             margin-bottom: 10px;
@@ -167,57 +241,65 @@
 
         .field-grid {
             display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 10px;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 8px;
         }
 
         .field {
             display: flex;
             flex-direction: column;
-            gap: 4px;
+            gap: 3px;
         }
 
         .field.full {
             grid-column: 1 / -1;
         }
 
+        .field.half {
+            grid-column: span 1;
+        }
+
         .field label {
-            font-size: 11px;
+            font-size: 10px;
             color: var(--t1);
-            font-weight: 600;
+            font-weight: 700;
             letter-spacing: 0.3px;
+            text-transform: uppercase;
         }
 
         .field input,
         .field select,
         .field textarea {
             width: 100%;
-            padding: 8px 10px;
-            border-radius: 8px;
+            padding: 7px 9px;
+            border-radius: 7px;
             border: 1px solid var(--border);
             background: var(--in-bg);
             color: var(--t0);
             font: inherit;
-            font-size: 12px;
+            font-size: 13px;
+            line-height: 1.3;
         }
 
         .field input::placeholder,
         .field textarea::placeholder {
             color: var(--in-ph);
+            font-size: 12px;
         }
 
         .field textarea {
-            min-height: 60px;
+            min-height: 48px;
             resize: vertical;
+            font-size: 12px;
         }
 
         .field textarea.compact {
-            min-height: 54px;
+            min-height: 42px;
         }
 
         .input-row {
             display: flex;
-            gap: 6px;
+            gap: 5px;
             align-items: center;
         }
 
@@ -227,23 +309,23 @@
 
         .roaster-buttons {
             display: flex;
-            gap: 6px;
-            flex-wrap: wrap;
+            gap: 4px;
+            flex-wrap: nowrap;
         }
 
         .roaster-btn {
             flex: 1;
-            min-width: 44px;
-            padding: 7px 8px;
-            border-radius: 8px;
+            min-width: 32px;
+            padding: 6px 0;
+            border-radius: 6px;
             border: 1px solid var(--border);
             background: rgba(255, 255, 255, .03);
             color: var(--t1);
             cursor: pointer;
-            font-size: 11px;
+            font-size: 12px;
             font-weight: 700;
             text-align: center;
-            transition: all 140ms ease;
+            transition: all 120ms ease;
         }
 
         .roaster-btn:hover {
@@ -259,42 +341,55 @@
 
         .mini-btn {
             border: 1px solid var(--border);
-            background: rgba(255, 255, 255, .05);
-            padding: 7px 8px;
-            border-radius: 8px;
+            background: rgba(255, 255, 255, .04);
+            padding: 6px 7px;
+            border-radius: 6px;
             color: var(--t1);
             cursor: pointer;
-            font-size: 11px;
+            font-size: 10px;
             font-weight: 700;
             white-space: nowrap;
+            flex-shrink: 0;
         }
 
         .mini-btn:hover {
-            background: rgba(255, 255, 255, .09);
+            background: rgba(255, 255, 255, .08);
             color: var(--t0);
         }
 
+        .mini-btn.active {
+            background: rgba(34, 211, 238, .18);
+            border-color: rgba(34, 211, 238, .28);
+            color: #22d3ee;
+        }
+
         .inline-help {
-            font-size: 11px;
+            font-size: 10px;
             color: var(--t2);
         }
 
         .status-group {
             display: flex;
-            gap: 6px;
-            flex-wrap: wrap;
+            gap: 5px;
+            flex-wrap: nowrap;
         }
 
         .status-option {
-            padding: 7px 10px;
-            border-radius: 8px;
+            flex: 1;
+            padding: 6px 8px;
+            border-radius: 6px;
             border: 1px solid var(--border);
             background: rgba(255, 255, 255, .03);
             color: var(--t1);
             cursor: pointer;
             font-size: 12px;
             font-weight: 700;
-            transition: all 140ms ease;
+            transition: all 120ms ease;
+            text-align: center;
+        }
+
+        .status-option[aria-disabled="true"] {
+            cursor: default;
         }
 
         .status-option.active {
@@ -311,14 +406,17 @@
 
         .fail-section {
             display: none;
-            margin-top: 10px;
-            padding-top: 10px;
+            grid-column: 1 / -1;
+            margin-top: 8px;
+            padding-top: 8px;
             border-top: 1px solid var(--border);
             animation: slideDown 200ms ease;
         }
 
         .fail-section.show {
             display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
         }
 
         @keyframes slideDown {
@@ -328,15 +426,15 @@
             }
             to {
                 opacity: 1;
-                max-height: 500px;
+                max-height: 600px;
             }
         }
 
         .error-text {
             color: var(--rv);
-            font-size: 10px;
+            font-size: 9px;
             display: none;
-            margin-top: 2px;
+            margin-top: 1px;
         }
 
         .error-text.show {
@@ -346,14 +444,14 @@
         .action-row {
             display: flex;
             flex-wrap: wrap;
-            gap: 8px;
-            margin-top: 12px;
+            gap: 6px;
+            margin-top: 10px;
         }
 
         .btn-primary,
         .btn-secondary {
             border: 1px solid var(--border);
-            border-radius: 8px;
+            border-radius: 7px;
             padding: 8px 12px;
             font: inherit;
             cursor: pointer;
@@ -372,9 +470,9 @@
         }
 
         .toast {
-            margin-top: 10px;
-            padding: 8px 10px;
-            border-radius: 8px;
+            margin-top: 8px;
+            padding: 7px 9px;
+            border-radius: 7px;
             border: 1px solid rgba(74, 222, 128, .24);
             background: rgba(74, 222, 128, .12);
             color: var(--zr);
@@ -387,11 +485,11 @@
         }
 
         .table-card {
-            margin-top: 16px;
+            margin-top: 12px;
             border: 1px solid var(--border);
-            border-radius: 14px;
+            border-radius: 12px;
             background: rgba(255, 255, 255, .04);
-            padding: 14px;
+            padding: 12px;
         }
 
         .table-wrap {
@@ -406,27 +504,28 @@
 
         th,
         td {
-            padding: 8px 10px;
+            padding: 6px 8px;
             border-bottom: 1px solid var(--border);
             text-align: left;
-            font-size: 11px;
+            font-size: 10px;
             color: var(--t1);
         }
 
         th {
             color: var(--t0);
-            font-size: 10px;
+            font-size: 9px;
             text-transform: uppercase;
             letter-spacing: .06em;
+            font-weight: 700;
         }
 
         .badge {
             display: inline-flex;
             align-items: center;
-            gap: 4px;
-            padding: 3px 8px;
-            border-radius: 8px;
-            font-size: 10px;
+            gap: 3px;
+            padding: 2px 6px;
+            border-radius: 6px;
+            font-size: 9px;
             font-weight: 700;
         }
 
@@ -454,33 +553,44 @@
             cursor: pointer;
             padding: 0;
             font: inherit;
-            font-size: 11px;
+            font-size: 10px;
             font-weight: 700;
         }
 
         .toolbar {
             display: flex;
             flex-wrap: wrap;
-            gap: 10px;
-            margin-bottom: 12px;
+            gap: 8px;
+            margin-bottom: 10px;
             align-items: center;
         }
 
         .toolbar select,
         .toolbar input {
             width: auto;
-            min-width: 140px;
-            font-size: 11px;
-            padding: 6px 8px;
+            min-width: 120px;
+            font-size: 10px;
+            padding: 5px 7px;
         }
 
         .empty-state {
             border: 1px dashed var(--border);
-            border-radius: 14px;
-            padding: 24px;
+            border-radius: 12px;
+            padding: 20px;
             text-align: center;
             color: var(--t2);
             background: rgba(255, 255, 255, .03);
+            font-size: 11px;
+        }
+
+        @media (max-width: 1024px) {
+            .field-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .guidance-row {
+                grid-template-columns: repeat(2, 1fr);
+            }
         }
 
         @media (max-width: 760px) {
@@ -488,30 +598,78 @@
                 grid-template-columns: 1fr;
             }
 
+            .fail-section.show {
+                grid-template-columns: 1fr;
+            }
+
             .roaster-buttons {
-                gap: 4px;
+                gap: 3px;
             }
 
             .roaster-btn {
-                min-width: 40px;
-                padding: 6px 6px;
-                font-size: 10px;
+                min-width: 30px;
+                padding: 5px 0;
+                font-size: 11px;
             }
 
             .page-main {
-                padding: 24px 16px 60px;
+                padding: 16px 12px 60px;
             }
 
             .app-header {
-                padding: 0 16px;
+                padding: 0 12px;
             }
 
             .page-card {
-                padding: 14px;
+                padding: 12px;
+            }
+
+            .panel {
+                padding: 10px;
+            }
+
+            .guidance-panel {
+                padding: 10px;
+                margin-bottom: 10px;
+            }
+
+            .guidance-row {
+                grid-template-columns: 1fr;
             }
 
             .input-row {
+                gap: 3px;
+            }
+
+            .action-row {
                 gap: 4px;
+            }
+
+            .btn-primary,
+            .btn-secondary {
+                padding: 7px 10px;
+                font-size: 11px;
+            }
+
+            .status-option {
+                padding: 5px 6px;
+                font-size: 11px;
+            }
+
+            .field input,
+            .field select,
+            .field textarea {
+                padding: 6px 8px;
+                font-size: 14px;
+            }
+
+            .field label {
+                font-size: 9px;
+            }
+
+            .mini-btn {
+                padding: 5px 6px;
+                font-size: 9px;
             }
         }
     </style>
@@ -538,29 +696,59 @@
             <section class="page-card">
                 <div class="page-kicker">공정 기록</div>
                 <h1>CCP-1 가열공정 점검표</h1>
-                <p>가열공정의 기록을 입력하고 저장하면 즉시 목록에 반영됩니다.</p>
+                <p>제품 표면온도 및 가열시간을 확인하고 기록합니다. 정기점검: 작업시작 전, 2시간마다</p>
 
                 <div class="section-grid">
-                    <!-- 단일 통합 입력 폼 -->
+                    <!-- 상단 가이드 패널 -->
+                    <div class="guidance-panel">
+                        <h3>한계기준</h3>
+                        <div class="guidance-row">
+                            <div class="guidance-item">
+                                <span class="guidance-label">제품 표면온도</span>
+                                <span class="guidance-value">185 ± 15℃</span>
+                            </div>
+                            <div class="guidance-item">
+                                <span class="guidance-label">가열시간</span>
+                                <span class="guidance-value">22 ± 3분</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="guidance-panel">
+                        <h3>점검 주기</h3>
+                        <ul class="guidance-list">
+                            <li>작업 시작 전</li>
+                            <li>2시간마다</li>
+                        </ul>
+                    </div>
+
+                    <div class="guidance-panel">
+                        <h3>점검 방법</h3>
+                        <ul class="guidance-list">
+                            <li>적외선 또는 탐침 온도계로 제품 온도 확인</li>
+                            <li>타이머로 투입 후 가열시간 확인</li>
+                            <li>온도계는 연 1회 검·교정 필요</li>
+                        </ul>
+                    </div>
+
+                    <!-- 입력 폼 -->
                     <section class="panel">
                         <div class="field-grid">
-                            <!-- Row 1: 작성일자 / 점검자 -->
+                            <!-- Row 1: 작성일자 | 점검자 | 품명 | 볶음기 번호 -->
                             <div class="field">
                                 <label for="recordDate">작성일자</label>
                                 <input id="recordDate" type="date">
                             </div>
                             <div class="field">
                                 <label for="workerName">점검자</label>
-                                <input id="workerName" type="text" placeholder="로그인 사용자 이름 자동 입력">
+                                <input id="workerName" type="text">
                             </div>
-
-                            <!-- Row 2: 품명 / 볶음기 -->
                             <div class="field">
                                 <label for="productName">품명</label>
-                                <input id="productName" type="text" placeholder="예: 학교급식 세트">
+                                <input id="productName" type="text" inputmode="text">
                             </div>
                             <div class="field">
-                                <label>볶음기 번호</label>
+                                <label>볶음기</label>
                                 <div class="roaster-buttons" id="roasterButtons">
                                     <button type="button" class="roaster-btn" data-roaster="1">1</button>
                                     <button type="button" class="roaster-btn" data-roaster="2">2</button>
@@ -570,90 +758,98 @@
                                 <input id="roasterNo" type="hidden">
                             </div>
 
-                            <!-- Row 3: 세팅온도 / 측정시각 -->
+                            <!-- Row 2: 세팅온도 | 측정시각 + 현재 시각 | 가열시간 | 적외선 온도 -->
                             <div class="field">
                                 <label for="setTemperature">세팅온도(℃)</label>
-                                <input id="setTemperature" type="number" step="0.1" placeholder="예: 180">
+                                <input id="setTemperature" type="number" step="0.1" placeholder="180" inputmode="decimal">
                             </div>
                             <div class="field">
                                 <label for="measuredTime">측정시각</label>
                                 <div class="input-row">
                                     <input id="measuredTime" type="time">
-                                    <button type="button" class="mini-btn" id="setCurrentTimeBtn">현재시각</button>
+                                    <button type="button" class="mini-btn" id="setCurrentTimeBtn">지금</button>
                                 </div>
                             </div>
 
-                            <!-- Row 4: 가열시간 / 적외선 온도 -->
                             <div class="field">
                                 <label>가열시간</label>
                                 <div class="input-row">
-                                    <input id="heatingMinutes" type="number" min="0" step="1" placeholder="분">
-                                    <span style="font-size: 10px; color: var(--t2); min-width: 18px;">분</span>
-                                    <input id="heatingSeconds" type="number" min="0" step="1" placeholder="초">
-                                    <span style="font-size: 10px; color: var(--t2); min-width: 18px;">초</span>
+                                    <input id="heatingMinutes" type="number" min="0" step="1" placeholder="분" inputmode="numeric">
+                                    <span style="color: var(--t2); font-size: 10px; min-width: 14px;">분</span>
+                                    <input id="heatingSeconds" type="number" min="0" max="59" step="1" placeholder="초" inputmode="numeric">
+                                    <span style="color: var(--t2); font-size: 10px; min-width: 14px;">초</span>
                                 </div>
                             </div>
                             <div class="field">
-                                <label for="productTemperature">적외선 온도(℃)</label>
-                                <input id="productTemperature" type="number" step="0.1" placeholder="예: 88.5">
+                                <label for="productTemperature">적외선온도(℃)</label>
+                                <input id="productTemperature" type="number" step="0.1" placeholder="88.5" inputmode="decimal">
                             </div>
 
-                            <!-- Row 5: 판정 -->
                             <div class="field full">
                                 <label>판정</label>
-                                <div class="status-group" role="radiogroup" aria-label="판정">
-                                    <button type="button" class="status-option" data-judgement="PASS" id="judgementPassBtn">PASS</button>
-                                    <button type="button" class="status-option fail" data-judgement="FAIL" id="judgementFailBtn">FAIL</button>
+                                <div class="status-group">
+                                    <button type="button" class="status-option" id="judgementPassBtn" aria-disabled="true">PASS</button>
+                                    <button type="button" class="status-option fail" id="judgementFailBtn" aria-disabled="true">FAIL</button>
                                 </div>
-                                <div class="error-text" id="judgementError">판정을 선택해 주세요.</div>
+                                <div class="inline-help" id="judgementPending">제품 표면온도를 입력하면 판정이 자동으로 계산됩니다.</div>
                             </div>
 
-                            <!-- Row 6: 비고 (PASS/FAIL 공용) -->
+                            <!-- Row 4: 비고 (전체 너비) -->
                             <div class="field full">
                                 <label for="notes">비고</label>
-                                <textarea id="notes" class="compact" placeholder="추가 메모(선택)"></textarea>
+                                <textarea id="notes" class="compact" placeholder="메모(선택)"></textarea>
                             </div>
 
                             <!-- FAIL 전용 필드 (숨김) -->
                             <div id="failSection" class="fail-section">
-                                <div class="field full">
+                                <div class="field">
                                     <label for="deviationDetail">한계기준 이탈내용</label>
-                                    <textarea id="deviationDetail" class="compact" placeholder="FAIL 선택 시 내용을 입력해 주세요."></textarea>
-                                    <div class="error-text" id="deviationError">FAIL 시 이탈 내용을 입력해 주세요.</div>
+                                    <textarea id="deviationDetail" class="compact" placeholder="이탈 사항 기입"></textarea>
+                                    <div class="error-text" id="deviationError">필수 입력</div>
                                 </div>
-                                <div class="field full">
+                                <div class="field">
                                     <label for="correctiveAction">개선조치 및 결과</label>
-                                    <textarea id="correctiveAction" class="compact" placeholder="FAIL 선택 시 조치 내용을 기록해 주세요."></textarea>
-                                    <div class="error-text" id="correctiveActionError">FAIL 시 조치 내용을 입력해 주세요.</div>
+                                    <textarea id="correctiveAction" class="compact" placeholder="조치 결과 기입"></textarea>
+                                    <div class="error-text" id="correctiveActionError">필수 입력</div>
                                 </div>
                                 <div class="field">
                                     <label for="actionBy">조치자</label>
-                                    <input id="actionBy" type="text" placeholder="예: 박OO">
+                                    <input id="actionBy" type="text" placeholder="이름 입력">
                                 </div>
                                 <div class="field">
-                                    <label for="verifiedBy">확인자</label>
-                                    <input id="verifiedBy" type="text" placeholder="예: 김OO">
+                                    <label for="verifiedBy">확인</label>
+                                    <input id="verifiedBy" type="text" placeholder="확인자 이름">
                                 </div>
                             </div>
                         </div>
 
                         <!-- 액션 버튼 -->
                         <div class="action-row">
-                            <button type="button" class="btn-primary" id="saveBtn">기록 저장</button>
-                            <button type="button" class="btn-secondary" id="resetBtn">입력 초기화</button>
-                            <button type="button" class="btn-secondary" id="cancelEditBtn" style="display:none;">수정 취소</button>
+                            <button type="button" class="btn-primary" id="saveBtn">저장</button>
+                            <button type="button" class="btn-secondary" id="resetBtn">초기화</button>
+                            <button type="button" class="btn-secondary" id="cancelEditBtn" style="display:none;">취소</button>
                         </div>
                         <div class="toast" id="formToast"></div>
                     </section>
 
+                    <!-- 하단 가이드 패널 -->
+                    <div class="guidance-panel">
+                        <h3>개선조치 방법 (FAIL 발생 시)</h3>
+                        <ul class="guidance-list">
+                            <li>온도 또는 가열시간 초과 시 제품 검사 후 이상 없을 때 출고</li>
+                            <li>기계 고장 시 생산 중단 후 수리하고 생산 재개</li>
+                            <li>즉시 수리가 어려우면 공정품을 교차오염되지 않도록 보관한 뒤 수리 후 생산 재개</li>
+                        </ul>
+                    </div>
+
                     <!-- 저장 기록 테이블 -->
                     <section class="table-card">
                         <div class="toolbar">
-                            <label class="field" style="min-width: 180px;">
+                            <label class="field" style="min-width: 160px; margin: 0;">
                                 <span class="muted">작성일</span>
                                 <input id="dateFilter" type="date">
                             </label>
-                            <label class="field" style="min-width: 140px;">
+                            <label class="field" style="min-width: 120px; margin: 0;">
                                 <span class="muted">결과</span>
                                 <select id="resultFilter">
                                     <option value="all">전체</option>
@@ -667,12 +863,12 @@
                                 <thead>
                                     <tr>
                                         <th>작성일</th>
-                                        <th>기록시각</th>
+                                        <th>시각</th>
                                         <th>품명</th>
-                                        <th>핵심 측정값</th>
+                                        <th>핵심값</th>
                                         <th>판정</th>
                                         <th>점검자</th>
-                                        <th>수정</th>
+                                        <th>작업</th>
                                     </tr>
                                 </thead>
                                 <tbody id="recordsTableBody"></tbody>
@@ -687,7 +883,7 @@
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
         import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
-        import { formatDateValue, formatTimeValue, getCurrentUserIdentity, normalizeHeatingValues, badgeClassForJudgement, escapeHtml } from '/dashboard/js/haccp-form-common.js';
+        import { formatDateValue, formatTimeValue, normalizeHeatingValues, badgeClassForJudgement, escapeHtml } from '/dashboard/js/haccp-form-common.js';
         import { listRecords, saveRecord, getRecordById } from '/dashboard/js/haccp-record-store.js';
 
         const FIREBASE_CONFIG = {
@@ -701,8 +897,18 @@
 
         const app = initializeApp(FIREBASE_CONFIG);
         const auth = getAuth(app);
+        // TODO: Replace these interim defaults with the form-specific responsible-person settings.
+        const DEFAULT_INSPECTOR_NAME = "김석기";
+        const DEFAULT_PRODUCT_NAME = "참기름";
+        // TODO: Move these interim CCP limits to the administrator settings screen or popup.
+        const HEATING_LIMITS = {
+            productSurfaceTempMin: 170,
+            productSurfaceTempMax: 200,
+        };
+
         let currentUser = null;
         let editingRecordId = null;
+        let currentJudgement = '';
 
         const formElements = {
             recordDate: document.getElementById('recordDate'),
@@ -721,7 +927,8 @@
             notes: document.getElementById('notes'),
             judgementPassBtn: document.getElementById('judgementPassBtn'),
             judgementFailBtn: document.getElementById('judgementFailBtn'),
-            judgementError: document.getElementById('judgementError'),
+            judgementPending: document.getElementById('judgementPending'),
+            setCurrentTimeBtn: document.getElementById('setCurrentTimeBtn'),
             deviationError: document.getElementById('deviationError'),
             correctiveActionError: document.getElementById('correctiveActionError'),
             saveBtn: document.getElementById('saveBtn'),
@@ -764,20 +971,45 @@
 
         function setJudgement(judgement) {
             const isFail = judgement === 'FAIL';
+            const wasFail = currentJudgement === 'FAIL';
+            currentJudgement = judgement;
             formElements.judgementPassBtn.classList.toggle('active', judgement === 'PASS');
             formElements.judgementFailBtn.classList.toggle('active', isFail);
             formElements.judgementPassBtn.classList.toggle('fail', false);
             formElements.judgementFailBtn.classList.toggle('fail', isFail);
-            formElements.judgementError.style.display = 'none';
+            formElements.judgementPending.hidden = Boolean(judgement);
             formElements.failSection.classList.toggle('show', isFail);
             toggleFailureFields(isFail);
+            if (wasFail && !isFail) {
+                clearFailureFields();
+            }
         }
 
         function toggleFailureFields(isFail) {
             const fields = [formElements.deviationDetail, formElements.correctiveAction, formElements.actionBy, formElements.verifiedBy];
             fields.forEach((field) => field.toggleAttribute('data-required', isFail));
-            formElements.deviationError.style.display = isFail ? 'block' : 'none';
-            formElements.correctiveActionError.style.display = isFail ? 'block' : 'none';
+            formElements.deviationError.classList.remove('show');
+            formElements.correctiveActionError.classList.remove('show');
+        }
+
+        function clearFailureFields() {
+            formElements.deviationDetail.value = '';
+            formElements.correctiveAction.value = '';
+            formElements.actionBy.value = '';
+            formElements.verifiedBy.value = '';
+        }
+
+        function getAutomaticJudgement() {
+            const rawTemperature = formElements.productTemperature.value.trim();
+            const temperature = Number(rawTemperature);
+            if (!rawTemperature || !Number.isFinite(temperature)) return '';
+            return temperature >= HEATING_LIMITS.productSurfaceTempMin && temperature <= HEATING_LIMITS.productSurfaceTempMax
+                ? 'PASS'
+                : 'FAIL';
+        }
+
+        function updateAutomaticJudgement() {
+            setJudgement(getAutomaticJudgement());
         }
 
         function resetForm() {
@@ -785,18 +1017,16 @@
             formElements.saveBtn.textContent = '기록 저장';
             formElements.cancelEditBtn.style.display = 'none';
             formElements.recordDate.value = formatDateValue(new Date());
-            formElements.workerName.value = currentUser ? getCurrentUserIdentity(currentUser).workerName : '';
-            formElements.productName.value = '';
+            formElements.workerName.value = DEFAULT_INSPECTOR_NAME;
+            formElements.productName.value = DEFAULT_PRODUCT_NAME;
             formElements.roasterNo.value = '';
             formElements.setTemperature.value = '';
-            formElements.measuredTime.value = formatTimeValue(new Date());
+            formElements.measuredTime.value = '';
+            formElements.setCurrentTimeBtn.classList.remove('active');
             formElements.heatingMinutes.value = '';
             formElements.heatingSeconds.value = '';
             formElements.productTemperature.value = '';
-            formElements.deviationDetail.value = '';
-            formElements.correctiveAction.value = '';
-            formElements.actionBy.value = '';
-            formElements.verifiedBy.value = '';
+            clearFailureFields();
             formElements.notes.value = '';
             document.querySelectorAll('.roaster-btn').forEach(b => b.classList.remove('active'));
             setJudgement('');
@@ -804,12 +1034,11 @@
         }
 
         function getFormValues() {
-            const judgement = document.querySelector('.status-option.active')?.dataset.judgement || '';
             return {
                 recordDate: formElements.recordDate.value,
                 workerName: formElements.workerName.value.trim(),
                 productName: formElements.productName.value.trim(),
-                judgement,
+                judgement: currentJudgement,
                 deviationDetail: formElements.deviationDetail.value.trim(),
                 correctiveAction: formElements.correctiveAction.value.trim(),
                 actionBy: formElements.actionBy.value.trim(),
@@ -831,13 +1060,15 @@
             if (!values.recordDate) { errors.push('작성일자를 입력해 주세요.'); }
             if (!values.workerName) { errors.push('점검자를 입력해 주세요.'); }
             if (!values.productName) { errors.push('품명을 입력해 주세요.'); }
-            if (!values.judgement) { errors.push('판정을 선택해 주세요.'); }
+            if (!values.judgement) { errors.push('제품 표면온도를 입력해 자동 판정을 계산해 주세요.'); }
             if (!values.measurements.roasterNo) { errors.push('볶음기 번호를 선택해 주세요.'); }
             if (values.measurements.setTemperature === '') { errors.push('세팅온도를 입력해 주세요.'); }
+            if (!values.measurements.measuredTime) { errors.push('측정시각을 입력해 주세요.'); }
             if (values.measurements.productTemperature === '') { errors.push('제품 품온을 입력해 주세요.'); }
             if (values.measurements.heatingMinutes === '' || values.measurements.heatingSeconds === '') { errors.push('가열시간을 입력해 주세요.'); }
             if (!/^(0|[1-9]\d*)$/.test(values.measurements.heatingMinutes)) { errors.push('가열시간(분)은 0 이상의 정수로 입력해 주세요.'); }
             if (!/^(0|[1-9]\d*)$/.test(values.measurements.heatingSeconds)) { errors.push('가열시간(초)은 0 이상의 정수로 입력해 주세요.'); }
+            if (Number(values.measurements.heatingSeconds) > 59) { errors.push('가열시간(초)은 0~59 사이로 입력해 주세요.'); }
             if (!/^-?\d+(\.\d+)?$/.test(values.measurements.setTemperature)) { errors.push('세팅온도는 숫자로 입력해 주세요.'); }
             if (!/^-?\d+(\.\d+)?$/.test(values.measurements.productTemperature)) { errors.push('제품 품온은 숫자로 입력해 주세요.'); }
             if (values.judgement === 'FAIL') {
@@ -870,7 +1101,8 @@
             formElements.actionBy.value = record.actionBy || '';
             formElements.verifiedBy.value = record.verifiedBy || '';
             formElements.notes.value = record.notes || '';
-            setJudgement(record.judgement || '');
+            formElements.setCurrentTimeBtn.classList.remove('active');
+            updateAutomaticJudgement();
             editingRecordId = record.id;
             formElements.saveBtn.textContent = '수정 저장';
             formElements.cancelEditBtn.style.display = 'inline-flex';
@@ -879,6 +1111,7 @@
 
         function buildRecordFromForm(values) {
             const normalized = normalizeHeatingValues(values.measurements);
+            const isFail = values.judgement === 'FAIL';
             return {
                 id: editingRecordId || crypto.randomUUID(),
                 schemaVersion: 1,
@@ -888,10 +1121,10 @@
                 workerName: values.workerName,
                 productName: values.productName,
                 judgement: values.judgement,
-                deviationDetail: values.deviationDetail,
-                correctiveAction: values.correctiveAction,
-                actionBy: values.actionBy,
-                verifiedBy: values.verifiedBy,
+                deviationDetail: isFail ? values.deviationDetail : '',
+                correctiveAction: isFail ? values.correctiveAction : '',
+                actionBy: isFail ? values.actionBy : '',
+                verifiedBy: isFail ? values.verifiedBy : '',
                 notes: values.notes,
                 measurements: normalized,
                 createdAt: editingRecordId ? getRecordById(editingRecordId)?.createdAt || new Date().toISOString() : undefined,
@@ -933,6 +1166,7 @@
                 setToast(errors[0], true);
                 return;
             }
+            if (values.judgement === 'PASS') clearFailureFields();
             const record = buildRecordFromForm(values);
             const saved = saveRecord(record);
             if (!saved) {
@@ -942,15 +1176,14 @@
             setToast('기록이 저장되었습니다.');
             renderTable();
             resetForm();
-            formElements.recordDate.value = formatDateValue(new Date());
-            formElements.workerName.value = currentUser ? getCurrentUserIdentity(currentUser).workerName : '';
-            formElements.measuredTime.value = formatTimeValue(new Date());
-            setJudgement('');
         }
 
-        document.getElementById('judgementPassBtn').addEventListener('click', () => setJudgement('PASS'));
-        document.getElementById('judgementFailBtn').addEventListener('click', () => setJudgement('FAIL'));
-        document.getElementById('setCurrentTimeBtn').addEventListener('click', () => { formElements.measuredTime.value = formatTimeValue(new Date()); });
+        formElements.productTemperature.addEventListener('input', updateAutomaticJudgement);
+        formElements.measuredTime.addEventListener('input', () => formElements.setCurrentTimeBtn.classList.remove('active'));
+        formElements.setCurrentTimeBtn.addEventListener('click', () => {
+            formElements.measuredTime.value = formatTimeValue(new Date());
+            formElements.setCurrentTimeBtn.classList.add('active');
+        });
         formElements.saveBtn.addEventListener('click', handleSave);
         formElements.resetBtn.addEventListener('click', () => { resetForm(); });
         formElements.cancelEditBtn.addEventListener('click', () => { resetForm(); });
@@ -972,11 +1205,7 @@
                 return;
             }
             currentUser = user;
-            const identity = getCurrentUserIdentity(user);
-            formElements.workerName.value = identity.workerName;
-            formElements.recordDate.value = formatDateValue(new Date());
-            formElements.measuredTime.value = formatTimeValue(new Date());
-            setJudgement('');
+            resetForm();
             document.getElementById('loadingScreen').classList.add('hidden');
             document.getElementById('mainContent').classList.remove('auth-hidden');
             renderTable();

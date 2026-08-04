@@ -134,22 +134,11 @@
   </div>
 
   <script type="module">
-    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-    import { getAuth, signInWithEmailAndPassword, onAuthStateChanged }
+    import { signInWithEmailAndPassword, onAuthStateChanged }
       from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
-
-    const FIREBASE_CONFIG = {
-      apiKey: "AIzaSyAlvRWMpYV5Cq2vb0XxpA4t56KuByj8KuE",
-      authDomain: "dmnfood-erp.firebaseapp.com",
-      projectId: "dmnfood-erp",
-      storageBucket: "dmnfood-erp.firebasestorage.app",
-      messagingSenderId: "918686575195",
-      appId: "1:918686575195:web:699d961aa0a092ee9ead7e",
-    };
+    import { auth } from '/dashboard/js/firebase-client.js';
     const COMPANY_CODE_EXPECTED = "626882";
 
-    const app = initializeApp(FIREBASE_CONFIG);
-    const auth = getAuth(app);
 
     onAuthStateChanged(auth, user => {
       if (user) window.location.href = '/home';
@@ -183,7 +172,9 @@
           'auth/wrong-password': '비밀번호가 올바르지 않습니다.',
           'auth/invalid-credential': '아이디 또는 비밀번호가 올바르지 않습니다.',
           'auth/too-many-requests': '로그인 시도가 너무 많습니다. 잠시 후 다시 시도해주세요.',
-        }[err.code] || `로그인 오류: ${err.message}`;
+          'auth/network-request-failed': '네트워크 연결을 확인한 뒤 다시 시도해 주세요.',
+          'auth/user-disabled': '사용이 중지된 계정입니다. 관리자에게 문의해 주세요.',
+        }[err.code] || '로그인하지 못했습니다. 관리자에게 문의해 주세요.';
         showError(msg);
       } finally {
         el('loginBtn').disabled = false;

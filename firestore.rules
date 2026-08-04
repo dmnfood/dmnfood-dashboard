@@ -1,0 +1,48 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function profile() { return get(/databases/$(database)/documents/users/$(request.auth.uid)); }
+    function activeUser() { return signedIn() && profile().data.isActive == true; }
+    function managerOrAdmin() { return activeUser() && (profile().data.role == 'manager' || profile().data.role == 'admin'); }
+    function validJudgment(data) {
+      return (data.productSurfaceTemperature >= 170 && data.productSurfaceTemperature <= 200 && data.judgment == 'PASS')
+        || ((data.productSurfaceTemperature < 170 || data.productSurfaceTemperature > 200) && data.judgment == 'FAIL');
+    }
+    function validHeatingRecord(data) {
+      return data.schemaVersion == 1
+        && data.recordDate is string
+        && data.inspectorName is string
+        && data.productName is string
+        && data.roasterNo is number
+        && data.setTemperature is number
+        && data.measuredTime is string
+        && data.heatingMinutes is number
+        && data.heatingSeconds is number
+        && data.heatingTotalSeconds is number
+        && data.productSurfaceTemperature is number
+        && data.judgment is string
+        && data.createdByUid == request.auth.uid
+        && validJudgment(data);
+    }
+
+    // Profiles are provisioned and role-managed outside the client app.
+    match /users/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || managerOrAdmin());
+      allow write: if false;
+    }
+
+    match /haccpHeatingRecords/{recordId} {
+      allow read: if activeUser();
+      allow create: if activeUser() && validHeatingRecord(request.resource.data);
+      allow update: if activeUser() && validHeatingRecord(request.resource.data)
+        && (resource.data.createdByUid == request.auth.uid || managerOrAdmin());
+      allow delete: if activeUser() && (resource.data.createdByUid == request.auth.uid || managerOrAdmin());
+    }
+
+    match /haccpSettings/heating {
+      allow read: if activeUser();
+      allow write: if managerOrAdmin();
+    }
+  }
+}

@@ -881,34 +881,22 @@
     </div>
 
     <script type="module">
-        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-        import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
-        import { formatDateValue, formatTimeValue, normalizeHeatingValues, badgeClassForJudgement, escapeHtml } from '/dashboard/js/haccp-form-common.js';
-        import { listRecords, saveRecord, getRecordById } from '/dashboard/js/haccp-record-store.js';
+        import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+        import { formatDateValue, formatTimeValue, badgeClassForJudgement, escapeHtml } from '/dashboard/js/haccp-form-common.js';
+        import { auth } from '/dashboard/js/firebase-client.js';
+        import { DEFAULT_HEATING_SETTINGS, deleteHeatingRecord, loadHeatingSettings, saveHeatingRecord, subscribeToHeatingRecords } from '/dashboard/js/haccp-heating-firestore.js';
 
-        const FIREBASE_CONFIG = {
-            apiKey: 'AIzaSyAlvRWMpYV5Cq2vb0XxpA4t56KuByj8KuE',
-            authDomain: 'dmnfood-erp.firebaseapp.com',
-            projectId: 'dmnfood-erp',
-            storageBucket: 'dmnfood-erp.firebasestorage.app',
-            messagingSenderId: '918686575195',
-            appId: '1:918686575195:web:699d961aa0a092ee9ead7e',
-        };
-
-        const app = initializeApp(FIREBASE_CONFIG);
-        const auth = getAuth(app);
         // TODO: Replace these interim defaults with the form-specific responsible-person settings.
         const DEFAULT_INSPECTOR_NAME = "김석기";
         const DEFAULT_PRODUCT_NAME = "참기름";
+        let heatingSettings = { ...DEFAULT_HEATING_SETTINGS, roasterSetTemperatures: { ...DEFAULT_HEATING_SETTINGS.roasterSetTemperatures } };
         // TODO: Move these interim CCP limits to the administrator settings screen or popup.
-        const HEATING_LIMITS = {
-            productSurfaceTempMin: 170,
-            productSurfaceTempMax: 200,
-        };
-
         let currentUser = null;
         let editingRecordId = null;
         let currentJudgement = '';
+        let heatingRecords = [];
+        let unsubscribeFromRecords = null;
+        let isSaving = false;
 
         const formElements = {
             recordDate: document.getElementById('recordDate'),
@@ -951,6 +939,9 @@
             if (!isActive) {
                 btn.classList.add('active');
                 formElements.roasterNo.value = value;
+                if (!formElements.setTemperature.value) {
+                    formElements.setTemperature.value = heatingSettings.roasterSetTemperatures?.[value] ?? '';
+                }
             } else {
                 formElements.roasterNo.value = '';
             }
@@ -1003,7 +994,7 @@
             const rawTemperature = formElements.productTemperature.value.trim();
             const temperature = Number(rawTemperature);
             if (!rawTemperature || !Number.isFinite(temperature)) return '';
-            return temperature >= HEATING_LIMITS.productSurfaceTempMin && temperature <= HEATING_LIMITS.productSurfaceTempMax
+            return temperature >= heatingSettings.productSurfaceTempMin && temperature <= heatingSettings.productSurfaceTempMax
                 ? 'PASS'
                 : 'FAIL';
         }
@@ -1017,8 +1008,8 @@
             formElements.saveBtn.textContent = '기록 저장';
             formElements.cancelEditBtn.style.display = 'none';
             formElements.recordDate.value = formatDateValue(new Date());
-            formElements.workerName.value = DEFAULT_INSPECTOR_NAME;
-            formElements.productName.value = DEFAULT_PRODUCT_NAME;
+            formElements.workerName.value = heatingSettings.inspectorName || DEFAULT_INSPECTOR_NAME;
+            formElements.productName.value = heatingSettings.productName || DEFAULT_PRODUCT_NAME;
             formElements.roasterNo.value = '';
             formElements.setTemperature.value = '';
             formElements.measuredTime.value = '';
@@ -1109,33 +1100,10 @@
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
-        function buildRecordFromForm(values) {
-            const normalized = normalizeHeatingValues(values.measurements);
-            const isFail = values.judgement === 'FAIL';
-            return {
-                id: editingRecordId || crypto.randomUUID(),
-                schemaVersion: 1,
-                formType: 'heating',
-                recordDate: values.recordDate,
-                workerId: currentUser?.uid || '',
-                workerName: values.workerName,
-                productName: values.productName,
-                judgement: values.judgement,
-                deviationDetail: isFail ? values.deviationDetail : '',
-                correctiveAction: isFail ? values.correctiveAction : '',
-                actionBy: isFail ? values.actionBy : '',
-                verifiedBy: isFail ? values.verifiedBy : '',
-                notes: values.notes,
-                measurements: normalized,
-                createdAt: editingRecordId ? getRecordById(editingRecordId)?.createdAt || new Date().toISOString() : undefined,
-                updatedAt: new Date().toISOString(),
-            };
-        }
-
         function renderTable() {
             const filterDate = formElements.dateFilter.value;
             const filterResult = formElements.resultFilter.value;
-            const rows = listRecords('heating').filter((record) => {
+            const rows = heatingRecords.filter((record) => {
                 const matchesDate = !filterDate || record.recordDate === filterDate;
                 const matchesResult = filterResult === 'all' || record.judgement === filterResult;
                 return matchesDate && matchesResult;
@@ -1154,12 +1122,13 @@
                         <td>${escapeHtml(key)}</td>
                         <td><span class="${badgeClassForJudgement(record.judgement)}">${escapeHtml(record.judgement || '-')}</span></td>
                         <td>${escapeHtml(record.workerName || '-')}</td>
-                        <td><button class="record-link" type="button" data-record-id="${record.id}">수정</button></td>
+                        <td><button class="record-link" type="button" data-record-id="${record.id}">수정</button> <button class="record-link" type="button" data-delete-id="${record.id}">삭제</button></td>
                     </tr>`;
             }).join('');
         }
 
-        function handleSave() {
+        async function handleSave() {
+            if (isSaving) return;
             const values = getFormValues();
             const errors = validateForm(values);
             if (errors.length) {
@@ -1167,15 +1136,21 @@
                 return;
             }
             if (values.judgement === 'PASS') clearFailureFields();
-            const record = buildRecordFromForm(values);
-            const saved = saveRecord(record);
-            if (!saved) {
-                setToast('저장 중 문제가 발생했습니다. 브라우저 저장공간을 확인해 주세요.', true);
-                return;
+            isSaving = true;
+            formElements.saveBtn.disabled = true;
+            formElements.saveBtn.textContent = '저장 중...';
+            try {
+                await saveHeatingRecord(values, currentUser, editingRecordId, heatingSettings);
+                setToast('기록이 공유 저장소에 저장되었습니다.');
+                resetForm();
+            } catch (error) {
+                console.error('Failed to save HACCP heating record:', error);
+                setToast(error.code === 'permission-denied' ? '저장 권한이 없습니다. 관리자에게 문의해 주세요.' : '공유 저장소에 저장하지 못했습니다. 네트워크 연결을 확인해 주세요.', true);
+            } finally {
+                isSaving = false;
+                formElements.saveBtn.disabled = false;
+                formElements.saveBtn.textContent = editingRecordId ? '수정 저장' : '기록 저장';
             }
-            setToast('기록이 저장되었습니다.');
-            renderTable();
-            resetForm();
         }
 
         formElements.productTemperature.addEventListener('input', updateAutomaticJudgement);
@@ -1190,27 +1165,55 @@
         formElements.dateFilter.addEventListener('change', renderTable);
         formElements.resultFilter.addEventListener('change', renderTable);
         formElements.recordsTableBody.addEventListener('click', (event) => {
+            const deleteButton = event.target.closest('button[data-delete-id]');
+            if (deleteButton) {
+                if (!confirm('이 기록을 삭제하시겠습니까?')) return;
+                deleteHeatingRecord(deleteButton.dataset.deleteId).catch((error) => {
+                    console.error('Failed to delete HACCP heating record:', error);
+                    setToast(error.code === 'permission-denied' ? '삭제 권한이 없습니다. 관리자에게 문의해 주세요.' : '기록을 삭제하지 못했습니다. 네트워크 연결을 확인해 주세요.', true);
+                });
+                return;
+            }
             const button = event.target.closest('button[data-record-id]');
             if (!button) return;
-            const record = getRecordById(button.dataset.recordId);
+            const record = heatingRecords.find(item => item.id === button.dataset.recordId);
             if (record) {
                 populateForm(record);
                 setToast('기록을 불러왔습니다. 내용을 수정한 뒤 저장해 주세요.');
             }
         });
 
-        onAuthStateChanged(auth, user => {
+        onAuthStateChanged(auth, async user => {
             if (!user) {
+                unsubscribeFromRecords?.();
                 window.location.href = '/';
                 return;
             }
             currentUser = user;
+            try {
+                heatingSettings = await loadHeatingSettings();
+            } catch (error) {
+                console.error('Failed to load HACCP heating settings:', error);
+                heatingSettings = {
+                    ...DEFAULT_HEATING_SETTINGS,
+                    inspectorName: DEFAULT_INSPECTOR_NAME,
+                    productName: DEFAULT_PRODUCT_NAME,
+                    roasterSetTemperatures: { ...DEFAULT_HEATING_SETTINGS.roasterSetTemperatures },
+                };
+            }
             resetForm();
             document.getElementById('loadingScreen').classList.add('hidden');
             document.getElementById('mainContent').classList.remove('auth-hidden');
-            renderTable();
             formElements.dateFilter.value = formatDateValue(new Date());
             formElements.resultFilter.value = 'all';
+            unsubscribeFromRecords?.();
+            unsubscribeFromRecords = subscribeToHeatingRecords((records) => {
+                heatingRecords = records;
+                renderTable();
+            }, (error) => {
+                console.error('Failed to load HACCP heating records:', error);
+                setToast(error.code === 'permission-denied' ? '기록 조회 권한이 없습니다. 관리자에게 문의해 주세요.' : '공유 기록을 불러오지 못했습니다. 네트워크 연결을 확인해 주세요.', true);
+            });
         });
     </script>
 </body>

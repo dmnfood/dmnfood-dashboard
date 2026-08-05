@@ -997,7 +997,7 @@
             inspector: document.getElementById('settingsInspector'), product: document.getElementById('settingsProduct'), tempMin: document.getElementById('settingsTempMin'), tempMax: document.getElementById('settingsTempMax'), heatTarget: document.getElementById('settingsHeatTarget'), heatTolerance: document.getElementById('settingsHeatTolerance'),
             roasters: ['1', '2', '3', '4'].map(number => document.getElementById(`settingsRoaster${number}`)),
         };
-        const journal = { date: document.getElementById('heatingJournalDate'), status: document.getElementById('heatingJournalStatus'), summary: document.getElementById('heatingJournalSummary'), output: document.getElementById('heatingJournalPrintRoot'), print: document.getElementById('heatingJournalPrintBtn') };
+        const journal = { date: document.getElementById('heatingJournalDate'), status: document.getElementById('heatingJournalStatus'), summary: document.getElementById('heatingJournalSummary'), output: document.getElementById('heatingJournalPrintRoot'), previewStage: document.querySelector('#heatingJournalModal .journal-preview-scale-stage'), print: document.getElementById('heatingJournalPrintBtn') };
         let journalUnsubscribe = null; let journalRecords = []; let journalSettings = null; let journalLoadVersion = 0;
         const setJournalStatus = (message, error = false) => { journal.status.textContent = message; journal.status.classList.toggle('error', error); };
         const renderJournalSummary = (records, sheets) => { journal.summary.innerHTML = buildHeatingJournalSummary(records, sheets).map(([label, value]) => `<div class="journal-summary-card"><b>${escapeHtml(label)}</b><span>${escapeHtml(value)}</span></div>`).join(''); };
@@ -1019,6 +1019,11 @@
         document.getElementById('openJournalBtn').addEventListener('click', () => heatingJournalModal.open());
         document.getElementById('heatingJournalLoadBtn').addEventListener('click', loadJournalDate);
         document.getElementById('heatingJournalTodayBtn').addEventListener('click', () => { journal.date.value = formatDateValue(new Date()); loadJournalDate(); });
+        let journalPrintDetached = false;
+        const prepareHeatingJournalPrint = () => { if (journalPrintDetached) return; journalPrintDetached = true; document.body.append(journal.output); };
+        const restoreHeatingJournalPreview = () => { if (!journalPrintDetached) return; journalPrintDetached = false; journal.previewStage.append(journal.output); requestAnimationFrame(() => heatingJournalModal.fitPreview()); };
+        window.addEventListener('beforeprint', prepareHeatingJournalPrint);
+        window.addEventListener('afterprint', restoreHeatingJournalPreview);
         journal.print.addEventListener('click', () => { const originalTitle = document.title; document.title = `CCP-1_가열공정_모니터링일지_${journal.date.value}`; window.addEventListener('afterprint', () => { document.title = originalTitle; }, { once: true }); window.print(); });
 
         // Roaster button handler

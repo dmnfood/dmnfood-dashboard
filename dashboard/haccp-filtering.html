@@ -1,35 +1,709 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ko">
 <head>
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>들메내식품 · 중요관리점(CCP-2) 모니터링일지 [여과 공정]</title>
   <link rel="stylesheet" href="/dashboard/style.css">
   <style>
-    .auth-hidden{display:none!important}.loading-screen{position:fixed;inset:0;z-index:999;display:flex;align-items:center;justify-content:center;background:#070b14}.loading-screen.hidden{display:none}.loading-spinner{width:36px;height:36px;border:3px solid #ffffff20;border-top-color:#22d3ee;border-radius:50%;animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
-    .app-header{height:56px;padding:0 32px;display:flex;align-items:center;background:#ffffff0d;border-bottom:1px solid var(--border);backdrop-filter:blur(20px);position:sticky;top:0;z-index:10}.header-left{display:flex;align-items:center;gap:10px}.back-btn,.mini-btn,.btn{border:1px solid var(--border);border-radius:7px;background:#ffffff0d;color:var(--t1);font:inherit;font-size:11px;font-weight:700;cursor:pointer}.back-btn{height:30px;padding:0 12px;display:inline-flex;align-items:center;text-decoration:none}.app-title{display:flex;gap:8px;align-items:center;color:var(--t0);font-size:14px;font-weight:700}.dot{width:8px;height:8px;border-radius:50%;background:#22d3ee}.page-main{max-width:1200px;margin:auto;padding:24px 20px 80px}.page-card,.panel,.table-card{border:1px solid var(--border);border-radius:16px;background:var(--card);box-shadow:var(--shadow)}.page-card{padding:20px}.page-heading{display:flex;justify-content:space-between;gap:16px;align-items:flex-start}.page-kicker{display:inline-block;margin-bottom:8px;padding:4px 8px;border-radius:999px;background:#22d3ee1f;color:#22d3ee;font-size:11px;font-weight:700}.page-card h1{margin:0 0 4px;color:var(--t0);font-size:20px}.page-card>p{margin:0 0 16px;color:var(--t2);font-size:12px}.guidance-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:12px}.guidance-panel,.panel,.table-card{padding:12px}.guidance-panel{border:1px solid var(--border);border-radius:12px;background:#ffffff08;font-size:11px}.guidance-panel h3,.panel-title{margin:0 0 8px;color:var(--t0);font-size:12px}.guidance-panel ul{margin:0;padding-left:16px;color:var(--t1);line-height:1.6}.section-grid{display:grid;gap:12px}.field-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;--control-h:42px}.field{display:flex;flex-direction:column;gap:3px}.field.full{grid-column:1/-1}.field label{color:var(--t1);font-size:10px;font-weight:700}.field input,.field textarea{box-sizing:border-box;width:100%;min-height:var(--control-h);padding:7px 9px;border:1px solid var(--border);border-radius:7px;background:var(--in-bg);color:var(--t0);font:inherit;font-size:13px}.field textarea{min-height:52px;resize:vertical}.input-row{display:flex;gap:5px}.input-row input{flex:1}.mini-btn{min-height:var(--control-h);padding:6px 8px;white-space:nowrap}.mini-btn.active,.choice.active{border-color:#22d3ee66;background:#22d3ee24;color:#22d3ee}.helper{min-height:14px;color:var(--t2);font-size:10px}.choice-group{display:flex;gap:5px}.choice{flex:1;min-height:var(--control-h);border:1px solid var(--border);border-radius:7px;background:#ffffff08;color:var(--t1);font:inherit;font-size:12px;font-weight:700;cursor:pointer}.choice.damaged.active{border-color:#f8717188;background:#f8717120;color:var(--rv)}.judgment{display:flex;align-items:center;justify-content:center;min-height:var(--control-h);border:1px solid var(--border);border-radius:7px;color:var(--t2);font-size:13px;font-weight:800}.judgment.pass{border-color:#4ade4888;background:#4ade4820;color:var(--zr)}.judgment.fail{border-color:#f8717188;background:#f8717120;color:var(--rv)}.fail-section{display:none;grid-column:1/-1;margin-top:8px;padding-top:8px;border-top:1px solid var(--border)}.fail-section.show{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}.btn{padding:8px 12px}.btn.primary{background:linear-gradient(135deg,#22d3ee3d,#d946ef2e);color:var(--t0)}.btn:disabled{opacity:.5;cursor:not-allowed}.toast{display:none;margin-top:8px;padding:8px;border:1px solid #4ade4840;border-radius:7px;background:#4ade481f;color:var(--zr);font-size:11px}.toast.show{display:block}.toast.error{border-color:#f8717140;background:#f8717120;color:var(--rv)}.table-card{margin-top:12px}.table-wrap{max-height:360px;overflow:auto}table{width:100%;min-width:820px;border-collapse:collapse}th,td{padding:7px;border-bottom:1px solid var(--border);text-align:left;color:var(--t1);font-size:10px}th{color:var(--t0)}.badge{padding:2px 6px;border-radius:6px;font-weight:700}.badge.pass{color:var(--zr);background:#4ade4820}.badge.fail{color:var(--rv);background:#f8717120}.link-btn{border:0;background:none;color:#22d3ee;cursor:pointer;font:inherit;font-size:10px;font-weight:700}.settings-modal{position:fixed;inset:0;z-index:30;display:none;align-items:center;justify-content:center;padding:20px;background:#030712c9}.settings-modal.show{display:flex}.settings-dialog{width:min(100%,680px);max-height:calc(100dvh - 40px);overflow:auto;padding:20px;border:1px solid var(--border);border-radius:14px;background:#101827}.settings-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}.settings-header h2{margin:0;color:var(--t0);font-size:16px}.close{border:0;background:none;color:var(--t2);font-size:24px;cursor:pointer}@media(max-width:1024px){.field-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.guidance-grid{grid-template-columns:repeat(2,minmax(0,1fr)}}@media(max-width:700px){.app-header{padding:0 12px}.page-main{padding:16px 12px 60px}.page-card{padding:12px}.page-heading{flex-direction:column}.field-grid,.guidance-grid,.fail-section.show{grid-template-columns:1fr}}
-    /* CCP-1 header, information-card list, and recent-record class paths. */
-    .page-card p { font-size: 12px; color: var(--t2); line-height: 1.6; margin-bottom: 16px; }
-    .guidance-list { list-style: none; padding: 0; margin: 0; color: var(--t1); line-height: 1.5; }
-    .guidance-list li { margin-bottom: 4px; padding-left: 12px; position: relative; }
-    .guidance-list li::before { content: "•"; position: absolute; left: 0; color: #22d3ee; }
-    .table-card { margin-top: 12px; border: 1px solid var(--border); border-radius: 12px; background: rgba(255, 255, 255, .04); box-shadow: none; padding: 12px; }
-    .table-wrap { max-height: none; overflow-x: auto; }
-    table { width: 100%; border-collapse: collapse; min-width: 860px; }
-    th, td { padding: 6px 8px; border-bottom: 1px solid var(--border); text-align: left; font-size: 10px; color: var(--t1); }
-    th { color: var(--t0); font-size: 9px; text-transform: uppercase; letter-spacing: .06em; font-weight: 700; }
-    .badge { display: inline-flex; align-items: center; gap: 3px; padding: 2px 6px; border-radius: 6px; font-size: 9px; font-weight: 700; }
-    .badge-success { background: rgba(74, 222, 128, .12); color: var(--zr); border: 1px solid rgba(74, 222, 128, .24); }
-    .badge-danger { background: rgba(248, 113, 113, .12); color: var(--rv); border: 1px solid rgba(248, 113, 113, .24); }
-    .record-link { color: #22d3ee; background: none; border: 0; cursor: pointer; padding: 0; font: inherit; font-size: 10px; font-weight: 700; }
-    .toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; align-items: center; }
-    .toolbar select, .toolbar input { width: auto; min-width: 120px; font-size: 10px; padding: 5px 7px; }
-    .empty-state { border: 1px dashed var(--border); border-radius: 12px; padding: 20px; text-align: center; color: var(--t2); background: rgba(255, 255, 255, .03); font-size: 11px; }
-    .action-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
-    .btn-primary, .btn-secondary { border: 1px solid var(--border); border-radius: 7px; padding: 8px 12px; font: inherit; cursor: pointer; font-weight: 700; font-size: 12px; }
-    .btn-primary { background: linear-gradient(135deg, rgba(34, 211, 238, .24), rgba(217, 70, 239, .18)); color: var(--t0); }
-    .btn-secondary { background: rgba(255, 255, 255, .05); color: var(--t2); }
-    .settings-btn { flex: 0 0 auto; margin-top: 4px; }
-  </style>
+        .auth-hidden {
+            display: none !important;
+        }
+
+        .loading-screen {
+            position: fixed;
+            inset: 0;
+            background: #070b14;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 12px;
+            z-index: 999;
+        }
+
+        .loading-screen.hidden {
+            display: none;
+        }
+
+        .loading-spinner {
+            width: 36px;
+            height: 36px;
+            border: 3px solid rgba(255, 255, 255, .12);
+            border-top-color: #22d3ee;
+            border-radius: 50%;
+            animation: spin .8s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .app-header {
+            background: rgba(255, 255, 255, 0.05);
+            border-bottom: 1px solid var(--border);
+            backdrop-filter: blur(20px);
+            padding: 0 32px;
+            height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .back-btn {
+            height: 30px;
+            padding: 0 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: transparent;
+            color: var(--t2);
+            font-family: 'Noto Sans KR', sans-serif;
+            font-size: 12px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .back-btn:hover {
+            background: rgba(255, 255, 255, .07);
+            color: var(--t0);
+        }
+
+        .app-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--t0);
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .app-title .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #22d3ee;
+        }
+
+        .page-main {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 24px 20px 80px;
+        }
+
+        .page-card {
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            background: var(--card);
+            box-shadow: var(--shadow);
+            padding: 20px;
+        }
+
+        .page-kicker {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 8px;
+            border-radius: 999px;
+            background: rgba(34, 211, 238, .12);
+            color: #22d3ee;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: .3px;
+            margin-bottom: 8px;
+        }
+
+        .page-card h1 {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--t0);
+            margin-bottom: 4px;
+            letter-spacing: -0.3px;
+        }
+
+        .page-card p {
+            font-size: 12px;
+            color: var(--t2);
+            line-height: 1.6;
+            margin-bottom: 16px;
+        }
+
+        .page-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+        .settings-btn { flex: 0 0 auto; margin-top: 4px; }
+        .guidance-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 12px; }
+
+        /* Guidance panels */
+        .guidance-panel {
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, .02);
+            padding: 12px;
+            margin: 0;
+            font-size: 11px;
+        }
+
+        .guidance-panel h3 {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--t0);
+            margin-bottom: 6px;
+            display: flex;
+            gap: 4px;
+            align-items: center;
+        }
+
+        .guidance-panel h3::before {
+            content: "→";
+            color: #22d3ee;
+            font-weight: 700;
+        }
+
+        .guidance-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px;
+            margin-bottom: 6px;
+        }
+
+        .guidance-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .guidance-item {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .guidance-label {
+            color: var(--t2);
+            font-weight: 600;
+        }
+
+        .guidance-value {
+            color: var(--t0);
+            font-weight: 700;
+        }
+
+        .guidance-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            color: var(--t1);
+            line-height: 1.5;
+        }
+
+        .guidance-list li {
+            margin-bottom: 4px;
+            padding-left: 12px;
+            position: relative;
+        }
+
+        .guidance-list li::before {
+            content: "•";
+            position: absolute;
+            left: 0;
+            color: #22d3ee;
+        }
+
+        .section-grid {
+            display: grid;
+            gap: 0;
+        }
+
+        .panel {
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, .04);
+            padding: 12px;
+        }
+
+        .panel-title {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--t0);
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .field-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 8px;
+            --form-control-height: 42px;
+        }
+
+        .field {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+
+        .field.full {
+            grid-column: 1 / -1;
+        }
+
+        .field.half {
+            grid-column: span 1;
+        }
+
+        .field label {
+            font-size: 10px;
+            color: var(--t1);
+            font-weight: 700;
+            letter-spacing: 0.3px;
+            text-transform: uppercase;
+        }
+
+        .field input,
+        .field select,
+        .field textarea {
+            width: 100%;
+            padding: 7px 9px;
+            border-radius: 7px;
+            border: 1px solid var(--border);
+            background: var(--in-bg);
+            color: var(--t0);
+            font: inherit;
+            font-size: 13px;
+            line-height: 1.3;
+            min-height: var(--form-control-height);
+        }
+
+        .field input::placeholder,
+        .field textarea::placeholder {
+            color: var(--in-ph);
+            font-size: 12px;
+        }
+
+        .field textarea {
+            min-height: 48px;
+            resize: vertical;
+            font-size: 12px;
+        }
+
+        .field textarea.compact {
+            min-height: 42px;
+        }
+
+        .input-row {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+        }
+
+        .input-row input {
+            flex: 1;
+        }
+
+        .roaster-buttons {
+            display: flex;
+            gap: 4px;
+            flex-wrap: nowrap;
+        }
+
+        .roaster-btn {
+            flex: 1;
+            min-width: 32px;
+            padding: 6px 0;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, .03);
+            color: var(--t1);
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 700;
+            text-align: center;
+            transition: all 120ms ease;
+            min-height: var(--form-control-height);
+        }
+
+        .roaster-btn:hover {
+            background: rgba(255, 255, 255, .06);
+            color: var(--t0);
+        }
+
+        .roaster-btn.active {
+            background: rgba(34, 211, 238, .18);
+            border-color: rgba(34, 211, 238, .28);
+            color: #22d3ee;
+        }
+
+        .mini-btn {
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, .04);
+            padding: 6px 7px;
+            border-radius: 6px;
+            color: var(--t1);
+            cursor: pointer;
+            font-size: 10px;
+            font-weight: 700;
+            white-space: nowrap;
+            flex-shrink: 0;
+            min-height: var(--form-control-height);
+        }
+
+        .mini-btn:hover {
+            background: rgba(255, 255, 255, .08);
+            color: var(--t0);
+        }
+
+        .mini-btn.active {
+            background: rgba(34, 211, 238, .18);
+            border-color: rgba(34, 211, 238, .28);
+            color: #22d3ee;
+        }
+
+        .inline-help {
+            font-size: 10px;
+            color: var(--t2);
+        }
+
+        .status-group {
+            display: flex;
+            gap: 5px;
+            flex-wrap: nowrap;
+        }
+
+        .status-option {
+            flex: 1;
+            padding: 6px 8px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, .03);
+            color: var(--t1);
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 700;
+            transition: all 120ms ease;
+            text-align: center;
+        }
+
+        .status-option[aria-disabled="true"] {
+            cursor: default;
+        }
+
+        .status-option.active {
+            border-color: rgba(34, 211, 238, .28);
+            color: var(--t0);
+            background: rgba(34, 211, 238, .12);
+        }
+
+        .status-option.fail.active {
+            border-color: rgba(248, 113, 113, .32);
+            background: rgba(248, 113, 113, .12);
+            color: var(--rv);
+        }
+
+        .fail-section {
+            display: none;
+            grid-column: 1 / -1;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid var(--border);
+            animation: slideDown 200ms ease;
+        }
+
+        .fail-section.show {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                max-height: 0;
+            }
+            to {
+                opacity: 1;
+                max-height: 600px;
+            }
+        }
+
+        .error-text {
+            color: var(--rv);
+            font-size: 9px;
+            display: none;
+            margin-top: 1px;
+        }
+
+        .error-text.show {
+            display: block;
+        }
+
+        .action-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 10px;
+        }
+
+        .btn-primary,
+        .btn-secondary {
+            border: 1px solid var(--border);
+            border-radius: 7px;
+            padding: 8px 12px;
+            font: inherit;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 12px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, rgba(34, 211, 238, .24), rgba(217, 70, 239, .18));
+            color: var(--t0);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, .05);
+            color: var(--t2);
+        }
+
+        .toast {
+            margin-top: 8px;
+            padding: 7px 9px;
+            border-radius: 7px;
+            border: 1px solid rgba(74, 222, 128, .24);
+            background: rgba(74, 222, 128, .12);
+            color: var(--zr);
+            font-size: 11px;
+            display: none;
+        }
+
+        .toast.show {
+            display: block;
+        }
+
+        .table-card {
+            margin-top: 12px;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, .04);
+            padding: 12px;
+        }
+
+        .table-wrap {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 860px;
+        }
+
+        th,
+        td {
+            padding: 6px 8px;
+            border-bottom: 1px solid var(--border);
+            text-align: left;
+            font-size: 10px;
+            color: var(--t1);
+        }
+
+        th {
+            color: var(--t0);
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: .06em;
+            font-weight: 700;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            padding: 2px 6px;
+            border-radius: 6px;
+            font-size: 9px;
+            font-weight: 700;
+        }
+
+        .badge-success {
+            background: rgba(74, 222, 128, .12);
+            color: var(--zr);
+            border: 1px solid rgba(74, 222, 128, .24);
+        }
+
+        .badge-danger {
+            background: rgba(248, 113, 113, .12);
+            color: var(--rv);
+            border: 1px solid rgba(248, 113, 113, .24);
+        }
+
+        .muted {
+            color: var(--t2);
+            font-size: 10px;
+        }
+
+        .record-link {
+            color: #22d3ee;
+            background: none;
+            border: 0;
+            cursor: pointer;
+            padding: 0;
+            font: inherit;
+            font-size: 10px;
+            font-weight: 700;
+        }
+
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 10px;
+            align-items: center;
+        }
+
+        .toolbar select,
+        .toolbar input {
+            width: auto;
+            min-width: 120px;
+            font-size: 10px;
+            padding: 5px 7px;
+        }
+
+        .empty-state {
+            border: 1px dashed var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            color: var(--t2);
+            background: rgba(255, 255, 255, .03);
+            font-size: 11px;
+        }
+
+        .settings-modal { position: fixed; inset: 0; z-index: 200; display: none; align-items: center; justify-content: center; padding: 20px; background: rgba(3, 7, 18, .76); }
+        .settings-modal.show { display: flex; }
+        .settings-dialog { width: min(100%, 720px); max-height: calc(100dvh - 40px); overflow: auto; padding: 20px; border: 1px solid var(--border); border-radius: 14px; background: #101827; box-shadow: var(--shadow); }
+        .settings-header { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px; }
+        .settings-header h2 { font-size:16px; color:var(--t0); }
+        .settings-close { border:0; background:transparent; color:var(--t2); font-size:24px; cursor:pointer; }
+        .settings-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+        .settings-status { min-height:18px; margin-top:10px; font-size:11px; color:var(--t2); }
+        .settings-status.error { color:var(--rv); }
+        .settings-status.success { color:var(--zr); }
+        body.settings-modal-open { overflow:hidden; }
+
+        @media (max-width: 1024px) {
+            .field-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .guidance-row {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .guidance-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+
+        @media (max-width: 760px) {
+            .field-grid {
+                grid-template-columns: 1fr;
+            }
+            .guidance-grid, .settings-grid { grid-template-columns: 1fr; }
+            .page-heading { flex-direction: column; }
+
+            .fail-section.show {
+                grid-template-columns: 1fr;
+            }
+
+            .roaster-buttons {
+                gap: 3px;
+            }
+
+            .roaster-btn {
+                min-width: 30px;
+                padding: 5px 0;
+                font-size: 11px;
+            }
+
+            .page-main {
+                padding: 16px 12px 60px;
+            }
+
+            .app-header {
+                padding: 0 12px;
+            }
+
+            .page-card {
+                padding: 12px;
+            }
+
+            .panel {
+                padding: 10px;
+            }
+
+            .guidance-panel {
+                padding: 10px;
+                margin-bottom: 10px;
+            }
+
+            .guidance-row {
+                grid-template-columns: 1fr;
+            }
+
+            .input-row {
+                gap: 3px;
+            }
+
+            .action-row {
+                gap: 4px;
+            }
+
+            .btn-primary,
+            .btn-secondary {
+                padding: 7px 10px;
+                font-size: 11px;
+            }
+
+            .status-option {
+                padding: 5px 6px;
+                font-size: 11px;
+            }
+
+            .field input,
+            .field select,
+            .field textarea {
+                padding: 6px 8px;
+                font-size: 14px;
+            }
+
+            .field label {
+                font-size: 9px;
+            }
+
+            .mini-btn {
+                padding: 5px 6px;
+                font-size: 9px;
+            }
+        }
+    </style>
+<style>
+  /* CCP-2 business controls only; page geometry remains the CCP-1 master. */
+  .choice-group { display:flex; gap:5px; min-height:var(--form-control-height); }
+  .choice { flex:1; min-width:0; border:1px solid var(--border); border-radius:6px; background:rgba(255,255,255,.03); color:var(--t1); cursor:pointer; font-size:12px; font-weight:700; }
+  .choice.active { border-color:rgba(34,211,238,.28); background:rgba(34,211,238,.18); color:#22d3ee; }
+  .choice.damaged.active { border-color:rgba(248,113,113,.32); background:rgba(248,113,113,.12); color:var(--rv); }
+  .judgment { min-height:var(--form-control-height); display:flex; align-items:center; justify-content:center; border:1px solid var(--border); border-radius:7px; color:var(--t2); font-size:13px; font-weight:800; }
+  .judgment.pass { border-color:rgba(74,222,128,.32); background:rgba(74,222,128,.12); color:var(--zr); }
+  .judgment.fail { border-color:rgba(248,113,113,.32); background:rgba(248,113,113,.12); color:var(--rv); }
+</style>
 </head>
 <body>
   <div id="loadingScreen" class="loading-screen"><div class="loading-spinner"></div></div><div class="blobs"><div class="b1"></div><div class="b2"></div></div>
@@ -45,7 +719,7 @@
     <section class="panel"><h2 class="panel-title">개선조치 안내</h2><div class="guidance-grid"><article class="guidance-panel">여과망 파손 발견 시 정상 여과망으로 즉시 교체합니다.</article><article class="guidance-panel">이탈 여과망은 폐기 또는 재사용 금지 처리합니다.</article><article class="guidance-panel">정상 여과망을 사용해 여과 공정을 다시 진행합니다.</article></div></section></div>
     <section class="table-card"><div class="toolbar"><label class="field" style="min-width:160px;margin:0;"><span class="muted">작성일</span><input id="dateFilter" type="date"></label><label class="field" style="min-width:120px;margin:0;"><span class="muted">결과</span><select id="resultFilter"><option value="all">전체</option><option value="PASS">PASS</option><option value="FAIL">FAIL</option></select></label></div><div class="table-wrap"><table><thead><tr><th>작성일</th><th>확인시각</th><th>품명</th><th>여과망 상태</th><th>압력</th><th>이물</th><th>판정</th><th>점검자</th><th>작업</th></tr></thead><tbody id="recordsBody"><tr><td colspan="9" class="empty-state">기록을 불러오는 중입니다.</td></tr></tbody></table></div></section>
   </section></main></div>
-  <div id="settingsModal" class="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle"><div class="settings-dialog"><div class="settings-header"><h2 id="settingsTitle">CCP-2 기본 설정</h2><button id="settingsClose" class="close" type="button" aria-label="닫기">×</button></div><div class="field-grid"><div class="field"><label for="settingInspector">점검자</label><input id="settingInspector"></div><div class="field"><label for="settingProduct">품명</label><input id="settingProduct"></div><div class="field"><label for="settingMesh">여과망 규격</label><input id="settingMesh"></div><div class="field"><label for="settingCartridge">Cartridge Filter 규격</label><input id="settingCartridge"></div><div class="field"><label for="settingPressure">최대 압력 (MPa)</label><input id="settingPressure" type="number" min="0" step="0.01"></div></div><div class="actions"><button id="settingsSave" class="btn primary" type="button">설정 저장</button><button id="settingsCancel" class="btn" type="button">닫기</button></div><div id="settingsMessage" class="toast"></div></div></div>
+  <div id="settingsModal" class="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle"><div class="settings-dialog"><div class="settings-header"><h2 id="settingsTitle">CCP-2 기본 설정</h2><button id="settingsClose" class="settings-close" type="button" aria-label="닫기">×</button></div><div class="settings-grid"><div class="field"><label for="settingInspector">점검자</label><input id="settingInspector"></div><div class="field"><label for="settingProduct">품명</label><input id="settingProduct"></div><div class="field"><label for="settingMesh">여과망 규격</label><input id="settingMesh"></div><div class="field"><label for="settingCartridge">Cartridge Filter 규격</label><input id="settingCartridge"></div><div class="field"><label for="settingPressure">최대 압력 (MPa)</label><input id="settingPressure" type="number" min="0" step="0.01"></div></div><div class="action-row"><button id="settingsSave" class="btn-primary" type="button">설정 저장</button><button id="settingsCancel" class="btn-secondary" type="button">닫기</button></div><div id="settingsMessage" class="settings-status"></div></div></div>
   <script type="module">
     import { requireApprovedActiveUser } from '/dashboard/js/firebase-client.js';
     import { DEFAULT_FILTERING_SETTINGS, calculateFilteringJudgment, deleteFilteringRecord, loadFilteringSettings, pressureLimitPsi, saveFilteringRecord, saveFilteringSettings, subscribeToFilteringRecords } from '/dashboard/js/haccp-filtering-firestore.js';
@@ -64,7 +738,7 @@
     function edit(id){const r=records.find(x=>x.id===id);if(!r)return;editingId=id;editingRecord=r;e.date.value=r.recordDate;e.inspector.value=r.inspectorName;e.product.value=r.productName;e.time.value=r.checkedTime;e.pressure.value=r.pressurePsi;e.foreign.value=r.foreignMaterialDescription||'';choose(r.filterMeshDamaged);e.deviation.value=r.deviationDetail||'';e.corrective.value=r.correctiveActionResult||'';e.actionBy.value=r.actionBy||'';e.verified.value=r.verifiedBy||'';e.notes.value=r.notes||'';updateJudgment();e.save.textContent='수정 저장';e.cancel.hidden=false;window.scrollTo({top:0,behavior:'smooth'})}
     async function save(){const v=values(),error=validate(v);if(error)return notify(error,true);const wasEditing=Boolean(editingId);e.save.disabled=true;try{await saveFilteringRecord(v,user,editingId,settings,editingRecord);reset();notify(wasEditing?'기록을 수정했습니다.':'기록을 저장했습니다.')}catch(err){console.error(err);notify('저장에 실패했습니다. 입력 내용은 유지됩니다.',true)}finally{e.save.disabled=false}}
     function showSettings(){['Inspector','Product','Mesh','Cartridge','Pressure'].forEach(k=>$('setting'+k).value=settings[{Inspector:'inspectorName',Product:'productName',Mesh:'meshSpecification',Cartridge:'cartridgeFilterSpecification',Pressure:'pressureLimitMpa'}[k]]);const writable=['manager','admin'].includes(role);$('settingsSave').disabled=!writable;$('settingsMessage').textContent=writable?'':'설정은 관리자 또는 매니저만 저장할 수 있습니다.';$('settingsModal').classList.add('show')}
-    async function saveSettings(){try{settings={...settings,inspectorName:$('settingInspector').value.trim(),productName:$('settingProduct').value.trim(),meshSpecification:$('settingMesh').value.trim(),cartridgeFilterSpecification:$('settingCartridge').value.trim(),pressureLimitMpa:Number($('settingPressure').value)};await saveFilteringSettings(settings,user);renderCriteria();$('settingsMessage').textContent='설정을 저장했습니다.'}catch(err){$('settingsMessage').textContent='설정 저장에 실패했습니다.';$('settingsMessage').className='toast show error'}}
+    async function saveSettings(){try{settings={...settings,inspectorName:$('settingInspector').value.trim(),productName:$('settingProduct').value.trim(),meshSpecification:$('settingMesh').value.trim(),cartridgeFilterSpecification:$('settingCartridge').value.trim(),pressureLimitMpa:Number($('settingPressure').value)};await saveFilteringSettings(settings,user);renderCriteria();$('settingsMessage').textContent='설정을 저장했습니다.';$('settingsMessage').className='settings-status success'}catch(err){$('settingsMessage').textContent='설정 저장에 실패했습니다.';$('settingsMessage').className='settings-status error'}}
     document.querySelectorAll('[data-damaged]').forEach(b=>b.addEventListener('click',()=>choose(b.dataset.damaged==='true')));e.pressure.addEventListener('input',updateJudgment);$('nowBtn').addEventListener('click',()=>{e.time.value=timeNow();$('nowBtn').classList.add('active')});e.save.addEventListener('click',save);$('resetBtn').addEventListener('click',reset);e.cancel.addEventListener('click',reset);e.dateFilter.addEventListener('change',render);e.resultFilter.addEventListener('change',render);$('settingsBtn').addEventListener('click',showSettings);$('settingsClose').addEventListener('click',()=>$('settingsModal').classList.remove('show'));$('settingsCancel').addEventListener('click',()=>$('settingsModal').classList.remove('show'));$('settingsSave').addEventListener('click',saveSettings);e.body.addEventListener('click',async ev=>{const id=ev.target.dataset.edit||ev.target.dataset.delete;if(!id)return;if(ev.target.dataset.edit)return edit(id);if(confirm('이 기록을 삭제할까요?'))try{await deleteFilteringRecord(id)}catch(err){notify('삭제에 실패했습니다.',true)}});
     requireApprovedActiveUser({page:'haccp-filtering'}).then(async session=>{if(!session)return;user=session.user;role=session.role;try{settings=await loadFilteringSettings()}catch(err){console.error(err);notify('기본 설정을 불러오지 못해 안전한 기본값을 사용합니다.',true)}renderCriteria();reset();e.dateFilter.value=today();e.resultFilter.value='all';unsubscribe=subscribeToFilteringRecords(rows=>{records=rows;render()},err=>{console.error(err);e.body.innerHTML='<tr><td colspan="9" class="empty-state">기록을 불러오지 못했습니다.</td></tr>'});$('loadingScreen').classList.add('hidden');$('mainContent').classList.remove('auth-hidden')});window.addEventListener('beforeunload',()=>unsubscribe?.());
   </script>

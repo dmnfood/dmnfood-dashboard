@@ -50,6 +50,30 @@
           && data.createdByUid == request.auth.uid
           && validJudgment(data);
       }
+      function validFilteringJudgment(data) {
+        return (data.filterMeshDamaged == false
+            && data.pressurePsi <= data.judgmentCriteria.pressureLimitPsi
+            && data.judgment == 'PASS')
+          || ((data.filterMeshDamaged == true
+            || data.pressurePsi > data.judgmentCriteria.pressureLimitPsi)
+            && data.judgment == 'FAIL');
+      }
+      function validFilteringRecord(data) {
+        return data.schemaVersion == 1
+          && data.recordDate is string
+          && data.inspectorName is string
+          && data.productName is string
+          && data.checkedTime is string
+          && data.filterMeshDamaged is bool
+          && data.pressurePsi is number && data.pressurePsi >= 0
+          && data.foreignMaterialDescription is string
+          && data.judgment in ['PASS', 'FAIL']
+          && data.judgmentCriteria is map
+          && data.judgmentCriteria.pressureLimitMpa is number && data.judgmentCriteria.pressureLimitMpa >= 0
+          && data.judgmentCriteria.pressureLimitPsi is number && data.judgmentCriteria.pressureLimitPsi >= 0
+          && data.judgmentCriteria.meshMustBeIntact == true
+          && validFilteringJudgment(data);
+      }
 
       match /users/{uid} {
         // Bootstrap read: a signed-in user must be able to inspect only their own profile before approval.
@@ -73,6 +97,21 @@
       }
 
       match /haccpSettings/heating {
+        allow read: if activeUser();
+        allow write: if managerOrAdmin();
+      }
+
+      match /haccpFilteringRecords/{recordId} {
+        allow read: if activeUser();
+        allow create: if activeUser() && validFilteringRecord(request.resource.data)
+          && request.resource.data.createdByUid == request.auth.uid;
+        allow update: if activeUser() && validFilteringRecord(request.resource.data)
+          && request.resource.data.createdByUid == resource.data.createdByUid
+          && (resource.data.createdByUid == request.auth.uid || managerOrAdmin());
+        allow delete: if activeUser() && (resource.data.createdByUid == request.auth.uid || managerOrAdmin());
+      }
+
+      match /haccpSettings/filtering {
         allow read: if activeUser();
         allow write: if managerOrAdmin();
       }

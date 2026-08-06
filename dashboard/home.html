@@ -412,6 +412,30 @@
       gap: 16px;
     }
 
+    /* HACCP 현황만 독립적으로 4열을 사용합니다. */
+    .haccp-today-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+
+    .haccp-today-grid .dashboard-card {
+      height: 100%;
+    }
+
+    @media (max-width: 1100px) {
+      .haccp-today-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 620px) {
+      .haccp-today-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
     .dashboard-card {
       background: var(--card);
       border: 1px solid var(--border);
@@ -437,6 +461,11 @@
     .dashboard-card:hover {
       transform: translateY(-2px);
       border-color: rgba(34, 211, 238, .3);
+    }
+
+    .dashboard-card:focus-visible {
+      outline: 3px solid rgba(34, 211, 238, .8);
+      outline-offset: 3px;
     }
 
     .card-active::before {
@@ -754,7 +783,7 @@
             <span class="section-title">오늘의 HACCP 현황</span>
             <span class="section-count">준비 중</span>
           </div>
-          <div class="card-grid" style="margin-bottom: 18px;">
+          <div class="haccp-today-grid">
             <div class="dashboard-card card-placeholder">
               <div class="card-icon">🧪</div>
               <div class="card-title">오늘 작성 기록</div>
@@ -790,28 +819,112 @@
           </div>
 
           <div class="section-header">
-            <span class="section-title">CCP 공정 일지</span>
-            <span class="section-count">2</span>
+            <span class="section-title">전체 관리</span>
+            <span class="section-count">담당: 공통</span>
+          </div>
+          <div class="card-grid">
+            <div class="dashboard-card card-placeholder" aria-disabled="true">
+              <div class="card-icon">✓</div><div class="card-title">중요관리점(CCP) 검증점검표</div>
+              <div class="card-meta"><span class="badge badge-soon">준비 중</span></div>
+            </div>
+            <div class="dashboard-card card-placeholder" aria-disabled="true">
+              <div class="card-icon">🧼</div><div class="card-title">일반위생관리 및 공정관리</div>
+              <div class="card-meta"><span class="badge badge-soon">준비 중</span></div>
+            </div>
+            <div class="dashboard-card card-placeholder" aria-disabled="true">
+              <div class="card-icon">🌬️</div><div class="card-title">공기청정기 필터 관리</div>
+              <div class="card-meta"><span class="badge badge-soon">준비 중</span></div>
+            </div>
+            <div class="dashboard-card card-placeholder" aria-disabled="true">
+              <div class="card-icon">🛡️</div><div class="card-title">방충 / 방서 관리</div>
+              <div class="card-meta"><span class="badge badge-soon">준비 중</span></div>
+            </div>
+            <div class="dashboard-card card-placeholder" aria-disabled="true">
+              <div class="card-icon">📋</div><div class="card-title">입고검사서</div>
+              <div class="card-meta"><span class="badge badge-soon">준비 중</span></div>
+            </div>
+          </div>
+
+          <div class="section-header">
+            <span class="section-title">입고 관리</span>
+            <span class="section-count">담당: 입고 담당</span>
+          </div>
+          <div class="card-grid">
+            <div class="dashboard-card card-placeholder" aria-disabled="true">
+              <div class="card-icon">📦</div><div class="card-title">원자재 입고검사서</div>
+              <div class="card-meta"><span class="badge badge-soon">준비 중</span></div>
+            </div>
+            <div class="dashboard-card card-placeholder" aria-disabled="true">
+              <div class="card-icon">📦</div><div class="card-title">부자재 입고검사서</div>
+              <div class="card-meta"><span class="badge badge-soon">준비 중</span></div>
+            </div>
+            <div class="dashboard-card card-placeholder" aria-disabled="true">
+              <div class="card-icon">①</div><div class="card-title">공정 1</div>
+              <div class="card-meta"><span class="badge badge-soon">준비 중</span></div>
+            </div>
+          </div>
+
+          <div class="section-header">
+            <span class="section-title">가열기 부문</span>
+            <span class="section-count">담당: 가열기 부문</span>
           </div>
           <div class="card-grid">
             <a href="/haccp-heating" class="dashboard-card card-active">
               <div class="card-icon">🔥</div>
-              <div class="card-title">CCP-1 가열공정 점검표</div>
+              <div class="card-title">가열 공정 (CCP-1)</div>
               <div class="card-desc">가열 조건, 가열 시간, 제품 온도, 판정 결과와 조치 내용을 기록하는 공정 점검표입니다.</div>
               <div class="card-meta">
-                <span class="badge badge-live"><span class="badge-dot"></span> 준비 중</span>
+                <span class="badge badge-live"><span class="badge-dot"></span> 운영 중</span>
                 <span class="card-arrow">→</span>
               </div>
             </a>
             <a href="/haccp-filtering" class="dashboard-card card-active">
               <div class="card-icon">💧</div>
-              <div class="card-title">CCP-2 여과공정 점검표</div>
+              <div class="card-title">여과 공정 (CCP-2)</div>
               <div class="card-desc">여과망 상태, 압력, 이물 유무, 판정 결과와 조치 내용을 기록하는 공정 점검표입니다.</div>
               <div class="card-meta">
-                <span class="badge badge-live"><span class="badge-dot"></span> 준비 중</span>
+                <span class="badge badge-live"><span class="badge-dot"></span> 운영 중</span>
                 <span class="card-arrow">→</span>
               </div>
             </a>
+            <div class="dashboard-card card-placeholder" aria-disabled="true">
+              <div class="card-icon">⚙️</div><div class="card-title">분쇄 공정 (CCP-3)</div>
+              <div class="card-meta"><span class="badge badge-soon">준비 중</span></div>
+            </div>
+            <div class="dashboard-card card-placeholder" aria-disabled="true">
+              <div class="card-icon">📝</div><div class="card-title">생산일지 (공정 1)</div>
+              <div class="card-meta"><span class="badge badge-soon">준비 중</span></div>
+            </div>
+            <div class="dashboard-card card-placeholder" aria-disabled="true">
+              <div class="card-icon">②</div><div class="card-title">공정 2</div>
+              <div class="card-meta"><span class="badge badge-soon">준비 중</span></div>
+            </div>
+          </div>
+
+          <div class="section-header">
+            <span class="section-title">배합실 주임</span>
+            <span class="section-count">담당: 배합실 주임</span>
+          </div>
+          <div class="card-grid">
+            <div class="dashboard-card card-placeholder" aria-disabled="true">
+              <div class="card-icon">📝</div><div class="card-title">생산일지 (공정 2)</div>
+              <div class="card-meta"><span class="badge badge-soon">준비 중</span></div>
+            </div>
+            <div class="dashboard-card card-placeholder" aria-disabled="true">
+              <div class="card-icon">③</div><div class="card-title">공정 3</div>
+              <div class="card-meta"><span class="badge badge-soon">준비 중</span></div>
+            </div>
+          </div>
+
+          <div class="section-header">
+            <span class="section-title">포장팀 과장</span>
+            <span class="section-count">담당: 포장팀 과장</span>
+          </div>
+          <div class="card-grid">
+            <div class="dashboard-card card-placeholder" aria-disabled="true">
+              <div class="card-icon">📝</div><div class="card-title">생산일지 (공정 3)</div>
+              <div class="card-meta"><span class="badge badge-soon">준비 중</span></div>
+            </div>
           </div>
         </div>
 

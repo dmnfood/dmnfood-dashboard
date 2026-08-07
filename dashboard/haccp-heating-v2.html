@@ -1,0 +1,1421 @@
+<!--
+  GENERATED FROM: haccp-master.html
+  BUSINESS ADAPTER: CCP-1 heating
+-->
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>들메내식품 · 중요관리점(CCP-1) 모니터링일지 [가열 공정] (New Version)</title>
+    <link rel="stylesheet" href="/dashboard/style.css">
+    <link rel="stylesheet" href="/dashboard/css/journal-modal.css">
+    <style>
+        .auth-hidden {
+            display: none !important;
+        }
+
+        .loading-screen {
+            position: fixed;
+            inset: 0;
+            background: #070b14;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 12px;
+            z-index: 999;
+        }
+
+        .loading-screen.hidden {
+            display: none;
+        }
+
+        .loading-spinner {
+            width: 36px;
+            height: 36px;
+            border: 3px solid rgba(255, 255, 255, .12);
+            border-top-color: #22d3ee;
+            border-radius: 50%;
+            animation: spin .8s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .app-header {
+            background: rgba(255, 255, 255, 0.05);
+            border-bottom: 1px solid var(--border);
+            backdrop-filter: blur(20px);
+            padding: 0 32px;
+            height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .back-btn {
+            height: 30px;
+            padding: 0 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: transparent;
+            color: var(--t2);
+            font-family: 'Noto Sans KR', sans-serif;
+            font-size: 12px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .back-btn:hover {
+            background: rgba(255, 255, 255, .07);
+            color: var(--t0);
+        }
+
+        .app-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--t0);
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .app-title .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #22d3ee;
+        }
+
+        .page-main {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 24px 20px 80px;
+        }
+
+        .page-card {
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            background: var(--card);
+            box-shadow: var(--shadow);
+            padding: 20px;
+        }
+
+        .page-kicker {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 8px;
+            border-radius: 999px;
+            background: rgba(34, 211, 238, .12);
+            color: #22d3ee;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: .3px;
+            margin-bottom: 8px;
+        }
+
+        .page-card h1 {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--t0);
+            margin-bottom: 4px;
+            letter-spacing: -0.3px;
+        }
+
+        .page-card p {
+            font-size: 12px;
+            color: var(--t2);
+            line-height: 1.6;
+            margin-bottom: 16px;
+        }
+
+        .page-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+        .settings-btn { flex: 0 0 auto; margin-top: 4px; }
+        .guidance-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 12px; }
+
+        /* Guidance panels */
+        .guidance-panel {
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, .02);
+            padding: 12px;
+            margin: 0;
+            font-size: 11px;
+        }
+
+        .guidance-panel h3 {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--t0);
+            margin-bottom: 6px;
+            display: flex;
+            gap: 4px;
+            align-items: center;
+        }
+
+        .guidance-panel h3::before {
+            content: "→";
+            color: #22d3ee;
+            font-weight: 700;
+        }
+
+        .guidance-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px;
+            margin-bottom: 6px;
+        }
+
+        .guidance-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .guidance-item {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .guidance-label {
+            color: var(--t2);
+            font-weight: 600;
+        }
+
+        .guidance-value {
+            color: var(--t0);
+            font-weight: 700;
+        }
+
+        .guidance-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            color: var(--t1);
+            line-height: 1.5;
+        }
+
+        .guidance-list li {
+            margin-bottom: 4px;
+            padding-left: 12px;
+            position: relative;
+        }
+
+        .guidance-list li::before {
+            content: "•";
+            position: absolute;
+            left: 0;
+            color: #22d3ee;
+        }
+
+        .section-grid {
+            display: grid;
+            gap: 0;
+        }
+
+        .haccp-form-sections {
+            display: grid;
+            gap: 16px;
+        }
+
+        .panel {
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, .04);
+            padding: 12px;
+        }
+
+        .panel-title {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--t0);
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .field-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 8px;
+            --form-control-height: 42px;
+        }
+
+        .field {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+
+        .field.full {
+            grid-column: 1 / -1;
+        }
+
+        .field.half {
+            grid-column: span 1;
+        }
+
+        .field label {
+            font-size: 10px;
+            color: var(--t1);
+            font-weight: 700;
+            letter-spacing: 0.3px;
+            text-transform: uppercase;
+        }
+
+        .field input,
+        .field select,
+        .field textarea {
+            width: 100%;
+            padding: 7px 9px;
+            border-radius: 7px;
+            border: 1px solid var(--border);
+            background: var(--in-bg);
+            color: var(--t0);
+            font: inherit;
+            font-size: 13px;
+            line-height: 1.3;
+            min-height: var(--form-control-height);
+        }
+
+        .field input::placeholder,
+        .field textarea::placeholder {
+            color: var(--in-ph);
+            font-size: 12px;
+        }
+
+        .field textarea {
+            min-height: 48px;
+            resize: vertical;
+            font-size: 12px;
+        }
+
+        .field textarea.compact {
+            min-height: 42px;
+        }
+
+        .input-row {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+        }
+
+        .input-row input {
+            flex: 1;
+        }
+
+        .roaster-buttons {
+            display: flex;
+            gap: 4px;
+            flex-wrap: nowrap;
+        }
+
+        .roaster-btn {
+            flex: 1;
+            min-width: 32px;
+            padding: 6px 0;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, .03);
+            color: var(--t1);
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 700;
+            text-align: center;
+            transition: all 120ms ease;
+            min-height: var(--form-control-height);
+        }
+
+        .roaster-btn:hover {
+            background: rgba(255, 255, 255, .06);
+            color: var(--t0);
+        }
+
+        .roaster-btn.active {
+            background: rgba(34, 211, 238, .18);
+            border-color: rgba(34, 211, 238, .28);
+            color: #22d3ee;
+        }
+
+        .mini-btn {
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, .04);
+            padding: 6px 7px;
+            border-radius: 6px;
+            color: var(--t1);
+            cursor: pointer;
+            font-size: 10px;
+            font-weight: 700;
+            white-space: nowrap;
+            flex-shrink: 0;
+            min-height: var(--form-control-height);
+        }
+
+        .mini-btn:hover {
+            background: rgba(255, 255, 255, .08);
+            color: var(--t0);
+        }
+
+        .mini-btn.active {
+            background: rgba(34, 211, 238, .18);
+            border-color: rgba(34, 211, 238, .28);
+            color: #22d3ee;
+        }
+
+        .inline-help {
+            font-size: 10px;
+            color: var(--t2);
+        }
+
+        .status-group {
+            display: flex;
+            gap: 5px;
+            flex-wrap: nowrap;
+        }
+
+        .status-option {
+            flex: 1;
+            padding: 6px 8px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, .03);
+            color: var(--t1);
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 700;
+            transition: all 120ms ease;
+            text-align: center;
+        }
+
+        .status-option[aria-disabled="true"] {
+            cursor: default;
+        }
+
+        .status-option.active {
+            border-color: rgba(34, 211, 238, .28);
+            color: var(--t0);
+            background: rgba(34, 211, 238, .12);
+        }
+
+        .status-option.fail.active {
+            border-color: rgba(248, 113, 113, .32);
+            background: rgba(248, 113, 113, .12);
+            color: var(--rv);
+        }
+
+        .fail-section {
+            display: none;
+            grid-column: 1 / -1;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid var(--border);
+            animation: slideDown 200ms ease;
+        }
+
+        .fail-section.show {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                max-height: 0;
+            }
+            to {
+                opacity: 1;
+                max-height: 600px;
+            }
+        }
+
+        .error-text {
+            color: var(--rv);
+            font-size: 9px;
+            display: none;
+            margin-top: 1px;
+        }
+
+        .error-text.show {
+            display: block;
+        }
+
+        .action-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 10px;
+        }
+
+        .btn-primary,
+        .btn-secondary {
+            border: 1px solid var(--border);
+            border-radius: 7px;
+            padding: 8px 12px;
+            font: inherit;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 12px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, rgba(34, 211, 238, .24), rgba(217, 70, 239, .18));
+            color: var(--t0);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, .05);
+            color: var(--t2);
+        }
+
+        .toast {
+            margin-top: 8px;
+            padding: 7px 9px;
+            border-radius: 7px;
+            border: 1px solid rgba(74, 222, 128, .24);
+            background: rgba(74, 222, 128, .12);
+            color: var(--zr);
+            font-size: 11px;
+            display: none;
+        }
+
+        .toast.show {
+            display: block;
+        }
+
+        .table-card {
+            margin-top: 12px;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, .04);
+            padding: 12px;
+        }
+
+        .table-wrap {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 860px;
+        }
+
+        th,
+        td {
+            padding: 6px 8px;
+            border-bottom: 1px solid var(--border);
+            text-align: left;
+            font-size: 10px;
+            color: var(--t1);
+        }
+
+        th {
+            color: var(--t0);
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: .06em;
+            font-weight: 700;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            padding: 2px 6px;
+            border-radius: 6px;
+            font-size: 9px;
+            font-weight: 700;
+        }
+
+        .badge-success {
+            background: rgba(74, 222, 128, .12);
+            color: var(--zr);
+            border: 1px solid rgba(74, 222, 128, .24);
+        }
+
+        .badge-danger {
+            background: rgba(248, 113, 113, .12);
+            color: var(--rv);
+            border: 1px solid rgba(248, 113, 113, .24);
+        }
+
+        .muted {
+            color: var(--t2);
+            font-size: 10px;
+        }
+
+        .record-link {
+            color: #22d3ee;
+            background: none;
+            border: 0;
+            cursor: pointer;
+            padding: 0;
+            font: inherit;
+            font-size: 10px;
+            font-weight: 700;
+        }
+
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 10px;
+            align-items: center;
+        }
+
+        .toolbar select,
+        .toolbar input {
+            width: auto;
+            min-width: 120px;
+            font-size: 10px;
+            padding: 5px 7px;
+        }
+
+        .empty-state {
+            border: 1px dashed var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            color: var(--t2);
+            background: rgba(255, 255, 255, .03);
+            font-size: 11px;
+        }
+
+        .settings-modal { position: fixed; inset: 0; z-index: 200; display: none; align-items: center; justify-content: center; padding: 20px; background: rgba(3, 7, 18, .76); }
+        .settings-modal.show { display: flex; }
+        .settings-dialog { width: min(100%, 720px); max-height: calc(100dvh - 40px); overflow: auto; padding: 20px; border: 1px solid var(--border); border-radius: 14px; background: #101827; box-shadow: var(--shadow); }
+        .settings-header { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px; }
+        .settings-header h2 { font-size:16px; color:var(--t0); }
+        .settings-close { border:0; background:transparent; color:var(--t2); font-size:24px; cursor:pointer; }
+        .settings-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+        .settings-status { min-height:18px; margin-top:10px; font-size:11px; color:var(--t2); }
+        .settings-status.error { color:var(--rv); }
+        .settings-status.success { color:var(--zr); }
+        body.settings-modal-open { overflow:hidden; }
+
+        @media (max-width: 1024px) {
+            .field-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .guidance-row {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .guidance-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+
+        @media (max-width: 760px) {
+            .field-grid {
+                grid-template-columns: 1fr;
+            }
+            .guidance-grid, .settings-grid { grid-template-columns: 1fr; }
+            .page-heading { flex-direction: column; }
+
+            .fail-section.show {
+                grid-template-columns: 1fr;
+            }
+
+            .roaster-buttons {
+                gap: 3px;
+            }
+
+            .roaster-btn {
+                min-width: 30px;
+                padding: 5px 0;
+                font-size: 11px;
+            }
+
+            .page-main {
+                padding: 16px 12px 60px;
+            }
+
+            .app-header {
+                padding: 0 12px;
+            }
+
+            .page-card {
+                padding: 12px;
+            }
+
+            .panel {
+                padding: 10px;
+            }
+
+            .guidance-panel {
+                padding: 10px;
+                margin-bottom: 10px;
+            }
+
+            .guidance-row {
+                grid-template-columns: 1fr;
+            }
+
+            .input-row {
+                gap: 3px;
+            }
+
+            .action-row {
+                gap: 4px;
+            }
+
+            .btn-primary,
+            .btn-secondary {
+                padding: 7px 10px;
+                font-size: 11px;
+            }
+
+            .status-option {
+                padding: 5px 6px;
+                font-size: 11px;
+            }
+
+            .field input,
+            .field select,
+            .field textarea {
+                padding: 6px 8px;
+                font-size: 14px;
+            }
+
+            .field label {
+                font-size: 9px;
+            }
+
+            .mini-btn {
+                padding: 5px 6px;
+                font-size: 9px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="loading-screen" id="loadingScreen">
+        <div class="loading-spinner"></div>
+    </div>
+    <div class="blobs">
+        <div class="b1"></div>
+        <div class="b2"></div>
+    </div>
+
+    <div class="auth-hidden" id="mainContent">
+        <header class="app-header">
+            <div class="header-left">
+                <a href="/home?category=haccp" class="back-btn">← HACCP 홈</a>
+                <div class="app-title"><span class="dot"></span>CCP-1 가열공정 점검표</div>
+            </div>
+        </header>
+
+        <main class="page-main">
+            <section class="page-card">
+                <div class="page-heading">
+                    <div><div class="page-kicker">공정 기록</div><h1>중요관리점(CCP-1) 모니터링일지 [가열 공정] (New Version)</h1><p>제품 표면온도 및 가열시간을 확인하고 기록합니다.</p></div>
+                    <div style="display:flex;gap:6px;"><button type="button" class="btn-secondary settings-btn" id="openJournalBtn">일지 조회 / 인쇄</button><button type="button" class="btn-secondary settings-btn" id="openSettingsBtn">기본 설정</button></div>
+                </div>
+
+                <div class="section-grid haccp-form-sections">
+                    <div class="guidance-grid">
+                    <div class="guidance-panel">
+                        <h3>한계기준</h3>
+                        <div class="guidance-row">
+                            <div class="guidance-item">
+                                <span class="guidance-label">제품 표면온도</span>
+                                <span class="guidance-value" id="limitGuideValue">170~200℃</span>
+                            </div>
+                            <div class="guidance-item">
+                                <span class="guidance-label">가열시간</span>
+                                <span class="guidance-value" id="durationGuideValue">22 ± 3분</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="guidance-panel">
+                        <h3>점검 주기</h3>
+                        <ul class="guidance-list">
+                            <li>작업 시작 전</li>
+                            <li>2시간마다</li>
+                        </ul>
+                    </div>
+
+                    <div class="guidance-panel">
+                        <h3>점검 방법</h3>
+                        <ul class="guidance-list">
+                            <li>적외선 또는 탐침 온도계로 제품 온도 확인</li>
+                            <li>타이머로 투입 후 가열시간 확인</li>
+                            <li>온도계는 연 1회 검·교정 필요</li>
+                        </ul>
+                    </div>
+
+                    </div>
+
+                    <!-- 입력 폼 -->
+                    <section class="panel">
+                        <div class="field-grid">
+                            <!-- Row 1: 작성일자 | 점검자 | 품명 | 볶음기 번호 -->
+                            <div class="field">
+                                <label for="recordDate">작성일자</label>
+                                <input id="recordDate" type="date">
+                            </div>
+                            <div class="field">
+                                <label for="workerName">점검자</label>
+                                <input id="workerName" type="text">
+                            </div>
+                            <div class="field">
+                                <label for="productName">품명</label>
+                                <input id="productName" type="text" inputmode="text">
+                            </div>
+                            <div class="field">
+                                <label>볶음기</label>
+                                <div class="roaster-buttons" id="roasterButtons">
+                                    <button type="button" class="roaster-btn" data-roaster="1">1</button>
+                                    <button type="button" class="roaster-btn" data-roaster="2">2</button>
+                                    <button type="button" class="roaster-btn" data-roaster="3">3</button>
+                                    <button type="button" class="roaster-btn" data-roaster="4">4</button>
+                                </div>
+                                <input id="roasterNo" type="hidden">
+                            </div>
+
+                            <!-- Row 2: 세팅온도 | 측정시각 + 현재 시각 | 가열시간 | 적외선 온도 -->
+                            <div class="field">
+                                <label for="setTemperature">세팅온도(℃)</label>
+                                <input id="setTemperature" type="number" step="0.1" placeholder="180" inputmode="decimal">
+                            </div>
+                            <div class="field">
+                                <label for="measuredTime">측정시각</label>
+                                <div class="input-row">
+                                    <input id="measuredTime" type="time">
+                                    <button type="button" class="mini-btn" id="setCurrentTimeBtn">지금</button>
+                                </div>
+                            </div>
+
+                            <div class="field">
+                                <label>가열시간</label>
+                                <div class="input-row">
+                                    <input id="heatingMinutes" type="number" min="0" step="1" placeholder="분" inputmode="numeric">
+                                    <span style="color: var(--t2); font-size: 10px; min-width: 14px;">분</span>
+                                    <input id="heatingSeconds" type="number" min="0" max="59" step="1" placeholder="초" inputmode="numeric">
+                                    <span style="color: var(--t2); font-size: 10px; min-width: 14px;">초</span>
+                                </div>
+                            </div>
+                            <div class="field">
+                                <label for="productTemperature">적외선온도(℃)</label>
+                                <input id="productTemperature" type="number" step="0.1" placeholder="88.5" inputmode="decimal">
+                            </div>
+
+                            <div class="field full">
+                                <label>판정</label>
+                                <div class="status-group">
+                                    <button type="button" class="status-option" id="judgementPassBtn" aria-disabled="true">PASS</button>
+                                    <button type="button" class="status-option fail" id="judgementFailBtn" aria-disabled="true">FAIL</button>
+                                </div>
+                                <div class="inline-help" id="judgementPending">제품 표면온도를 입력하면 판정이 자동으로 계산됩니다.</div>
+                            </div>
+
+                            <!-- Row 4: 비고 (전체 너비) -->
+                            <div class="field full">
+                                <label for="notes">비고</label>
+                                <textarea id="notes" class="compact" placeholder="메모(선택)"></textarea>
+                            </div>
+
+                            <!-- FAIL 전용 필드 (숨김) -->
+                            <div id="failSection" class="fail-section">
+                                <div class="field">
+                                    <label for="deviationDetail">한계기준 이탈내용</label>
+                                    <textarea id="deviationDetail" class="compact" placeholder="이탈 사항 기입"></textarea>
+                                    <div class="error-text" id="deviationError">필수 입력</div>
+                                </div>
+                                <div class="field">
+                                    <label for="correctiveAction">개선조치 및 결과</label>
+                                    <textarea id="correctiveAction" class="compact" placeholder="조치 결과 기입"></textarea>
+                                    <div class="error-text" id="correctiveActionError">필수 입력</div>
+                                </div>
+                                <div class="field">
+                                    <label for="actionBy">조치자</label>
+                                    <input id="actionBy" type="text" placeholder="이름 입력">
+                                </div>
+                                <div class="field">
+                                    <label for="verifiedBy">확인</label>
+                                    <input id="verifiedBy" type="text" placeholder="확인자 이름">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 액션 버튼 -->
+                        <div class="action-row">
+                            <button type="button" class="btn-primary" id="saveBtn">저장</button>
+                            <button type="button" class="btn-secondary" id="resetBtn">초기화</button>
+                            <button type="button" class="btn-secondary" id="cancelEditBtn" style="display:none;">취소</button>
+                        </div>
+                        <div class="toast" id="formToast"></div>
+                    </section>
+
+                    <!-- CCP-2와 동일한 정보 계층의 개선조치 안내, 내용은 CCP-1 기준으로 유지 -->
+                    <section class="panel corrective-guidance">
+                        <h2 class="panel-title">개선조치 방법 (FAIL 발생 시)</h2>
+                        <div class="guidance-grid">
+                            <article class="guidance-panel"><ul class="guidance-list"><li>온도 또는 가열시간 초과 시 제품 검사 후 이상 없을 때 출고</li></ul></article>
+                            <article class="guidance-panel"><ul class="guidance-list"><li>기계 고장 시 생산 중단 후 수리하고 생산 재개</li></ul></article>
+                            <article class="guidance-panel"><ul class="guidance-list"><li>즉시 수리가 어려우면 공정품을 교차오염되지 않도록 보관한 뒤 수리 후 생산 재개</li></ul></article>
+                        </div>
+                    </section>
+
+                    <!-- 저장 기록 테이블 -->
+                    <section class="table-card">
+                        <div class="toolbar">
+                            <label class="field" style="min-width: 160px; margin: 0;">
+                                <span class="muted">작성일</span>
+                                <input id="dateFilter" type="date">
+                            </label>
+                            <label class="field" style="min-width: 120px; margin: 0;">
+                                <span class="muted">결과</span>
+                                <select id="resultFilter">
+                                    <option value="all">전체</option>
+                                    <option value="PASS">PASS</option>
+                                    <option value="FAIL">FAIL</option>
+                                </select>
+                            </label>
+                        </div>
+                        <div class="table-wrap">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>작성일</th>
+                                        <th>시각</th>
+                                        <th>품명</th>
+                                        <th>핵심값</th>
+                                        <th>판정</th>
+                                        <th>점검자</th>
+                                        <th>작업</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="recordsTableBody"></tbody>
+                            </table>
+                        </div>
+                    </section>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <div class="journal-modal-overlay" id="heatingJournalModal" aria-hidden="true"><section class="journal-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="heatingJournalModalTitle"><header class="journal-modal-header"><div><h2 class="journal-modal-title" id="heatingJournalModalTitle">가열공정 일지 조회 / 인쇄</h2><p class="journal-modal-subtitle">날짜별 CCP-1 모니터링 기록을 조회하고 인쇄합니다.</p></div><button type="button" class="journal-modal-close" data-journal-close aria-label="일지 조회 창 닫기">×</button></header><div class="journal-modal-body"><aside class="journal-dashboard"><h3 class="journal-dashboard-heading">조회 조건</h3><div class="journal-modal-toolbar"><label>조회일자<input id="heatingJournalDate" type="date"></label><button class="btn-secondary" id="heatingJournalLoadBtn" type="button">조회</button><button class="btn-secondary" id="heatingJournalTodayBtn" type="button">오늘</button><button class="btn-primary" id="heatingJournalPrintBtn" type="button" disabled>인쇄 / PDF 저장</button></div><h3 class="journal-summary-heading">기록 요약</h3><div class="journal-modal-summary" id="heatingJournalSummary"></div><p class="journal-modal-status" id="heatingJournalStatus" role="status"></p></aside><div id="heatingJournalModalPreview" class="journal-preview-viewport"><div class="journal-preview-scale-stage"><div id="heatingJournalPrintRoot" class="journal-sheet-list"></div></div></div></div></section></div>
+
+    <div class="settings-modal" id="settingsModal" aria-hidden="true">
+        <section class="settings-dialog" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+            <div class="settings-header"><h2 id="settingsTitle">기본 설정</h2><button class="settings-close" id="closeSettingsBtn" type="button" aria-label="기본 설정 닫기">×</button></div>
+            <form id="settingsForm">
+                <div class="settings-grid">
+                    <label class="field">점검자 기본값<input id="settingsInspector" type="text" required></label>
+                    <label class="field">품명 기본값<input id="settingsProduct" type="text" required></label>
+                    <label class="field">볶음기 1 세팅온도<input id="settingsRoaster1" type="number" step="0.1" required></label>
+                    <label class="field">볶음기 2 세팅온도<input id="settingsRoaster2" type="number" step="0.1" required></label>
+                    <label class="field">볶음기 3 세팅온도<input id="settingsRoaster3" type="number" step="0.1" required></label>
+                    <label class="field">볶음기 4 세팅온도<input id="settingsRoaster4" type="number" step="0.1" required></label>
+                    <label class="field">제품 표면온도 최소값<input id="settingsTempMin" type="number" step="0.1" required></label>
+                    <label class="field">제품 표면온도 최대값<input id="settingsTempMax" type="number" step="0.1" required></label>
+                    <label class="field">가열시간 기준값(분)<input id="settingsHeatTarget" type="number" min="0" step="0.1" required></label>
+                    <label class="field">가열시간 허용오차(분)<input id="settingsHeatTolerance" type="number" min="0" step="0.1" required></label>
+                </div>
+                <div class="action-row"><button type="submit" class="btn-primary" id="saveSettingsBtn">설정 저장</button><button type="button" class="btn-secondary" id="cancelSettingsBtn">취소</button></div>
+                <div class="settings-status" id="settingsStatus" role="status"></div>
+            </form>
+        </section>
+    </div>
+
+    <script type="module">
+        import { onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+        import { formatDateValue, formatTimeValue, badgeClassForJudgement, escapeHtml } from '/dashboard/js/haccp-form-common.js';
+        import { auth, isApprovedActiveProfile, loadUserProfile } from '/dashboard/js/firebase-client.js';
+        import { DEFAULT_HEATING_SETTINGS, deleteHeatingRecord, loadHeatingSettings, saveHeatingRecord, saveHeatingSettings, subscribeToHeatingRecords } from '/dashboard/js/haccp-heating-firestore.js';
+        import { createJournalModal } from '/dashboard/js/journal-modal.js';
+        import { buildHeatingJournalSummary, loadHeatingJournalData, renderHeatingJournal } from '/dashboard/js/haccp-heating-journal.js';
+
+        // TODO: Replace these interim defaults with the form-specific responsible-person settings.
+        const DEFAULT_INSPECTOR_NAME = "김석기";
+        const DEFAULT_PRODUCT_NAME = "참기름";
+        let heatingSettings = { ...DEFAULT_HEATING_SETTINGS, roasterSetTemperatures: { ...DEFAULT_HEATING_SETTINGS.roasterSetTemperatures } };
+        // TODO: Move these interim CCP limits to the administrator settings screen or popup.
+        let currentUser = null;
+        let editingRecordId = null;
+        let currentJudgement = '';
+        let heatingRecords = [];
+        let unsubscribeFromRecords = null;
+        let isSaving = false;
+        let isSavingSettings = false;
+        let canEditSettings = false;
+        let setTemperatureManuallyEdited = false;
+        let navigationCommitted = false;
+
+        function navigateOnce(url, reason) {
+            if (navigationCommitted) return;
+            navigationCommitted = true;
+            console.info('[auth] redirect', { page: 'haccp-heating', target: url, reason });
+            window.location.replace(url);
+        }
+
+        const formElements = {
+            recordDate: document.getElementById('recordDate'),
+            workerName: document.getElementById('workerName'),
+            productName: document.getElementById('productName'),
+            roasterNo: document.getElementById('roasterNo'),
+            setTemperature: document.getElementById('setTemperature'),
+            measuredTime: document.getElementById('measuredTime'),
+            heatingMinutes: document.getElementById('heatingMinutes'),
+            heatingSeconds: document.getElementById('heatingSeconds'),
+            productTemperature: document.getElementById('productTemperature'),
+            deviationDetail: document.getElementById('deviationDetail'),
+            correctiveAction: document.getElementById('correctiveAction'),
+            actionBy: document.getElementById('actionBy'),
+            verifiedBy: document.getElementById('verifiedBy'),
+            notes: document.getElementById('notes'),
+            judgementPassBtn: document.getElementById('judgementPassBtn'),
+            judgementFailBtn: document.getElementById('judgementFailBtn'),
+            judgementPending: document.getElementById('judgementPending'),
+            setCurrentTimeBtn: document.getElementById('setCurrentTimeBtn'),
+            deviationError: document.getElementById('deviationError'),
+            correctiveActionError: document.getElementById('correctiveActionError'),
+            saveBtn: document.getElementById('saveBtn'),
+            resetBtn: document.getElementById('resetBtn'),
+            cancelEditBtn: document.getElementById('cancelEditBtn'),
+            formToast: document.getElementById('formToast'),
+            dateFilter: document.getElementById('dateFilter'),
+            resultFilter: document.getElementById('resultFilter'),
+            recordsTableBody: document.getElementById('recordsTableBody'),
+            failSection: document.getElementById('failSection'),
+        };
+        const settingsElements = {
+            modal: document.getElementById('settingsModal'), openBtn: document.getElementById('openSettingsBtn'), closeBtn: document.getElementById('closeSettingsBtn'), cancelBtn: document.getElementById('cancelSettingsBtn'), form: document.getElementById('settingsForm'), saveBtn: document.getElementById('saveSettingsBtn'), status: document.getElementById('settingsStatus'),
+            inspector: document.getElementById('settingsInspector'), product: document.getElementById('settingsProduct'), tempMin: document.getElementById('settingsTempMin'), tempMax: document.getElementById('settingsTempMax'), heatTarget: document.getElementById('settingsHeatTarget'), heatTolerance: document.getElementById('settingsHeatTolerance'),
+            roasters: ['1', '2', '3', '4'].map(number => document.getElementById(`settingsRoaster${number}`)),
+        };
+        const journal = { date: document.getElementById('heatingJournalDate'), status: document.getElementById('heatingJournalStatus'), summary: document.getElementById('heatingJournalSummary'), output: document.getElementById('heatingJournalPrintRoot'), previewStage: document.querySelector('#heatingJournalModal .journal-preview-scale-stage'), print: document.getElementById('heatingJournalPrintBtn') };
+        let journalUnsubscribe = null; let journalRecords = []; let journalSettings = null; let journalLoadVersion = 0;
+        const setJournalStatus = (message, error = false) => { journal.status.textContent = message; journal.status.classList.toggle('error', error); };
+        const renderJournalSummary = (records, sheets) => { journal.summary.innerHTML = buildHeatingJournalSummary(records, sheets).map(([label, value]) => `<div class="journal-summary-card"><b>${escapeHtml(label)}</b><span>${escapeHtml(value)}</span></div>`).join(''); };
+        const stopJournalQuery = () => { journalLoadVersion += 1; journalUnsubscribe?.(); journalUnsubscribe = null; };
+        const loadJournalDate = async () => {
+            const date = journal.date.value; if (!date) return;
+            stopJournalQuery(); const requestVersion = journalLoadVersion; journal.output.innerHTML = ''; journalRecords = []; journal.print.disabled = true; renderJournalSummary([], 1); setJournalStatus('기록을 불러오는 중...');
+            try {
+                const result = await loadHeatingJournalData(date, {
+                    onRecords: records => { if (requestVersion !== journalLoadVersion) return; journalRecords = records; const sheets = renderHeatingJournal({ container: journal.output, date, records, settings: journalSettings }); renderJournalSummary(records, sheets); journal.print.disabled = false; setJournalStatus(records.length ? `${date} 기록 ${records.length}건을 불러왔습니다.` : `${date}에 저장된 기록이 없습니다. 빈 양식으로 인쇄할 수 있습니다.`); requestAnimationFrame(() => heatingJournalModal.fitPreview()); },
+                    onError: error => { if (requestVersion !== journalLoadVersion) return; console.error('Heating journal query failed', error); journal.print.disabled = true; setJournalStatus(error.code === 'permission-denied' ? '기록 조회 권한이 없습니다.' : '기록 조회 중 오류가 발생했습니다. 네트워크 연결을 확인해 주세요.', true); }
+                });
+                if (requestVersion !== journalLoadVersion) { result.unsubscribe(); return; }
+                journalSettings = result.settings;
+                journalUnsubscribe = result.unsubscribe;
+            } catch (error) { console.error('Heating journal setup failed', error); setJournalStatus('기록 조회 중 오류가 발생했습니다. 네트워크 연결을 확인해 주세요.', true); }
+        };
+        const heatingJournalModal = createJournalModal({ modalId: 'heatingJournalModal', title: '가열공정 일지 조회 / 인쇄', subtitle: '날짜별 CCP-1 모니터링 기록을 조회하고 인쇄합니다.', query: loadJournalDate, render: renderHeatingJournal, summarize: buildHeatingJournalSummary, printRootId: 'heatingJournalPrintRoot', onOpen: async () => { journal.date.value ||= formatDateValue(new Date()); await loadJournalDate(); }, onClose: stopJournalQuery });
+        document.getElementById('openJournalBtn').addEventListener('click', () => heatingJournalModal.open());
+        document.getElementById('heatingJournalLoadBtn').addEventListener('click', loadJournalDate);
+        document.getElementById('heatingJournalTodayBtn').addEventListener('click', () => { journal.date.value = formatDateValue(new Date()); loadJournalDate(); });
+        let journalPrintDetached = false;
+        const prepareHeatingJournalPrint = () => { if (journalPrintDetached) return; journalPrintDetached = true; document.body.append(journal.output); };
+        const restoreHeatingJournalPreview = () => { if (!journalPrintDetached) return; journalPrintDetached = false; journal.previewStage.append(journal.output); requestAnimationFrame(() => heatingJournalModal.fitPreview()); };
+        window.addEventListener('beforeprint', prepareHeatingJournalPrint);
+        window.addEventListener('afterprint', restoreHeatingJournalPreview);
+        journal.print.addEventListener('click', () => { const originalTitle = document.title; document.title = `CCP-1_가열공정_모니터링일지_${journal.date.value}`; window.addEventListener('afterprint', () => { document.title = originalTitle; }, { once: true }); window.print(); });
+
+        // Roaster button handler
+        document.getElementById('roasterButtons').addEventListener('click', (e) => {
+            const btn = e.target.closest('.roaster-btn');
+            if (!btn) return;
+            const value = btn.dataset.roaster;
+            const isActive = btn.classList.contains('active');
+            document.querySelectorAll('.roaster-btn').forEach(b => b.classList.remove('active'));
+            if (!isActive) {
+                btn.classList.add('active');
+                formElements.roasterNo.value = value;
+                formElements.setTemperature.value = heatingSettings.roasterSetTemperatures?.[value] ?? '';
+                setTemperatureManuallyEdited = false;
+            } else {
+                formElements.roasterNo.value = '';
+            }
+        });
+
+        function setToast(message, isError = false) {
+            formElements.formToast.textContent = message;
+            formElements.formToast.className = `toast${isError ? ' error' : ''}`;
+            formElements.formToast.style.display = 'block';
+            formElements.formToast.style.borderColor = isError ? 'rgba(248,113,113,.24)' : 'rgba(74,222,128,.24)';
+            formElements.formToast.style.background = isError ? 'rgba(248,113,113,.12)' : 'rgba(74,222,128,.12)';
+            formElements.formToast.style.color = isError ? 'var(--rv)' : 'var(--zr)';
+        }
+
+        function hideToast() {
+            formElements.formToast.style.display = 'none';
+        }
+
+        function setJudgement(judgement) {
+            const isFail = judgement === 'FAIL';
+            const wasFail = currentJudgement === 'FAIL';
+            currentJudgement = judgement;
+            formElements.judgementPassBtn.classList.toggle('active', judgement === 'PASS');
+            formElements.judgementFailBtn.classList.toggle('active', isFail);
+            formElements.judgementPassBtn.classList.toggle('fail', false);
+            formElements.judgementFailBtn.classList.toggle('fail', isFail);
+            formElements.judgementPending.hidden = Boolean(judgement);
+            formElements.failSection.classList.toggle('show', isFail);
+            toggleFailureFields(isFail);
+            if (wasFail && !isFail) {
+                clearFailureFields();
+            }
+        }
+
+        function toggleFailureFields(isFail) {
+            const fields = [formElements.deviationDetail, formElements.correctiveAction, formElements.actionBy, formElements.verifiedBy];
+            fields.forEach((field) => field.toggleAttribute('data-required', isFail));
+            formElements.deviationError.classList.remove('show');
+            formElements.correctiveActionError.classList.remove('show');
+        }
+
+        function clearFailureFields() {
+            formElements.deviationDetail.value = '';
+            formElements.correctiveAction.value = '';
+            formElements.actionBy.value = '';
+            formElements.verifiedBy.value = '';
+        }
+
+        function getAutomaticJudgement() {
+            const rawTemperature = formElements.productTemperature.value.trim();
+            const temperature = Number(rawTemperature);
+            if (!rawTemperature || !Number.isFinite(temperature)) return '';
+            return temperature >= heatingSettings.productSurfaceTempMin && temperature <= heatingSettings.productSurfaceTempMax
+                ? 'PASS'
+                : 'FAIL';
+        }
+
+        function updateAutomaticJudgement() {
+            setJudgement(getAutomaticJudgement());
+        }
+
+        function resetForm() {
+            editingRecordId = null;
+            formElements.saveBtn.textContent = '기록 저장';
+            formElements.cancelEditBtn.style.display = 'none';
+            formElements.recordDate.value = formatDateValue(new Date());
+            formElements.workerName.value = heatingSettings.inspectorName || DEFAULT_INSPECTOR_NAME;
+            formElements.productName.value = heatingSettings.productName || DEFAULT_PRODUCT_NAME;
+            formElements.roasterNo.value = '';
+            formElements.setTemperature.value = '';
+            setTemperatureManuallyEdited = false;
+            formElements.measuredTime.value = '';
+            formElements.setCurrentTimeBtn.classList.remove('active');
+            formElements.heatingMinutes.value = '';
+            formElements.heatingSeconds.value = '';
+            formElements.productTemperature.value = '';
+            clearFailureFields();
+            formElements.notes.value = '';
+            document.querySelectorAll('.roaster-btn').forEach(b => b.classList.remove('active'));
+            setJudgement('');
+            hideToast();
+        }
+
+        function getFormValues() {
+            return {
+                recordDate: formElements.recordDate.value,
+                workerName: formElements.workerName.value.trim(),
+                productName: formElements.productName.value.trim(),
+                judgement: currentJudgement,
+                deviationDetail: formElements.deviationDetail.value.trim(),
+                correctiveAction: formElements.correctiveAction.value.trim(),
+                actionBy: formElements.actionBy.value.trim(),
+                verifiedBy: formElements.verifiedBy.value.trim(),
+                notes: formElements.notes.value.trim(),
+                measurements: {
+                    roasterNo: formElements.roasterNo.value,
+                    setTemperature: formElements.setTemperature.value,
+                    measuredTime: formElements.measuredTime.value,
+                    heatingMinutes: formElements.heatingMinutes.value,
+                    heatingSeconds: formElements.heatingSeconds.value,
+                    productTemperature: formElements.productTemperature.value,
+                },
+            };
+        }
+
+        function validateForm(values) {
+            const errors = [];
+            if (!values.recordDate) { errors.push('작성일자를 입력해 주세요.'); }
+            if (!values.workerName) { errors.push('점검자를 입력해 주세요.'); }
+            if (!values.productName) { errors.push('품명을 입력해 주세요.'); }
+            if (!values.judgement) { errors.push('제품 표면온도를 입력해 자동 판정을 계산해 주세요.'); }
+            if (!values.measurements.roasterNo) { errors.push('볶음기 번호를 선택해 주세요.'); }
+            if (values.measurements.setTemperature === '') { errors.push('세팅온도를 입력해 주세요.'); }
+            if (!values.measurements.measuredTime) { errors.push('측정시각을 입력해 주세요.'); }
+            if (values.measurements.productTemperature === '') { errors.push('제품 품온을 입력해 주세요.'); }
+            if (values.measurements.heatingMinutes === '' || values.measurements.heatingSeconds === '') { errors.push('가열시간을 입력해 주세요.'); }
+            if (!/^(0|[1-9]\d*)$/.test(values.measurements.heatingMinutes)) { errors.push('가열시간(분)은 0 이상의 정수로 입력해 주세요.'); }
+            if (!/^(0|[1-9]\d*)$/.test(values.measurements.heatingSeconds)) { errors.push('가열시간(초)은 0 이상의 정수로 입력해 주세요.'); }
+            if (Number(values.measurements.heatingSeconds) > 59) { errors.push('가열시간(초)은 0~59 사이로 입력해 주세요.'); }
+            if (!/^-?\d+(\.\d+)?$/.test(values.measurements.setTemperature)) { errors.push('세팅온도는 숫자로 입력해 주세요.'); }
+            if (!/^-?\d+(\.\d+)?$/.test(values.measurements.productTemperature)) { errors.push('제품 품온은 숫자로 입력해 주세요.'); }
+            if (values.judgement === 'FAIL') {
+                if (!values.deviationDetail) { errors.push('FAIL 시 한계기준 이탈내용을 입력해 주세요.'); }
+                if (!values.correctiveAction) { errors.push('FAIL 시 개선조치 및 결과를 입력해 주세요.'); }
+                if (!values.actionBy) { errors.push('FAIL 시 조치자를 입력해 주세요.'); }
+                if (!values.verifiedBy) { errors.push('FAIL 시 확인자를 입력해 주세요.'); }
+            }
+            return errors;
+        }
+
+        function populateForm(record) {
+            formElements.recordDate.value = record.recordDate || formatDateValue(new Date());
+            formElements.workerName.value = record.workerName || '';
+            formElements.productName.value = record.productName || '';
+            const roasterValue = record.measurements?.roasterNo;
+            document.querySelectorAll('.roaster-btn').forEach(b => b.classList.remove('active'));
+            if (roasterValue) {
+                const btn = document.querySelector(`.roaster-btn[data-roaster="${roasterValue}"]`);
+                if (btn) btn.classList.add('active');
+            }
+            formElements.roasterNo.value = roasterValue || '';
+            formElements.setTemperature.value = record.measurements?.setTemperature || '';
+            formElements.measuredTime.value = record.measurements?.measuredTime || '';
+            formElements.heatingMinutes.value = record.measurements?.heatingMinutes || '';
+            formElements.heatingSeconds.value = record.measurements?.heatingSeconds || '';
+            formElements.productTemperature.value = record.measurements?.productTemperature || '';
+            formElements.deviationDetail.value = record.deviationDetail || '';
+            formElements.correctiveAction.value = record.correctiveAction || '';
+            formElements.actionBy.value = record.actionBy || '';
+            formElements.verifiedBy.value = record.verifiedBy || '';
+            formElements.notes.value = record.notes || '';
+            formElements.setCurrentTimeBtn.classList.remove('active');
+            updateAutomaticJudgement();
+            editingRecordId = record.id;
+            formElements.saveBtn.textContent = '수정 저장';
+            formElements.cancelEditBtn.style.display = 'inline-flex';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function renderTable() {
+            const filterDate = formElements.dateFilter.value;
+            const filterResult = formElements.resultFilter.value;
+            const rows = heatingRecords.filter((record) => {
+                const matchesDate = !filterDate || record.recordDate === filterDate;
+                const matchesResult = filterResult === 'all' || record.judgement === filterResult;
+                return matchesDate && matchesResult;
+            });
+            if (!rows.length) {
+                formElements.recordsTableBody.innerHTML = '<tr><td colspan="7" class="empty-state">조건에 맞는 기록이 없습니다.</td></tr>';
+                return;
+            }
+            formElements.recordsTableBody.innerHTML = rows.map((record) => {
+                const key = `${record.measurements?.roasterNo || '-'} / ${record.measurements?.heatingMinutes || '0'}분 ${record.measurements?.heatingSeconds || '0'}초 / ${record.measurements?.productTemperature || '-'}℃`;
+                return `
+                    <tr>
+                        <td>${escapeHtml(record.recordDate || '-')}</td>
+                        <td>${escapeHtml(record.createdAt ? formatTimeValue(new Date(record.createdAt)) : '-')}</td>
+                        <td>${escapeHtml(record.productName || '-')}</td>
+                        <td>${escapeHtml(key)}</td>
+                        <td><span class="${badgeClassForJudgement(record.judgement)}">${escapeHtml(record.judgement || '-')}</span></td>
+                        <td>${escapeHtml(record.workerName || '-')}</td>
+                        <td><button class="record-link" type="button" data-record-id="${record.id}">수정</button> <button class="record-link" type="button" data-delete-id="${record.id}">삭제</button></td>
+                    </tr>`;
+            }).join('');
+        }
+
+        async function handleSave() {
+            if (isSaving) return;
+            const values = getFormValues();
+            const errors = validateForm(values);
+            if (errors.length) {
+                setToast(errors[0], true);
+                return;
+            }
+            if (values.judgement === 'PASS') clearFailureFields();
+            isSaving = true;
+            formElements.saveBtn.disabled = true;
+            formElements.saveBtn.textContent = '저장 중...';
+            try {
+                await saveHeatingRecord(values, currentUser, editingRecordId, heatingSettings);
+                setToast('기록이 공유 저장소에 저장되었습니다.');
+                resetForm();
+            } catch (error) {
+                console.error('Failed to save HACCP heating record:', error);
+                setToast(error.code === 'permission-denied' ? '저장 권한이 없습니다. 관리자에게 문의해 주세요.' : '공유 저장소에 저장하지 못했습니다. 네트워크 연결을 확인해 주세요.', true);
+            } finally {
+                isSaving = false;
+                formElements.saveBtn.disabled = false;
+                formElements.saveBtn.textContent = editingRecordId ? '수정 저장' : '기록 저장';
+            }
+        }
+
+        settingsElements.openBtn.addEventListener('click', openSettingsModal);
+        settingsElements.closeBtn.addEventListener('click', closeSettingsModal);
+        settingsElements.cancelBtn.addEventListener('click', closeSettingsModal);
+        settingsElements.modal.addEventListener('click', event => { if (event.target === settingsElements.modal) closeSettingsModal(); });
+        document.addEventListener('keydown', event => { if (event.key === 'Escape' && settingsElements.modal.classList.contains('show')) closeSettingsModal(); });
+        settingsElements.form.addEventListener('submit', async event => {
+            event.preventDefault();
+            if (!canEditSettings || isSavingSettings) return;
+            const values = [settingsElements.tempMin, settingsElements.tempMax, settingsElements.heatTarget, settingsElements.heatTolerance, ...settingsElements.roasters].map(input => Number(input.value));
+            if (!settingsElements.inspector.value.trim() || !settingsElements.product.value.trim() || values.some(value => !Number.isFinite(value)) || values[0] > values[1] || values[2] < 0 || values[3] < 0) {
+                settingsElements.status.textContent = '필수 항목과 숫자 범위를 확인해 주세요.';
+                settingsElements.status.className = 'settings-status error';
+                return;
+            }
+            isSavingSettings = true;
+            settingsElements.saveBtn.disabled = true;
+            settingsElements.saveBtn.textContent = '저장 중...';
+            try {
+                const nextSettings = {
+                    ...heatingSettings,
+                    inspectorName: settingsElements.inspector.value.trim(), productName: settingsElements.product.value.trim(),
+                    productSurfaceTempMin: values[0], productSurfaceTempMax: values[1], heatingMinutesTarget: values[2], heatingMinutesTolerance: values[3],
+                    roasterSetTemperatures: { '1': values[4], '2': values[5], '3': values[6], '4': values[7] },
+                };
+                await saveHeatingSettings(nextSettings, currentUser);
+                heatingSettings = nextSettings;
+                updateGuidance();
+                updateAutomaticJudgement();
+                const selectedRoaster = formElements.roasterNo.value;
+                if (selectedRoaster && !setTemperatureManuallyEdited) formElements.setTemperature.value = heatingSettings.roasterSetTemperatures[selectedRoaster];
+                settingsElements.status.textContent = setTemperatureManuallyEdited && selectedRoaster ? '설정이 저장되었습니다. 현재 수동 세팅온도는 유지됩니다.' : '설정이 저장되었습니다.';
+                settingsElements.status.className = 'settings-status success';
+            } catch (error) {
+                console.error('Failed to save heating settings:', error);
+                settingsElements.status.textContent = error.code === 'permission-denied' ? '설정 저장 권한이 없습니다. 관리자에게 문의해 주세요.' : '설정을 저장하지 못했습니다. 네트워크 연결을 확인해 주세요.';
+                settingsElements.status.className = 'settings-status error';
+            } finally {
+                isSavingSettings = false;
+                settingsElements.saveBtn.disabled = !canEditSettings;
+                settingsElements.saveBtn.textContent = '설정 저장';
+            }
+        });
+        formElements.setTemperature.addEventListener('input', () => { if (formElements.roasterNo.value) setTemperatureManuallyEdited = true; });
+        formElements.productTemperature.addEventListener('input', updateAutomaticJudgement);
+        formElements.measuredTime.addEventListener('input', () => formElements.setCurrentTimeBtn.classList.remove('active'));
+        formElements.setCurrentTimeBtn.addEventListener('click', () => {
+            formElements.measuredTime.value = formatTimeValue(new Date());
+            formElements.setCurrentTimeBtn.classList.add('active');
+        });
+
+        function updateGuidance() {
+            document.getElementById('limitGuideValue').textContent = `${heatingSettings.productSurfaceTempMin}~${heatingSettings.productSurfaceTempMax}℃`;
+            document.getElementById('durationGuideValue').textContent = `${heatingSettings.heatingMinutesTarget} ± ${heatingSettings.heatingMinutesTolerance}분`;
+        }
+
+        function populateSettingsModal() {
+            settingsElements.inspector.value = heatingSettings.inspectorName || '';
+            settingsElements.product.value = heatingSettings.productName || '';
+            settingsElements.tempMin.value = heatingSettings.productSurfaceTempMin;
+            settingsElements.tempMax.value = heatingSettings.productSurfaceTempMax;
+            settingsElements.heatTarget.value = heatingSettings.heatingMinutesTarget;
+            settingsElements.heatTolerance.value = heatingSettings.heatingMinutesTolerance;
+            settingsElements.roasters.forEach((input, index) => { input.value = heatingSettings.roasterSetTemperatures?.[String(index + 1)] ?? ''; });
+            settingsElements.saveBtn.disabled = !canEditSettings;
+            [settingsElements.inspector, settingsElements.product, settingsElements.tempMin, settingsElements.tempMax, settingsElements.heatTarget, settingsElements.heatTolerance, ...settingsElements.roasters].forEach(input => { input.disabled = !canEditSettings; });
+            settingsElements.status.textContent = canEditSettings ? '' : '설정은 관리자 또는 매니저만 변경할 수 있습니다.';
+            settingsElements.status.className = 'settings-status';
+        }
+
+        function closeSettingsModal() {
+            if (isSavingSettings) return;
+            settingsElements.modal.classList.remove('show');
+            settingsElements.modal.setAttribute('aria-hidden', 'true');
+            document.body.classList.remove('settings-modal-open');
+            settingsElements.openBtn.focus();
+        }
+
+        function openSettingsModal() {
+            populateSettingsModal();
+            settingsElements.modal.classList.add('show');
+            settingsElements.modal.setAttribute('aria-hidden', 'false');
+            document.body.classList.add('settings-modal-open');
+            settingsElements.inspector.focus();
+        }
+        formElements.saveBtn.addEventListener('click', handleSave);
+        formElements.resetBtn.addEventListener('click', () => { resetForm(); });
+        formElements.cancelEditBtn.addEventListener('click', () => { resetForm(); });
+        formElements.dateFilter.addEventListener('change', renderTable);
+        formElements.resultFilter.addEventListener('change', renderTable);
+        formElements.recordsTableBody.addEventListener('click', (event) => {
+            const deleteButton = event.target.closest('button[data-delete-id]');
+            if (deleteButton) {
+                if (!confirm('이 기록을 삭제하시겠습니까?')) return;
+                deleteHeatingRecord(deleteButton.dataset.deleteId).catch((error) => {
+                    console.error('Failed to delete HACCP heating record:', error);
+                    setToast(error.code === 'permission-denied' ? '삭제 권한이 없습니다. 관리자에게 문의해 주세요.' : '기록을 삭제하지 못했습니다. 네트워크 연결을 확인해 주세요.', true);
+                });
+                return;
+            }
+            const button = event.target.closest('button[data-record-id]');
+            if (!button) return;
+            const record = heatingRecords.find(item => item.id === button.dataset.recordId);
+            if (record) {
+                populateForm(record);
+                setToast('기록을 불러왔습니다. 내용을 수정한 뒤 저장해 주세요.');
+            }
+        });
+
+        onAuthStateChanged(auth, async user => {
+            console.info('[auth] auth state resolved', { page: 'haccp-heating', projectId: 'dmnfood-erp', uid: user?.uid || null });
+            if (!user) {
+                unsubscribeFromRecords?.();
+                navigateOnce('/', 'signed-out');
+                return;
+            }
+            try {
+                const profile = await loadUserProfile(user.uid);
+                if (!isApprovedActiveProfile(profile)) {
+                    console.info('[auth] profile blocked', { page: 'haccp-heating', uid: user.uid });
+                    await signOut(auth).catch(error => console.error('[auth] blocked-user sign-out failed', error));
+                    navigateOnce('/', 'profile-blocked');
+                    return;
+                }
+                canEditSettings = profile.role === 'manager' || profile.role === 'admin';
+            } catch (error) {
+                console.error('[auth] profile read failed', { page: 'haccp-heating', code: error.code || 'unknown', error });
+                navigateOnce('/', 'profile-read-failed');
+                return;
+            }
+            currentUser = user;
+            try {
+                heatingSettings = await loadHeatingSettings();
+            } catch (error) {
+                console.error('Failed to load HACCP heating settings:', error);
+                heatingSettings = {
+                    ...DEFAULT_HEATING_SETTINGS,
+                    inspectorName: DEFAULT_INSPECTOR_NAME,
+                    productName: DEFAULT_PRODUCT_NAME,
+                    roasterSetTemperatures: { ...DEFAULT_HEATING_SETTINGS.roasterSetTemperatures },
+                };
+            }
+            resetForm();
+            updateGuidance();
+            document.getElementById('loadingScreen').classList.add('hidden');
+            document.getElementById('mainContent').classList.remove('auth-hidden');
+            formElements.dateFilter.value = formatDateValue(new Date());
+            formElements.resultFilter.value = 'all';
+            unsubscribeFromRecords?.();
+            unsubscribeFromRecords = subscribeToHeatingRecords((records) => {
+                heatingRecords = records;
+                renderTable();
+            }, (error) => {
+                console.error('Failed to load HACCP heating records:', error);
+                setToast(error.code === 'permission-denied' ? '기록 조회 권한이 없습니다. 관리자에게 문의해 주세요.' : '공유 기록을 불러오지 못했습니다. 네트워크 연결을 확인해 주세요.', true);
+            });
+        });
+    </script>
+</body>
+
+</html>

@@ -37,6 +37,14 @@
             "destination": "/dashboard/haccp-heating.html"
         },
         {
+            "source": "/haccp-master",
+            "destination": "/dashboard/haccp-master.html"
+        },
+        {
+            "source": "/haccp-heating-v2",
+            "destination": "/dashboard/haccp-heating-v2.html"
+        },
+        {
             "source": "/haccp-heating-journal",
             "destination": "/dashboard/haccp-heating-journal.html"
         },

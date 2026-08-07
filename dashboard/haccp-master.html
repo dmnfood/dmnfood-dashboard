@@ -1,0 +1,785 @@
+﻿<!--
+  HACCP MASTER TEMPLATE
+  Presentation source: haccp-heating.html
+  Business logic: neutral demonstration only
+  Do not bind this file directly to a process collection.
+-->
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>들메내식품 · HACCP 공정 기록 마스터 템플릿</title>
+    <link rel="stylesheet" href="/dashboard/style.css">
+
+    <style>
+        .auth-hidden {
+            display: none !important;
+        }
+
+        .loading-screen {
+            position: fixed;
+            inset: 0;
+            background: #070b14;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 12px;
+            z-index: 999;
+        }
+
+        .loading-screen.hidden {
+            display: none;
+        }
+
+        .loading-spinner {
+            width: 36px;
+            height: 36px;
+            border: 3px solid rgba(255, 255, 255, .12);
+            border-top-color: #22d3ee;
+            border-radius: 50%;
+            animation: spin .8s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .app-header {
+            background: rgba(255, 255, 255, 0.05);
+            border-bottom: 1px solid var(--border);
+            backdrop-filter: blur(20px);
+            padding: 0 32px;
+            height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .back-btn {
+            height: 30px;
+            padding: 0 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: transparent;
+            color: var(--t2);
+            font-family: 'Noto Sans KR', sans-serif;
+            font-size: 12px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .back-btn:hover {
+            background: rgba(255, 255, 255, .07);
+            color: var(--t0);
+        }
+
+        .app-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--t0);
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .app-title .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #22d3ee;
+        }
+
+        .page-main {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 24px 20px 80px;
+        }
+
+        .page-card {
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            background: var(--card);
+            box-shadow: var(--shadow);
+            padding: 20px;
+        }
+
+        .page-kicker {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 8px;
+            border-radius: 999px;
+            background: rgba(34, 211, 238, .12);
+            color: #22d3ee;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: .3px;
+            margin-bottom: 8px;
+        }
+
+        .page-card h1 {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--t0);
+            margin-bottom: 4px;
+            letter-spacing: -0.3px;
+        }
+
+        .page-card p {
+            font-size: 12px;
+            color: var(--t2);
+            line-height: 1.6;
+            margin-bottom: 16px;
+        }
+
+        .page-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+        .settings-btn { flex: 0 0 auto; margin-top: 4px; }
+        .guidance-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 12px; }
+
+        /* Guidance panels */
+        .guidance-panel {
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, .02);
+            padding: 12px;
+            margin: 0;
+            font-size: 11px;
+        }
+
+        .guidance-panel h3 {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--t0);
+            margin-bottom: 6px;
+            display: flex;
+            gap: 4px;
+            align-items: center;
+        }
+
+        .guidance-panel h3::before {
+            content: "→";
+            color: #22d3ee;
+            font-weight: 700;
+        }
+
+        .guidance-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px;
+            margin-bottom: 6px;
+        }
+
+        .guidance-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .guidance-item {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .guidance-label {
+            color: var(--t2);
+            font-weight: 600;
+        }
+
+        .guidance-value {
+            color: var(--t0);
+            font-weight: 700;
+        }
+
+        .guidance-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            color: var(--t1);
+            line-height: 1.5;
+        }
+
+        .guidance-list li {
+            margin-bottom: 4px;
+            padding-left: 12px;
+            position: relative;
+        }
+
+        .guidance-list li::before {
+            content: "•";
+            position: absolute;
+            left: 0;
+            color: #22d3ee;
+        }
+
+        .section-grid {
+            display: grid;
+            gap: 0;
+        }
+
+        .haccp-form-sections {
+            display: grid;
+            gap: 16px;
+        }
+
+        .panel {
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, .04);
+            padding: 12px;
+        }
+
+        .panel-title {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--t0);
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .field-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 8px;
+            --form-control-height: 42px;
+        }
+
+        .field {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+
+        .field.full {
+            grid-column: 1 / -1;
+        }
+
+        .field.half {
+            grid-column: span 1;
+        }
+
+        .field label {
+            font-size: 10px;
+            color: var(--t1);
+            font-weight: 700;
+            letter-spacing: 0.3px;
+            text-transform: uppercase;
+        }
+
+        .field input,
+        .field select,
+        .field textarea {
+            width: 100%;
+            padding: 7px 9px;
+            border-radius: 7px;
+            border: 1px solid var(--border);
+            background: var(--in-bg);
+            color: var(--t0);
+            font: inherit;
+            font-size: 13px;
+            line-height: 1.3;
+            min-height: var(--form-control-height);
+        }
+
+        .field input::placeholder,
+        .field textarea::placeholder {
+            color: var(--in-ph);
+            font-size: 12px;
+        }
+
+        .field textarea {
+            min-height: 48px;
+            resize: vertical;
+            font-size: 12px;
+        }
+
+        .field textarea.compact {
+            min-height: 42px;
+        }
+
+        .input-row {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+        }
+
+        .input-row input {
+            flex: 1;
+        }
+
+        .roaster-buttons {
+            display: flex;
+            gap: 4px;
+            flex-wrap: nowrap;
+        }
+
+        .roaster-btn {
+            flex: 1;
+            min-width: 32px;
+            padding: 6px 0;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, .03);
+            color: var(--t1);
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 700;
+            text-align: center;
+            transition: all 120ms ease;
+            min-height: var(--form-control-height);
+        }
+
+        .roaster-btn:hover {
+            background: rgba(255, 255, 255, .06);
+            color: var(--t0);
+        }
+
+        .roaster-btn.active {
+            background: rgba(34, 211, 238, .18);
+            border-color: rgba(34, 211, 238, .28);
+            color: #22d3ee;
+        }
+
+        .mini-btn {
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, .04);
+            padding: 6px 7px;
+            border-radius: 6px;
+            color: var(--t1);
+            cursor: pointer;
+            font-size: 10px;
+            font-weight: 700;
+            white-space: nowrap;
+            flex-shrink: 0;
+            min-height: var(--form-control-height);
+        }
+
+        .mini-btn:hover {
+            background: rgba(255, 255, 255, .08);
+            color: var(--t0);
+        }
+
+        .mini-btn.active {
+            background: rgba(34, 211, 238, .18);
+            border-color: rgba(34, 211, 238, .28);
+            color: #22d3ee;
+        }
+
+        .inline-help {
+            font-size: 10px;
+            color: var(--t2);
+        }
+
+        .status-group {
+            display: flex;
+            gap: 5px;
+            flex-wrap: nowrap;
+        }
+
+        .status-option {
+            flex: 1;
+            padding: 6px 8px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, .03);
+            color: var(--t1);
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 700;
+            transition: all 120ms ease;
+            text-align: center;
+        }
+
+        .status-option[aria-disabled="true"] {
+            cursor: default;
+        }
+
+        .status-option.active {
+            border-color: rgba(34, 211, 238, .28);
+            color: var(--t0);
+            background: rgba(34, 211, 238, .12);
+        }
+
+        .status-option.fail.active {
+            border-color: rgba(248, 113, 113, .32);
+            background: rgba(248, 113, 113, .12);
+            color: var(--rv);
+        }
+
+        .fail-section {
+            display: none;
+            grid-column: 1 / -1;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid var(--border);
+            animation: slideDown 200ms ease;
+        }
+
+        .fail-section.show {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                max-height: 0;
+            }
+            to {
+                opacity: 1;
+                max-height: 600px;
+            }
+        }
+
+        .error-text {
+            color: var(--rv);
+            font-size: 9px;
+            display: none;
+            margin-top: 1px;
+        }
+
+        .error-text.show {
+            display: block;
+        }
+
+        .action-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 10px;
+        }
+
+        .btn-primary,
+        .btn-secondary {
+            border: 1px solid var(--border);
+            border-radius: 7px;
+            padding: 8px 12px;
+            font: inherit;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 12px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, rgba(34, 211, 238, .24), rgba(217, 70, 239, .18));
+            color: var(--t0);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, .05);
+            color: var(--t2);
+        }
+
+        .toast {
+            margin-top: 8px;
+            padding: 7px 9px;
+            border-radius: 7px;
+            border: 1px solid rgba(74, 222, 128, .24);
+            background: rgba(74, 222, 128, .12);
+            color: var(--zr);
+            font-size: 11px;
+            display: none;
+        }
+
+        .toast.show {
+            display: block;
+        }
+
+        .table-card {
+            margin-top: 12px;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, .04);
+            padding: 12px;
+        }
+
+        .table-wrap {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 860px;
+        }
+
+        th,
+        td {
+            padding: 6px 8px;
+            border-bottom: 1px solid var(--border);
+            text-align: left;
+            font-size: 10px;
+            color: var(--t1);
+        }
+
+        th {
+            color: var(--t0);
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: .06em;
+            font-weight: 700;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            padding: 2px 6px;
+            border-radius: 6px;
+            font-size: 9px;
+            font-weight: 700;
+        }
+
+        .badge-success {
+            background: rgba(74, 222, 128, .12);
+            color: var(--zr);
+            border: 1px solid rgba(74, 222, 128, .24);
+        }
+
+        .badge-danger {
+            background: rgba(248, 113, 113, .12);
+            color: var(--rv);
+            border: 1px solid rgba(248, 113, 113, .24);
+        }
+
+        .muted {
+            color: var(--t2);
+            font-size: 10px;
+        }
+
+        .record-link {
+            color: #22d3ee;
+            background: none;
+            border: 0;
+            cursor: pointer;
+            padding: 0;
+            font: inherit;
+            font-size: 10px;
+            font-weight: 700;
+        }
+
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 10px;
+            align-items: center;
+        }
+
+        .toolbar select,
+        .toolbar input {
+            width: auto;
+            min-width: 120px;
+            font-size: 10px;
+            padding: 5px 7px;
+        }
+
+        .empty-state {
+            border: 1px dashed var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            color: var(--t2);
+            background: rgba(255, 255, 255, .03);
+            font-size: 11px;
+        }
+
+        .settings-modal { position: fixed; inset: 0; z-index: 200; display: none; align-items: center; justify-content: center; padding: 20px; background: rgba(3, 7, 18, .76); }
+        .settings-modal.show { display: flex; }
+        .settings-dialog { width: min(100%, 720px); max-height: calc(100dvh - 40px); overflow: auto; padding: 20px; border: 1px solid var(--border); border-radius: 14px; background: #101827; box-shadow: var(--shadow); }
+        .settings-header { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px; }
+        .settings-header h2 { font-size:16px; color:var(--t0); }
+        .settings-close { border:0; background:transparent; color:var(--t2); font-size:24px; cursor:pointer; }
+        .settings-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+        .settings-status { min-height:18px; margin-top:10px; font-size:11px; color:var(--t2); }
+        .settings-status.error { color:var(--rv); }
+        .settings-status.success { color:var(--zr); }
+        body.settings-modal-open { overflow:hidden; }
+
+        @media (max-width: 1024px) {
+            .field-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .guidance-row {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .guidance-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+
+        @media (max-width: 760px) {
+            .field-grid {
+                grid-template-columns: 1fr;
+            }
+            .guidance-grid, .settings-grid { grid-template-columns: 1fr; }
+            .page-heading { flex-direction: column; }
+
+            .fail-section.show {
+                grid-template-columns: 1fr;
+            }
+
+            .roaster-buttons {
+                gap: 3px;
+            }
+
+            .roaster-btn {
+                min-width: 30px;
+                padding: 5px 0;
+                font-size: 11px;
+            }
+
+            .page-main {
+                padding: 16px 12px 60px;
+            }
+
+            .app-header {
+                padding: 0 12px;
+            }
+
+            .page-card {
+                padding: 12px;
+            }
+
+            .panel {
+                padding: 10px;
+            }
+
+            .guidance-panel {
+                padding: 10px;
+                margin-bottom: 10px;
+            }
+
+            .guidance-row {
+                grid-template-columns: 1fr;
+            }
+
+            .input-row {
+                gap: 3px;
+            }
+
+            .action-row {
+                gap: 4px;
+            }
+
+            .btn-primary,
+            .btn-secondary {
+                padding: 7px 10px;
+                font-size: 11px;
+            }
+
+            .status-option {
+                padding: 5px 6px;
+                font-size: 11px;
+            }
+
+            .field input,
+            .field select,
+            .field textarea {
+                padding: 6px 8px;
+                font-size: 14px;
+            }
+
+            .field label {
+                font-size: 9px;
+            }
+
+            .mini-btn {
+                padding: 5px 6px;
+                font-size: 9px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="loading-screen" id="loadingScreen">
+        <div class="loading-spinner"></div>
+    </div>
+    <div class="blobs">
+        <div class="b1"></div>
+        <div class="b2"></div>
+    </div>
+
+    <div class="auth-hidden" id="mainContent">
+        <header class="app-header">
+            <div class="header-left">
+                <a href="/home?category=haccp" class="back-btn">← HACCP 홈</a>
+                <div class="app-title"><span class="dot"></span>HACCP Master Template</div>
+            </div>
+        </header>
+
+        <main class="page-main">
+  <section class="page-card">
+    <div class="page-heading">
+      <div><div class="page-kicker">MASTER TEMPLATE</div><h1>HACCP 공정 기록 마스터 템플릿</h1><p>공정별 입력 항목과 기록 구조를 적용하기 위한 공통 화면 템플릿입니다.</p></div>
+      <div style="display:flex;gap:6px;"><button type="button" class="btn-secondary settings-btn" id="openJournalBtn">일지 조회 / 인쇄</button><button type="button" class="btn-secondary settings-btn" id="openSettingsBtn">기본 설정</button></div>
+    </div>
+    <div class="haccp-form-sections">
+      <div class="guidance-grid">
+        <div class="guidance-panel"><h3>한계기준</h3><ul class="guidance-list"><li>기준 항목 A</li><li>기준 항목 B</li></ul></div>
+        <div class="guidance-panel"><h3>점검 주기</h3><ul class="guidance-list"><li>작업 시작 전</li><li>설정된 점검 주기에 따라 확인</li></ul></div>
+        <div class="guidance-panel"><h3>점검 방법</h3><ul class="guidance-list"><li>설정된 방법에 따라 점검</li><li>측정 결과를 기록</li></ul></div>
+      </div>
+      <section class="panel">
+        <div class="field-grid">
+          <div class="field"><label for="demoDate">작성일자</label><input id="demoDate" type="date"></div>
+          <div class="field"><label for="demoInspector">점검자</label><input id="demoInspector" type="text"></div>
+          <div class="field"><label for="demoProduct">품명</label><input id="demoProduct" type="text"></div>
+          <div class="field"><label>설비 선택</label><div class="roaster-buttons"><button type="button" class="roaster-btn" data-demo-equipment="1">1</button><button type="button" class="roaster-btn" data-demo-equipment="2">2</button><button type="button" class="roaster-btn" data-demo-equipment="3">3</button></div></div>
+          <div class="field"><label for="demoCriterion">기준값</label><input id="demoCriterion" type="number" value="15"></div>
+          <div class="field"><label for="demoTime">측정시각</label><div class="input-row"><input id="demoTime" type="time"><button type="button" class="mini-btn" id="demoNowBtn">현재 시각</button></div></div>
+          <div class="field"><label for="demoMeasurement">측정값</label><input id="demoMeasurement" type="number" step="0.1" placeholder="10~20: PASS"><span class="inline-help">화면 동작 확인용 데모 기준입니다.</span></div>
+          <div class="field"><label>판정</label><div class="status-group"><button type="button" class="status-option" id="demoPass" aria-disabled="true">PASS</button><button type="button" class="status-option fail" id="demoFail" aria-disabled="true">FAIL</button></div></div>
+          <div class="fail-section" id="demoFailSection"><div class="field"><label for="demoDeviation">한계기준 이탈내용</label><textarea id="demoDeviation" class="compact"></textarea></div><div class="field"><label for="demoCorrective">개선조치 및 결과</label><textarea id="demoCorrective" class="compact"></textarea></div><div class="field"><label for="demoActionBy">조치자</label><input id="demoActionBy"></div><div class="field"><label for="demoVerifiedBy">확인</label><input id="demoVerifiedBy"></div></div>
+          <div class="field full"><label for="demoNotes">비고</label><textarea id="demoNotes" class="compact" placeholder="추가 메모(선택)"></textarea></div>
+        </div>
+        <div class="action-row"><button type="button" class="btn-primary" id="demoSaveBtn">기록 저장</button><button type="button" class="btn-secondary" id="demoResetBtn">초기화</button></div><div class="toast" id="demoToast"></div>
+      </section>
+      <section class="panel corrective-guidance"><h2 class="panel-title">개선조치 방법 (FAIL 발생 시)</h2><div class="guidance-grid"><article class="guidance-panel"><ul class="guidance-list"><li>이탈 발생 시 작업을 중지하고 원인을 확인합니다.</li></ul></article><article class="guidance-panel"><ul class="guidance-list"><li>필요한 개선조치를 수행하고 결과를 기록합니다.</li></ul></article><article class="guidance-panel"><ul class="guidance-list"><li>정상 여부를 확인한 뒤 작업을 재개합니다.</li></ul></article></div></section>
+      <section class="table-card"><div class="toolbar"><label class="field" style="min-width:160px;margin:0;"><span class="muted">작성일</span><input id="demoDateFilter" type="date"></label><label class="field" style="min-width:120px;margin:0;"><span class="muted">결과</span><select id="demoResultFilter"><option>전체</option><option>PASS</option><option>FAIL</option></select></label></div><div class="table-wrap"><table><thead><tr><th>작성일</th><th>시각</th><th>품명</th><th>측정값</th><th>판정</th><th>점검자</th><th>작업</th></tr></thead><tbody><tr><td colspan="7" class="empty-state">마스터 템플릿에서는 실제 기록을 조회하지 않습니다.</td></tr></tbody></table></div></section>
+    </div>
+  </section>
+</main>
+    </div>
+<div class="settings-modal" id="demoJournalModal" aria-hidden="true"><section class="settings-dialog" role="dialog" aria-modal="true" aria-labelledby="demoJournalTitle"><div class="settings-header"><h2 id="demoJournalTitle">일지 조회 / 인쇄</h2><button class="settings-close" id="closeDemoJournalBtn" type="button" aria-label="닫기">×</button></div><p class="settings-status">마스터 템플릿에서는 실제 일지 조회 및 인쇄를 수행하지 않습니다.</p></section></div>
+<div class="settings-modal" id="settingsModal" aria-hidden="true"><section class="settings-dialog" role="dialog" aria-modal="true" aria-labelledby="settingsTitle"><div class="settings-header"><h2 id="settingsTitle">기본 설정</h2><button class="settings-close" id="closeSettingsBtn" type="button" aria-label="닫기">×</button></div><div class="settings-grid"><div class="field"><label for="settingInspector">기본 점검자</label><input id="settingInspector" value="점검자"></div><div class="field"><label for="settingProduct">기본 품명</label><input id="settingProduct" value="예시 품목"></div><div class="field"><label for="settingCriterion">기준값</label><input id="settingCriterion" type="number" value="15"></div></div><div class="action-row"><button class="btn-primary" id="saveDemoSettingsBtn" type="button">설정 적용</button></div><p class="settings-status" id="demoSettingsStatus"></p></section></div>
+<script type="module">
+  import { requireApprovedActiveUser } from '/dashboard/js/firebase-client.js';
+  const $ = id => document.getElementById(id);
+  const today = () => new Date().toISOString().slice(0, 10);
+  const now = () => new Date().toTimeString().slice(0, 5);
+  function setModal(id, show) { $(id).classList.toggle('show', show); $(id).setAttribute('aria-hidden', String(!show)); document.body.classList.toggle('settings-modal-open', show); }
+  function updateJudgment() { const value = Number($('demoMeasurement').value); const pending = $('demoMeasurement').value === '' || !Number.isFinite(value); const pass = !pending && value >= 10 && value <= 20; $('demoPass').classList.toggle('active', pass); $('demoFail').classList.toggle('active', !pending && !pass); $('demoFailSection').classList.toggle('show', !pending && !pass); }
+  function resetDemo() { $('demoDate').value = today(); $('demoTime').value = ''; $('demoMeasurement').value = ''; $('demoNotes').value = ''; document.querySelectorAll('[data-demo-equipment]').forEach(button => button.classList.remove('active')); ['demoDeviation','demoCorrective','demoActionBy','demoVerifiedBy'].forEach(id => $(id).value = ''); $('demoToast').classList.remove('show'); updateJudgment(); }
+  document.querySelectorAll('[data-demo-equipment]').forEach(button => button.addEventListener('click', () => { document.querySelectorAll('[data-demo-equipment]').forEach(item => item.classList.toggle('active', item === button)); }));
+  $('demoNowBtn').addEventListener('click', () => { $('demoTime').value = now(); $('demoNowBtn').classList.add('active'); });
+  $('demoMeasurement').addEventListener('input', updateJudgment);
+  $('demoResetBtn').addEventListener('click', resetDemo);
+  $('demoSaveBtn').addEventListener('click', () => { $('demoToast').textContent = '마스터 템플릿에서는 실제 기록이 저장되지 않습니다.'; $('demoToast').classList.add('show'); });
+  $('openJournalBtn').addEventListener('click', () => setModal('demoJournalModal', true)); $('closeDemoJournalBtn').addEventListener('click', () => setModal('demoJournalModal', false));
+  $('openSettingsBtn').addEventListener('click', () => setModal('settingsModal', true)); $('closeSettingsBtn').addEventListener('click', () => setModal('settingsModal', false));
+  $('saveDemoSettingsBtn').addEventListener('click', () => { $('demoInspector').value = $('settingInspector').value; $('demoProduct').value = $('settingProduct').value; $('demoCriterion').value = $('settingCriterion').value; $('demoSettingsStatus').textContent = '마스터 템플릿 설정은 현재 브라우저 세션에만 적용합니다.'; });
+  requireApprovedActiveUser({ page: 'haccp-master' }).then(session => { if (!session) return; resetDemo(); $('loadingScreen').classList.add('hidden'); $('mainContent').classList.remove('auth-hidden'); });
+</script>
+</body>
+
+</html>

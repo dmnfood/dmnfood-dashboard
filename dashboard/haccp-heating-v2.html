@@ -270,6 +270,10 @@
             grid-column: 1 / -1;
         }
 
+        .field.memo {
+            grid-column: span 3;
+        }
+
         .field.half {
             grid-column: span 1;
         }
@@ -417,6 +421,30 @@
         }
 
         .status-option.fail.active {
+            border-color: rgba(248, 113, 113, .32);
+            background: rgba(248, 113, 113, .12);
+            color: var(--rv);
+        }
+
+        .judgment {
+            min-height: var(--form-control-height);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid var(--border);
+            border-radius: 7px;
+            color: var(--t2);
+            font-size: 13px;
+            font-weight: 800;
+        }
+
+        .judgment.pass {
+            border-color: rgba(74, 222, 128, .32);
+            background: rgba(74, 222, 128, .12);
+            color: var(--zr);
+        }
+
+        .judgment.fail {
             border-color: rgba(248, 113, 113, .32);
             background: rgba(248, 113, 113, .12);
             color: var(--rv);
@@ -616,6 +644,10 @@
         @media (max-width: 1024px) {
             .field-grid {
                 grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .field.memo {
+                grid-column: 1 / -1;
             }
 
             .guidance-row {
@@ -821,19 +853,14 @@
                                 <input id="productTemperature" type="number" step="0.1" placeholder="88.5" inputmode="decimal">
                             </div>
 
-                            <div class="field full">
-                                <label>판정</label>
-                                <div class="status-group">
-                                    <button type="button" class="status-option" id="judgementPassBtn" aria-disabled="true">PASS</button>
-                                    <button type="button" class="status-option fail" id="judgementFailBtn" aria-disabled="true">FAIL</button>
-                                </div>
-                                <div class="inline-help" id="judgementPending">제품 표면온도를 입력하면 판정이 자동으로 계산됩니다.</div>
-                            </div>
-
-                            <!-- Row 4: 비고 (전체 너비) -->
-                            <div class="field full">
+                            <!-- Row 3: 비고 (3열) | 판정 (1열) -->
+                            <div class="field memo">
                                 <label for="notes">비고</label>
                                 <textarea id="notes" class="compact" placeholder="메모(선택)"></textarea>
+                            </div>
+                            <div class="field">
+                                <label>판정</label>
+                                <output id="judgment" class="judgment" aria-live="polite">입력 대기</output>
                             </div>
 
                             <!-- FAIL 전용 필드 (숨김) -->
@@ -986,9 +1013,7 @@
             actionBy: document.getElementById('actionBy'),
             verifiedBy: document.getElementById('verifiedBy'),
             notes: document.getElementById('notes'),
-            judgementPassBtn: document.getElementById('judgementPassBtn'),
-            judgementFailBtn: document.getElementById('judgementFailBtn'),
-            judgementPending: document.getElementById('judgementPending'),
+            judgment: document.getElementById('judgment'),
             setCurrentTimeBtn: document.getElementById('setCurrentTimeBtn'),
             deviationError: document.getElementById('deviationError'),
             correctiveActionError: document.getElementById('correctiveActionError'),
@@ -1069,11 +1094,8 @@
             const isFail = judgement === 'FAIL';
             const wasFail = currentJudgement === 'FAIL';
             currentJudgement = judgement;
-            formElements.judgementPassBtn.classList.toggle('active', judgement === 'PASS');
-            formElements.judgementFailBtn.classList.toggle('active', isFail);
-            formElements.judgementPassBtn.classList.toggle('fail', false);
-            formElements.judgementFailBtn.classList.toggle('fail', isFail);
-            formElements.judgementPending.hidden = Boolean(judgement);
+            formElements.judgment.textContent = judgement || '입력 대기';
+            formElements.judgment.className = `judgment${judgement === 'PASS' ? ' pass' : isFail ? ' fail' : ''}`;
             formElements.failSection.classList.toggle('show', isFail);
             toggleFailureFields(isFail);
             if (wasFail && !isFail) {

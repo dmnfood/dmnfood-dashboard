@@ -1,10 +1,14 @@
+<!--
+  GENERATED FROM: haccp-master.html
+  BUSINESS ADAPTER: CCP-1 heating
+-->
 <!DOCTYPE html>
 <html lang="ko">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>들메내식품 · CCP-1 가열공정 점검표</title>
+    <title>들메내식품 · 중요관리점(CCP-1) 모니터링일지 [가열 공정]</title>
     <link rel="stylesheet" href="/dashboard/style.css">
     <link rel="stylesheet" href="/dashboard/css/journal-modal.css">
     <style>
@@ -226,6 +230,11 @@
             gap: 0;
         }
 
+        .haccp-form-sections {
+            display: grid;
+            gap: 16px;
+        }
+
         .panel {
             border: 1px solid var(--border);
             border-radius: 12px;
@@ -259,6 +268,10 @@
 
         .field.full {
             grid-column: 1 / -1;
+        }
+
+        .field.memo {
+            grid-column: span 3;
         }
 
         .field.half {
@@ -408,6 +421,30 @@
         }
 
         .status-option.fail.active {
+            border-color: rgba(248, 113, 113, .32);
+            background: rgba(248, 113, 113, .12);
+            color: var(--rv);
+        }
+
+        .judgment {
+            min-height: var(--form-control-height);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid var(--border);
+            border-radius: 7px;
+            color: var(--t2);
+            font-size: 13px;
+            font-weight: 800;
+        }
+
+        .judgment.pass {
+            border-color: rgba(74, 222, 128, .32);
+            background: rgba(74, 222, 128, .12);
+            color: var(--zr);
+        }
+
+        .judgment.fail {
             border-color: rgba(248, 113, 113, .32);
             background: rgba(248, 113, 113, .12);
             color: var(--rv);
@@ -609,6 +646,10 @@
                 grid-template-columns: repeat(2, minmax(0, 1fr));
             }
 
+            .field.memo {
+                grid-column: 1 / -1;
+            }
+
             .guidance-row {
                 grid-template-columns: repeat(2, 1fr);
             }
@@ -711,7 +752,7 @@
     <div class="auth-hidden" id="mainContent">
         <header class="app-header">
             <div class="header-left">
-                <a href="/home?category=haccp" class="back-btn">← HACCP 홈</a>
+                <a href="/home?category=haccp-all" class="back-btn" data-haccp-home>← HACCP 홈</a>
                 <div class="app-title"><span class="dot"></span>CCP-1 가열공정 점검표</div>
             </div>
         </header>
@@ -723,7 +764,7 @@
                     <div style="display:flex;gap:6px;"><button type="button" class="btn-secondary settings-btn" id="openJournalBtn">일지 조회 / 인쇄</button><button type="button" class="btn-secondary settings-btn" id="openSettingsBtn">기본 설정</button></div>
                 </div>
 
-                <div class="section-grid">
+                <div class="section-grid haccp-form-sections">
                     <div class="guidance-grid">
                     <div class="guidance-panel">
                         <h3>한계기준</h3>
@@ -812,19 +853,14 @@
                                 <input id="productTemperature" type="number" step="0.1" placeholder="88.5" inputmode="decimal">
                             </div>
 
-                            <div class="field full">
-                                <label>판정</label>
-                                <div class="status-group">
-                                    <button type="button" class="status-option" id="judgementPassBtn" aria-disabled="true">PASS</button>
-                                    <button type="button" class="status-option fail" id="judgementFailBtn" aria-disabled="true">FAIL</button>
-                                </div>
-                                <div class="inline-help" id="judgementPending">제품 표면온도를 입력하면 판정이 자동으로 계산됩니다.</div>
-                            </div>
-
-                            <!-- Row 4: 비고 (전체 너비) -->
-                            <div class="field full">
+                            <!-- Row 3: 비고 (3열) | 판정 (1열) -->
+                            <div class="field memo">
                                 <label for="notes">비고</label>
                                 <textarea id="notes" class="compact" placeholder="메모(선택)"></textarea>
+                            </div>
+                            <div class="field">
+                                <label>판정</label>
+                                <output id="judgment" class="judgment" aria-live="polite">입력 대기</output>
                             </div>
 
                             <!-- FAIL 전용 필드 (숨김) -->
@@ -938,6 +974,9 @@
         import { DEFAULT_HEATING_SETTINGS, deleteHeatingRecord, loadHeatingSettings, saveHeatingRecord, saveHeatingSettings, subscribeToHeatingRecords } from '/dashboard/js/haccp-heating-firestore.js';
         import { createJournalModal } from '/dashboard/js/journal-modal.js';
         import { buildHeatingJournalSummary, loadHeatingJournalData, renderHeatingJournal } from '/dashboard/js/haccp-heating-journal.js';
+        import { initializeHaccpHomeLinks } from '/dashboard/js/haccp-navigation.js';
+
+        initializeHaccpHomeLinks();
 
         // TODO: Replace these interim defaults with the form-specific responsible-person settings.
         const DEFAULT_INSPECTOR_NAME = "김석기";
@@ -977,9 +1016,7 @@
             actionBy: document.getElementById('actionBy'),
             verifiedBy: document.getElementById('verifiedBy'),
             notes: document.getElementById('notes'),
-            judgementPassBtn: document.getElementById('judgementPassBtn'),
-            judgementFailBtn: document.getElementById('judgementFailBtn'),
-            judgementPending: document.getElementById('judgementPending'),
+            judgment: document.getElementById('judgment'),
             setCurrentTimeBtn: document.getElementById('setCurrentTimeBtn'),
             deviationError: document.getElementById('deviationError'),
             correctiveActionError: document.getElementById('correctiveActionError'),
@@ -1060,11 +1097,8 @@
             const isFail = judgement === 'FAIL';
             const wasFail = currentJudgement === 'FAIL';
             currentJudgement = judgement;
-            formElements.judgementPassBtn.classList.toggle('active', judgement === 'PASS');
-            formElements.judgementFailBtn.classList.toggle('active', isFail);
-            formElements.judgementPassBtn.classList.toggle('fail', false);
-            formElements.judgementFailBtn.classList.toggle('fail', isFail);
-            formElements.judgementPending.hidden = Boolean(judgement);
+            formElements.judgment.textContent = judgement || '입력 대기';
+            formElements.judgment.className = `judgment${judgement === 'PASS' ? ' pass' : isFail ? ' fail' : ''}`;
             formElements.failSection.classList.toggle('show', isFail);
             toggleFailureFields(isFail);
             if (wasFail && !isFail) {

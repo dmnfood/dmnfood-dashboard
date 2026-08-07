@@ -1,0 +1,1032 @@
+﻿<!--
+  GENERATED FROM: haccp-master.html
+  BUSINESS ADAPTER: CCP-3 bottle washing
+-->
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>들메내식품 · 중요관리점(CCP-3) 모니터링일지 [세병 공정]</title>
+    <link rel="stylesheet" href="/dashboard/style.css">
+
+    <style>
+        .auth-hidden {
+            display: none !important;
+        }
+
+        .loading-screen {
+            position: fixed;
+            inset: 0;
+            background: #070b14;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 12px;
+            z-index: 999;
+        }
+
+        .loading-screen.hidden {
+            display: none;
+        }
+
+        .loading-spinner {
+            width: 36px;
+            height: 36px;
+            border: 3px solid rgba(255, 255, 255, .12);
+            border-top-color: #22d3ee;
+            border-radius: 50%;
+            animation: spin .8s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .app-header {
+            background: rgba(255, 255, 255, 0.05);
+            border-bottom: 1px solid var(--border);
+            backdrop-filter: blur(20px);
+            padding: 0 32px;
+            height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .back-btn {
+            height: 30px;
+            padding: 0 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: transparent;
+            color: var(--t2);
+            font-family: 'Noto Sans KR', sans-serif;
+            font-size: 12px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .back-btn:hover {
+            background: rgba(255, 255, 255, .07);
+            color: var(--t0);
+        }
+
+        .app-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--t0);
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .app-title .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #22d3ee;
+        }
+
+        .page-main {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 24px 20px 80px;
+        }
+
+        .page-card {
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            background: var(--card);
+            box-shadow: var(--shadow);
+            padding: 20px;
+        }
+
+        .page-kicker {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 8px;
+            border-radius: 999px;
+            background: rgba(34, 211, 238, .12);
+            color: #22d3ee;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: .3px;
+            margin-bottom: 8px;
+        }
+
+        .page-card h1 {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--t0);
+            margin-bottom: 4px;
+            letter-spacing: -0.3px;
+        }
+
+        .page-card p {
+            font-size: 12px;
+            color: var(--t2);
+            line-height: 1.6;
+            margin-bottom: 16px;
+        }
+
+        .page-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+        .settings-btn { flex: 0 0 auto; margin-top: 4px; }
+        .guidance-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 12px; }
+
+        /* Guidance panels */
+        .guidance-panel {
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, .02);
+            padding: 12px;
+            margin: 0;
+            font-size: 11px;
+        }
+
+        .guidance-panel h3 {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--t0);
+            margin-bottom: 6px;
+            display: flex;
+            gap: 4px;
+            align-items: center;
+        }
+
+        .guidance-panel h3::before {
+            content: "→";
+            color: #22d3ee;
+            font-weight: 700;
+        }
+
+        .guidance-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px;
+            margin-bottom: 6px;
+        }
+
+        .guidance-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .guidance-item {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .guidance-label {
+            color: var(--t2);
+            font-weight: 600;
+        }
+
+        .guidance-value {
+            color: var(--t0);
+            font-weight: 700;
+        }
+
+        .guidance-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            color: var(--t1);
+            line-height: 1.5;
+        }
+
+        .guidance-list li {
+            margin-bottom: 4px;
+            padding-left: 12px;
+            position: relative;
+        }
+
+        .guidance-list li::before {
+            content: "•";
+            position: absolute;
+            left: 0;
+            color: #22d3ee;
+        }
+
+        .section-grid {
+            display: grid;
+            gap: 0;
+        }
+
+        .haccp-form-sections {
+            display: grid;
+            gap: 16px;
+        }
+
+        .panel {
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, .04);
+            padding: 12px;
+        }
+
+        .panel-title {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--t0);
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .field-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 8px;
+            --form-control-height: 42px;
+        }
+
+        .field {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+
+        .field.full {
+            grid-column: 1 / -1;
+        }
+
+        .field.half {
+            grid-column: span 1;
+        }
+
+        .field label {
+            font-size: 10px;
+            color: var(--t1);
+            font-weight: 700;
+            letter-spacing: 0.3px;
+            text-transform: uppercase;
+        }
+
+        .field input,
+        .field select,
+        .field textarea {
+            width: 100%;
+            padding: 7px 9px;
+            border-radius: 7px;
+            border: 1px solid var(--border);
+            background: var(--in-bg);
+            color: var(--t0);
+            font: inherit;
+            font-size: 13px;
+            line-height: 1.3;
+            min-height: var(--form-control-height);
+        }
+
+        .field input::placeholder,
+        .field textarea::placeholder {
+            color: var(--in-ph);
+            font-size: 12px;
+        }
+
+        .field textarea {
+            min-height: 48px;
+            resize: vertical;
+            font-size: 12px;
+        }
+
+        .field textarea.compact {
+            min-height: 42px;
+        }
+
+        .input-row {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+        }
+
+        .input-row input {
+            flex: 1;
+        }
+
+        .roaster-buttons {
+            display: flex;
+            gap: 4px;
+            flex-wrap: nowrap;
+        }
+
+        .roaster-btn {
+            flex: 1;
+            min-width: 32px;
+            padding: 6px 0;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, .03);
+            color: var(--t1);
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 700;
+            text-align: center;
+            transition: all 120ms ease;
+            min-height: var(--form-control-height);
+        }
+
+        .roaster-btn:hover {
+            background: rgba(255, 255, 255, .06);
+            color: var(--t0);
+        }
+
+        .roaster-btn.active {
+            background: rgba(34, 211, 238, .18);
+            border-color: rgba(34, 211, 238, .28);
+            color: #22d3ee;
+        }
+
+        .mini-btn {
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, .04);
+            padding: 6px 7px;
+            border-radius: 6px;
+            color: var(--t1);
+            cursor: pointer;
+            font-size: 10px;
+            font-weight: 700;
+            white-space: nowrap;
+            flex-shrink: 0;
+            min-height: var(--form-control-height);
+        }
+
+        .mini-btn:hover {
+            background: rgba(255, 255, 255, .08);
+            color: var(--t0);
+        }
+
+        .mini-btn.active {
+            background: rgba(34, 211, 238, .18);
+            border-color: rgba(34, 211, 238, .28);
+            color: #22d3ee;
+        }
+
+        .inline-help {
+            font-size: 10px;
+            color: var(--t2);
+        }
+
+        .status-group {
+            display: flex;
+            gap: 5px;
+            flex-wrap: nowrap;
+        }
+
+        .status-option {
+            flex: 1;
+            padding: 6px 8px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, .03);
+            color: var(--t1);
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 700;
+            transition: all 120ms ease;
+            text-align: center;
+        }
+
+        .status-option[aria-disabled="true"] {
+            cursor: default;
+        }
+
+        .status-option.active {
+            border-color: rgba(34, 211, 238, .28);
+            color: var(--t0);
+            background: rgba(34, 211, 238, .12);
+        }
+
+        .status-option.fail.active {
+            border-color: rgba(248, 113, 113, .32);
+            background: rgba(248, 113, 113, .12);
+            color: var(--rv);
+        }
+
+        .fail-section {
+            display: none;
+            grid-column: 1 / -1;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid var(--border);
+            animation: slideDown 200ms ease;
+        }
+
+        .fail-section.show {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                max-height: 0;
+            }
+            to {
+                opacity: 1;
+                max-height: 600px;
+            }
+        }
+
+        .error-text {
+            color: var(--rv);
+            font-size: 9px;
+            display: none;
+            margin-top: 1px;
+        }
+
+        .error-text.show {
+            display: block;
+        }
+
+        .action-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 10px;
+        }
+
+        .btn-primary,
+        .btn-secondary {
+            border: 1px solid var(--border);
+            border-radius: 7px;
+            padding: 8px 12px;
+            font: inherit;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 12px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, rgba(34, 211, 238, .24), rgba(217, 70, 239, .18));
+            color: var(--t0);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, .05);
+            color: var(--t2);
+        }
+
+        .toast {
+            margin-top: 8px;
+            padding: 7px 9px;
+            border-radius: 7px;
+            border: 1px solid rgba(74, 222, 128, .24);
+            background: rgba(74, 222, 128, .12);
+            color: var(--zr);
+            font-size: 11px;
+            display: none;
+        }
+
+        .toast.show {
+            display: block;
+        }
+
+        .table-card {
+            margin-top: 12px;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, .04);
+            padding: 12px;
+        }
+
+        .table-wrap {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 860px;
+        }
+
+        th,
+        td {
+            padding: 6px 8px;
+            border-bottom: 1px solid var(--border);
+            text-align: left;
+            font-size: 10px;
+            color: var(--t1);
+        }
+
+        th {
+            color: var(--t0);
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: .06em;
+            font-weight: 700;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            padding: 2px 6px;
+            border-radius: 6px;
+            font-size: 9px;
+            font-weight: 700;
+        }
+
+        .badge-success {
+            background: rgba(74, 222, 128, .12);
+            color: var(--zr);
+            border: 1px solid rgba(74, 222, 128, .24);
+        }
+
+        .badge-danger {
+            background: rgba(248, 113, 113, .12);
+            color: var(--rv);
+            border: 1px solid rgba(248, 113, 113, .24);
+        }
+
+        .muted {
+            color: var(--t2);
+            font-size: 10px;
+        }
+
+        .record-link {
+            color: #22d3ee;
+            background: none;
+            border: 0;
+            cursor: pointer;
+            padding: 0;
+            font: inherit;
+            font-size: 10px;
+            font-weight: 700;
+        }
+
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 10px;
+            align-items: center;
+        }
+
+        .toolbar select,
+        .toolbar input {
+            width: auto;
+            min-width: 120px;
+            font-size: 10px;
+            padding: 5px 7px;
+        }
+
+        .empty-state {
+            border: 1px dashed var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            color: var(--t2);
+            background: rgba(255, 255, 255, .03);
+            font-size: 11px;
+        }
+
+        .settings-modal { position: fixed; inset: 0; z-index: 200; display: none; align-items: center; justify-content: center; padding: 20px; background: rgba(3, 7, 18, .76); }
+        .settings-modal.show { display: flex; }
+        .settings-dialog { width: min(100%, 720px); max-height: calc(100dvh - 40px); overflow: auto; padding: 20px; border: 1px solid var(--border); border-radius: 14px; background: #101827; box-shadow: var(--shadow); }
+        .settings-header { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px; }
+        .settings-header h2 { font-size:16px; color:var(--t0); }
+        .settings-close { border:0; background:transparent; color:var(--t2); font-size:24px; cursor:pointer; }
+        .settings-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+        .settings-status { min-height:18px; margin-top:10px; font-size:11px; color:var(--t2); }
+        .settings-status.error { color:var(--rv); }
+        .settings-status.success { color:var(--zr); }
+        body.settings-modal-open { overflow:hidden; }
+
+        @media (max-width: 1024px) {
+            .field-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .guidance-row {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .guidance-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+
+        @media (max-width: 760px) {
+            .field-grid {
+                grid-template-columns: 1fr;
+            }
+            .guidance-grid, .settings-grid { grid-template-columns: 1fr; }
+            .page-heading { flex-direction: column; }
+
+            .fail-section.show {
+                grid-template-columns: 1fr;
+            }
+
+            .roaster-buttons {
+                gap: 3px;
+            }
+
+            .roaster-btn {
+                min-width: 30px;
+                padding: 5px 0;
+                font-size: 11px;
+            }
+
+            .page-main {
+                padding: 16px 12px 60px;
+            }
+
+            .app-header {
+                padding: 0 12px;
+            }
+
+            .page-card {
+                padding: 12px;
+            }
+
+            .panel {
+                padding: 10px;
+            }
+
+            .guidance-panel {
+                padding: 10px;
+                margin-bottom: 10px;
+            }
+
+            .guidance-row {
+                grid-template-columns: 1fr;
+            }
+
+            .input-row {
+                gap: 3px;
+            }
+
+            .action-row {
+                gap: 4px;
+            }
+
+            .btn-primary,
+            .btn-secondary {
+                padding: 7px 10px;
+                font-size: 11px;
+            }
+
+            .status-option {
+                padding: 5px 6px;
+                font-size: 11px;
+            }
+
+            .field input,
+            .field select,
+            .field textarea {
+                padding: 6px 8px;
+                font-size: 14px;
+            }
+
+            .field label {
+                font-size: 9px;
+            }
+
+            .mini-btn {
+                padding: 5px 6px;
+                font-size: 9px;
+            }
+        }
+    </style>
+<style>
+  /* Bottle-washing adapter controls only; macro geometry comes from haccp-master.html. */
+  .container-field { grid-column:span 2; }
+  .memo-field { grid-column:span 3; }
+  .container-options { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:5px; }
+  .choice { min-height:var(--form-control-height); min-width:0; border:1px solid var(--border); border-radius:6px; background:rgba(255,255,255,.03); color:var(--t1); cursor:pointer; font-size:12px; font-weight:700; }
+  .choice.active { border-color:rgba(34,211,238,.28); background:rgba(34,211,238,.18); color:#22d3ee; }
+  .judgment { min-height:var(--form-control-height); display:flex; align-items:center; justify-content:center; border:1px solid var(--border); border-radius:7px; color:var(--t2); font-size:13px; font-weight:800; }
+  .judgment.pass { border-color:rgba(74,222,128,.32); background:rgba(74,222,128,.12); color:var(--zr); }
+  .judgment.fail { border-color:rgba(248,113,113,.32); background:rgba(248,113,113,.12); color:var(--rv); }
+  .toast.error { border-color:rgba(248,113,113,.24); background:rgba(248,113,113,.12); color:var(--rv); }
+  @media (max-width:1024px) { .container-field, .memo-field { grid-column:1 / -1; } }
+  @media (max-width:760px) { .container-options { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+</style></head>
+
+<body>
+    <div class="loading-screen" id="loadingScreen">
+        <div class="loading-spinner"></div>
+    </div>
+    <div class="blobs">
+        <div class="b1"></div>
+        <div class="b2"></div>
+    </div>
+
+    <div class="auth-hidden" id="mainContent">
+        <header class="app-header">
+            <div class="header-left">
+                <a href="/home?category=haccp-all" class="back-btn" data-haccp-home>← HACCP 홈</a>
+                <div class="app-title"><span class="dot"></span>CCP-3 세병공정 점검표</div>
+            </div>
+        </header>
+
+        <main class="page-main"><section class="page-card"><div class="page-heading"><div><div class="page-kicker">공정 기록</div><h1>중요관리점(CCP-3) 모니터링일지 [세병 공정]</h1><p>세병 압력과 세병시간을 확인하고 기록합니다.</p></div><div style="display:flex;gap:6px;"><button id="settingsBtn" class="btn-secondary settings-btn" type="button">기본 설정</button></div></div>
+    <div class="haccp-form-sections">
+    <div class="guidance-grid"><div class="guidance-panel"><h3>한계기준</h3><ul class="guidance-list"><li id="criteriaPressure">압력 0.3 MPa 이상</li><li id="criteriaDuration">세병시간 1초 이상</li></ul></div><div class="guidance-panel"><h3>점검 주기</h3><ul class="guidance-list"><li>작업 시작 전 및 2시간마다</li></ul></div><div class="guidance-panel"><h3>점검 방법</h3><ul class="guidance-list"><li>압력: 압축기의 압력계 확인</li><li>시간: 타이머로 확인</li></ul></div></div>
+    <section class="panel"><div class="field-grid">
+      <div class="field"><label for="recordDate">작성일자</label><input id="recordDate" type="date"></div><div class="field"><label for="inspectorName">점검자</label><input id="inspectorName" type="text"></div><div class="field"><label for="measuredTime">측정시각</label><div class="input-row"><input id="measuredTime" type="time"><button id="nowBtn" class="mini-btn" type="button">현재 시각</button></div></div><div class="field"><label for="washedQuantity">세병완료량</label><div class="input-row"><input id="washedQuantity" type="number" min="0" step="1" inputmode="numeric" placeholder="예: 100"><span class="helper">개</span></div></div>
+      <div class="field container-field"><label>세병 용기</label><div class="container-options" role="group" aria-label="세병 용기 선택"><button class="choice" data-material="glass" data-volume-ml="180" type="button">유리병 180ml</button><button class="choice" data-material="glass" data-volume-ml="250" type="button">유리병 250ml</button><button class="choice" data-material="glass" data-volume-ml="300" type="button">유리병 300ml</button><button class="choice" data-material="glass" data-volume-ml="350" type="button">유리병 350ml</button><button class="choice" data-material="pet" data-volume-ml="1000" type="button">PET 1L</button><button class="choice" data-material="pet" data-volume-ml="1800" type="button">PET 1.8L</button></div></div><div class="field"><label for="pressureMpa">압력수치</label><div class="input-row"><input id="pressureMpa" type="number" min="0" step="0.01" inputmode="decimal" placeholder="예: 0.30"><span class="helper">MPa</span></div></div><div class="field"><label for="washDurationSec">세병시간</label><div class="input-row"><input id="washDurationSec" type="number" min="0" step="0.1" inputmode="decimal" placeholder="예: 1.0"><span class="helper">초</span></div></div>
+      <div class="field memo-field"><label for="notes">비고</label><textarea id="notes" placeholder="추가 메모(선택)"></textarea></div><div class="field"><label>판정</label><output id="judgment" class="judgment" aria-live="polite">입력 대기</output></div>
+      <div id="failSection" class="fail-section"><div class="field"><label for="deviationDetail">한계기준 이탈내용</label><textarea id="deviationDetail" readonly></textarea></div><div class="field"><label for="correctiveActionResult">개선조치 및 결과</label><textarea id="correctiveActionResult"></textarea></div><div class="field"><label for="actionBy">조치자</label><input id="actionBy" type="text"></div><div class="field"><label for="verifiedBy">확인</label><input id="verifiedBy" type="text"></div></div>
+    </div><div class="action-row"><button id="saveBtn" class="btn-primary" type="button">저장</button><button id="resetBtn" class="btn-secondary" type="button">초기화</button><button id="cancelEditBtn" class="btn-secondary" type="button" hidden>취소</button></div><div id="toast" class="toast" role="status"></div></section>
+    <section class="panel corrective-guidance"><h2 class="panel-title">개선조치 안내</h2><div class="guidance-grid"><article class="guidance-panel"><ul class="guidance-list"><li>기준 이탈 시 재세병을 실시합니다.</li></ul></article><article class="guidance-panel"><ul class="guidance-list"><li>압력 이탈 시 압력이 정상범위로 올라갈 때까지 기다린 뒤 재세병합니다.</li></ul></article><article class="guidance-panel"><ul class="guidance-list"><li>세병시간이 짧은 경우 기준 이상으로 세병하도록 개선합니다.</li></ul></article></div></section>
+    <section class="table-card"><div class="toolbar"><label class="field" style="min-width:160px;margin:0;"><span class="muted">작성일</span><input id="dateFilter" type="date"></label><label class="field" style="min-width:120px;margin:0;"><span class="muted">결과</span><select id="resultFilter"><option value="all">전체</option><option value="PASS">PASS</option><option value="FAIL">FAIL</option></select></label></div><div class="table-wrap"><table><thead><tr><th>작성일</th><th>측정시각</th><th>세병용기</th><th>압력</th><th>세병시간</th><th>완료량</th><th>판정</th><th>점검자</th><th>작업</th></tr></thead><tbody id="recordsBody"><tr><td colspan="9" class="empty-state">기록을 불러오는 중입니다.</td></tr></tbody></table></div></section>
+    </div>
+  </section></main>
+  </div>
+<div id="settingsModal" class="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle"><div class="settings-dialog"><div class="settings-header"><h2 id="settingsTitle">CCP-3 기본 설정</h2><button id="settingsClose" class="settings-close" type="button" aria-label="닫기">×</button></div><div class="settings-grid"><div class="field"><label for="settingInspector">기본 점검자</label><input id="settingInspector"></div><div class="field"><label for="settingPressure">최소 압력 (MPa)</label><input id="settingPressure" type="number" min="0" step="0.01"></div><div class="field"><label for="settingDuration">최소 세병시간 (초)</label><input id="settingDuration" type="number" min="0" step="0.1"></div></div><div class="action-row"><button id="settingsSave" class="btn-primary" type="button">설정 저장</button><button id="settingsCancel" class="btn-secondary" type="button">닫기</button></div><div id="settingsMessage" class="settings-status"></div></div></div>
+
+<script type="module">
+  import { requireApprovedActiveUser } from '/dashboard/js/firebase-client.js';
+  import {
+    DEFAULT_BOTTLE_WASHING_SETTINGS,
+    bottleWashingFailureReasons,
+    calculateBottleWashingJudgment,
+    deleteBottleWashingRecord,
+    loadBottleWashingSettings,
+    saveBottleWashingRecord,
+    saveBottleWashingSettings,
+    subscribeToBottleWashingRecords,
+  } from '/dashboard/js/haccp-bottle-washing-firestore.js';
+  import { initializeHaccpHomeLinks } from '/dashboard/js/haccp-navigation.js';
+
+  initializeHaccpHomeLinks();
+
+  const $ = id => document.getElementById(id);
+  const elements = {
+    date: $('recordDate'), inspector: $('inspectorName'), time: $('measuredTime'),
+    pressure: $('pressureMpa'), duration: $('washDurationSec'), quantity: $('washedQuantity'),
+    judgment: $('judgment'), fail: $('failSection'), deviation: $('deviationDetail'),
+    corrective: $('correctiveActionResult'), actionBy: $('actionBy'), verifiedBy: $('verifiedBy'),
+    notes: $('notes'), save: $('saveBtn'), cancel: $('cancelEditBtn'), toast: $('toast'),
+    body: $('recordsBody'), dateFilter: $('dateFilter'), resultFilter: $('resultFilter'),
+  };
+  let currentUser;
+  let currentRole = '';
+  let settings = { ...DEFAULT_BOTTLE_WASHING_SETTINGS };
+  let selectedContainer = null;
+  let editingId = '';
+  let editingRecord = null;
+  let records = [];
+  let unsubscribe;
+
+  const today = () => {
+    const now = new Date();
+    return new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  };
+  const currentTime = () => new Date().toTimeString().slice(0, 5);
+  const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]));
+  const containerLabel = (material, volumeMl) => `${material === 'pet' ? 'PET' : '유리병'} ${Number(volumeMl) === 1000 ? '1L' : Number(volumeMl) === 1800 ? '1.8L' : `${volumeMl}ml`}`;
+
+  function notify(message, error = false) {
+    elements.toast.textContent = message;
+    elements.toast.className = `toast show${error ? ' error' : ''}`;
+  }
+
+  function clearNotify() {
+    elements.toast.className = 'toast';
+  }
+
+  function saveErrorMessage(error) {
+    const code = String(error?.code || '').replace(/^firestore\//, '');
+    if (code === 'permission-denied') return '저장 권한이 없습니다. CCP-3 Firestore 규칙 배포 상태와 사용자 권한을 확인해 주세요.';
+    if (code === 'unauthenticated') return '로그인 상태가 만료되었습니다. 다시 로그인해 주세요.';
+    if (code === 'unavailable') return 'Firestore에 연결할 수 없습니다. 네트워크 연결을 확인해 주세요.';
+    return `저장에 실패했습니다${code ? ` (${code})` : ''}. 입력 내용은 유지됩니다.`;
+  }
+
+  function renderCriteria() {
+    $('criteriaPressure').textContent = `압력 ${settings.minPressureMpa} MPa 이상`;
+    $('criteriaDuration').textContent = `세병시간 ${settings.minDurationSec}초 이상`;
+  }
+
+  function selectContainer(material, volumeMl) {
+    selectedContainer = { material, volumeMl: Number(volumeMl) };
+    document.querySelectorAll('[data-volume-ml]').forEach(button => {
+      button.classList.toggle('active', button.dataset.material === material && Number(button.dataset.volumeMl) === Number(volumeMl));
+    });
+  }
+
+  function failureDescription(reasons) {
+    if (reasons.length === 2) return '압력 및 세병시간 기준 미달';
+    if (reasons.includes('pressure_below_limit')) return '압력 기준 미달';
+    if (reasons.includes('duration_below_limit')) return '세병시간 기준 미달';
+    return '';
+  }
+
+  function clearFailureFields() {
+    [elements.deviation, elements.corrective, elements.actionBy, elements.verifiedBy].forEach(field => { field.value = ''; });
+  }
+
+  function updateJudgment() {
+    const judgment = calculateBottleWashingJudgment(elements.pressure.value, elements.duration.value, settings);
+    elements.judgment.textContent = judgment || '입력 대기';
+    elements.judgment.className = `judgment${judgment === 'PASS' ? ' pass' : judgment === 'FAIL' ? ' fail' : ''}`;
+    elements.fail.classList.toggle('show', judgment === 'FAIL');
+    if (judgment === 'FAIL') {
+      elements.deviation.value = failureDescription(bottleWashingFailureReasons(elements.pressure.value, elements.duration.value, settings));
+    } else if (judgment === 'PASS') {
+      clearFailureFields();
+    }
+    return judgment;
+  }
+
+  function resetForm() {
+    editingId = '';
+    editingRecord = null;
+    selectedContainer = null;
+    elements.date.value = today();
+    elements.inspector.value = settings.inspectorName;
+    elements.time.value = currentTime();
+    $('nowBtn').classList.add('active');
+    elements.pressure.value = '';
+    elements.duration.value = '';
+    elements.quantity.value = '';
+    document.querySelectorAll('[data-volume-ml]').forEach(button => button.classList.remove('active'));
+    clearFailureFields();
+    elements.notes.value = '';
+    elements.cancel.hidden = true;
+    elements.save.textContent = '기록 저장';
+    updateJudgment();
+    clearNotify();
+  }
+
+  function formValues() {
+    return {
+      recordDate: elements.date.value,
+      measuredTime: elements.time.value,
+      inspectorName: elements.inspector.value.trim(),
+      containerMaterial: selectedContainer?.material || '',
+      containerVolumeMl: selectedContainer?.volumeMl ?? '',
+      pressureMpa: elements.pressure.value,
+      washDurationSec: elements.duration.value,
+      washedQuantity: elements.quantity.value,
+      deviationDetail: elements.deviation.value.trim(),
+      correctiveActionResult: elements.corrective.value.trim(),
+      actionBy: elements.actionBy.value.trim(),
+      verifiedBy: elements.verifiedBy.value.trim(),
+      notes: elements.notes.value.trim(),
+    };
+  }
+
+  function validate(values) {
+    const judgment = updateJudgment();
+    if (!values.recordDate || !values.inspectorName || !values.measuredTime) return '작성일자, 점검자, 측정시각을 모두 입력해 주세요.';
+    if (!values.containerMaterial || !values.containerVolumeMl) return '세병 용기를 선택해 주세요.';
+    if (values.pressureMpa === '' || !Number.isFinite(Number(values.pressureMpa)) || Number(values.pressureMpa) < 0) return '압력은 0 이상의 MPa 숫자로 입력해 주세요.';
+    if (values.washDurationSec === '' || !Number.isFinite(Number(values.washDurationSec)) || Number(values.washDurationSec) < 0) return '세병시간은 0 이상의 초 단위 숫자로 입력해 주세요.';
+    if (values.washedQuantity === '' || !Number.isInteger(Number(values.washedQuantity)) || Number(values.washedQuantity) < 0) return '세병완료량은 0 이상의 정수로 입력해 주세요.';
+    if (!judgment) return '판정에 필요한 값을 입력해 주세요.';
+    if (judgment === 'FAIL' && (!values.correctiveActionResult || !values.actionBy || !values.verifiedBy)) return 'FAIL 시 개선조치 및 결과, 조치자, 확인을 입력해 주세요.';
+    return '';
+  }
+
+  function renderRecords() {
+    const filtered = records.filter(record => (!elements.dateFilter.value || record.recordDate === elements.dateFilter.value)
+      && (elements.resultFilter.value === 'all' || record.judgment === elements.resultFilter.value));
+    if (!filtered.length) {
+      elements.body.innerHTML = '<tr><td colspan="9" class="empty-state">조건에 맞는 기록이 없습니다.</td></tr>';
+      return;
+    }
+    elements.body.innerHTML = filtered.map(record => `<tr><td>${escapeHtml(record.recordDate)}</td><td>${escapeHtml(record.measuredTime)}</td><td>${escapeHtml(containerLabel(record.containerMaterial, record.containerVolumeMl))}</td><td>${escapeHtml(record.pressureMpa)} MPa</td><td>${escapeHtml(record.washDurationSec)}초</td><td>${escapeHtml(record.washedQuantity)}개</td><td><span class="badge ${record.judgment === 'PASS' ? 'badge-success' : 'badge-danger'}">${escapeHtml(record.judgment)}</span></td><td>${escapeHtml(record.inspectorName)}</td><td><button class="record-link" data-edit="${record.id}">수정</button> · <button class="record-link" data-delete="${record.id}">삭제</button></td></tr>`).join('');
+  }
+
+  function editRecord(id) {
+    const record = records.find(item => item.id === id);
+    if (!record) return;
+    editingId = id;
+    editingRecord = record;
+    elements.date.value = record.recordDate;
+    elements.inspector.value = record.inspectorName;
+    elements.time.value = record.measuredTime;
+    elements.pressure.value = record.pressureMpa;
+    elements.duration.value = record.washDurationSec;
+    elements.quantity.value = record.washedQuantity;
+    selectContainer(record.containerMaterial, record.containerVolumeMl);
+    elements.corrective.value = record.correctiveActionResult || '';
+    elements.actionBy.value = record.actionBy || '';
+    elements.verifiedBy.value = record.verifiedBy || '';
+    elements.notes.value = record.notes || '';
+    updateJudgment();
+    elements.save.textContent = '수정 저장';
+    elements.cancel.hidden = false;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  async function saveRecord() {
+    const values = formValues();
+    const validationError = validate(values);
+    if (validationError) return notify(validationError, true);
+    const wasEditing = Boolean(editingId);
+    elements.save.disabled = true;
+    try {
+      await saveBottleWashingRecord(values, currentUser, editingId, settings, editingRecord);
+      resetForm();
+      notify(wasEditing ? '기록을 수정했습니다.' : '기록을 저장했습니다.');
+    } catch (error) {
+      console.error('CCP-3 bottle-washing record save failed', { code: error?.code || 'unknown', message: error?.message || String(error) });
+      notify(saveErrorMessage(error), true);
+    } finally {
+      elements.save.disabled = false;
+    }
+  }
+
+  function showSettings() {
+    $('settingInspector').value = settings.inspectorName;
+    $('settingPressure').value = settings.minPressureMpa;
+    $('settingDuration').value = settings.minDurationSec;
+    const writable = ['manager', 'admin'].includes(currentRole);
+    $('settingsSave').disabled = !writable;
+    $('settingsMessage').textContent = writable ? '' : '설정은 관리자 또는 매니저만 저장할 수 있습니다.';
+    $('settingsMessage').className = 'settings-status';
+    $('settingsModal').classList.add('show');
+  }
+
+  async function saveSettings() {
+    const nextSettings = {
+      ...settings,
+      inspectorName: $('settingInspector').value.trim(),
+      minPressureMpa: Number($('settingPressure').value),
+      minDurationSec: Number($('settingDuration').value),
+    };
+    if (!nextSettings.inspectorName || !Number.isFinite(nextSettings.minPressureMpa) || nextSettings.minPressureMpa < 0
+      || !Number.isFinite(nextSettings.minDurationSec) || nextSettings.minDurationSec < 0) {
+      $('settingsMessage').textContent = '점검자와 0 이상의 기준값을 입력해 주세요.';
+      $('settingsMessage').className = 'settings-status error';
+      return;
+    }
+    try {
+      await saveBottleWashingSettings(nextSettings, currentUser);
+      settings = nextSettings;
+      renderCriteria();
+      $('settingsMessage').textContent = '설정을 저장했습니다.';
+      $('settingsMessage').className = 'settings-status success';
+    } catch (error) {
+      console.error('CCP-3 settings save failed', error);
+      $('settingsMessage').textContent = '설정 저장에 실패했습니다.';
+      $('settingsMessage').className = 'settings-status error';
+    }
+  }
+
+  document.querySelectorAll('[data-volume-ml]').forEach(button => button.addEventListener('click', () => selectContainer(button.dataset.material, button.dataset.volumeMl)));
+  elements.pressure.addEventListener('input', updateJudgment);
+  elements.duration.addEventListener('input', updateJudgment);
+  $('nowBtn').addEventListener('click', () => { elements.time.value = currentTime(); $('nowBtn').classList.add('active'); });
+  elements.save.addEventListener('click', saveRecord);
+  $('resetBtn').addEventListener('click', resetForm);
+  elements.cancel.addEventListener('click', resetForm);
+  elements.dateFilter.addEventListener('change', renderRecords);
+  elements.resultFilter.addEventListener('change', renderRecords);
+  $('settingsBtn').addEventListener('click', showSettings);
+  $('settingsClose').addEventListener('click', () => $('settingsModal').classList.remove('show'));
+  $('settingsCancel').addEventListener('click', () => $('settingsModal').classList.remove('show'));
+  $('settingsSave').addEventListener('click', saveSettings);
+  elements.body.addEventListener('click', async event => {
+    const id = event.target.dataset.edit || event.target.dataset.delete;
+    if (!id) return;
+    if (event.target.dataset.edit) return editRecord(id);
+    if (confirm('이 기록을 삭제할까요?')) {
+      try { await deleteBottleWashingRecord(id); }
+      catch (error) { console.error(error); notify('삭제에 실패했습니다.', true); }
+    }
+  });
+
+  requireApprovedActiveUser({ page: 'haccp-bottle-washing' }).then(async session => {
+    if (!session) return;
+    currentUser = session.user;
+    currentRole = session.role;
+    try { settings = await loadBottleWashingSettings(); }
+    catch (error) { console.error(error); notify('기본 설정을 불러오지 못해 안전한 기본값을 사용합니다.', true); }
+    renderCriteria();
+    resetForm();
+    elements.dateFilter.value = today();
+    elements.resultFilter.value = 'all';
+    unsubscribe = subscribeToBottleWashingRecords(rows => { records = rows; renderRecords(); }, error => {
+      console.error(error);
+      elements.body.innerHTML = '<tr><td colspan="9" class="empty-state">기록을 불러오지 못했습니다.</td></tr>';
+    });
+    $('loadingScreen').classList.add('hidden');
+    $('mainContent').classList.remove('auth-hidden');
+  });
+  window.addEventListener('beforeunload', () => unsubscribe?.());
+</script>
+</body>
+</html>

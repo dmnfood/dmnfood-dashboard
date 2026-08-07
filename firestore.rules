@@ -74,6 +74,49 @@
           && data.judgmentCriteria.meshMustBeIntact == true
           && validFilteringJudgment(data);
       }
+      function validBottleWashingJudgment(data) {
+        return (data.pressureMpa >= data.judgmentCriteria.minPressureMpa
+            && data.washDurationSec >= data.judgmentCriteria.minDurationSec
+            && data.judgment == 'PASS'
+            && data.failureReasons.size() == 0)
+          || ((data.pressureMpa < data.judgmentCriteria.minPressureMpa
+              || data.washDurationSec < data.judgmentCriteria.minDurationSec)
+            && data.judgment == 'FAIL'
+            && data.failureReasons.hasOnly(['pressure_below_limit', 'duration_below_limit'])
+            && ((data.pressureMpa < data.judgmentCriteria.minPressureMpa
+                && data.failureReasons.hasAny(['pressure_below_limit']))
+              || (data.pressureMpa >= data.judgmentCriteria.minPressureMpa
+                && !data.failureReasons.hasAny(['pressure_below_limit'])))
+            && ((data.washDurationSec < data.judgmentCriteria.minDurationSec
+                && data.failureReasons.hasAny(['duration_below_limit']))
+              || (data.washDurationSec >= data.judgmentCriteria.minDurationSec
+                && !data.failureReasons.hasAny(['duration_below_limit']))));
+      }
+      function validBottleWashingRecord(data) {
+        return data.schemaVersion == 1
+          && data.recordDate is string
+          && data.measuredTime is string
+          && data.inspectorName is string
+          && data.containerMaterial in ['glass', 'pet']
+          && data.containerVolumeMl is int
+          && data.containerVolumeMl in [180, 250, 300, 350, 1000, 1800]
+          && data.pressureMpa is number && data.pressureMpa >= 0
+          && data.washDurationSec is number && data.washDurationSec >= 0
+          && data.washedQuantity is int && data.washedQuantity >= 0
+          && data.judgment in ['PASS', 'FAIL']
+          && data.failureReasons is list
+          && data.deviationDetail is string
+          && data.correctiveActionResult is string
+          && data.actionBy is string
+          && data.verifiedBy is string
+          && data.notes is string
+          && data.judgmentCriteria is map
+          && data.judgmentCriteria.minPressureMpa is number && data.judgmentCriteria.minPressureMpa >= 0
+          && data.judgmentCriteria.minDurationSec is number && data.judgmentCriteria.minDurationSec >= 0
+          && data.createdByUid is string
+          && data.updatedByUid is string
+          && validBottleWashingJudgment(data);
+      }
 
       match /users/{uid} {
         // Bootstrap read: a signed-in user must be able to inspect only their own profile before approval.
@@ -112,6 +155,23 @@
       }
 
       match /haccpSettings/filtering {
+        allow read: if activeUser();
+        allow write: if managerOrAdmin();
+      }
+
+      match /haccpBottleWashingRecords/{recordId} {
+        allow read: if activeUser();
+        allow create: if activeUser() && validBottleWashingRecord(request.resource.data)
+          && request.resource.data.createdByUid == request.auth.uid
+          && request.resource.data.updatedByUid == request.auth.uid;
+        allow update: if activeUser() && validBottleWashingRecord(request.resource.data)
+          && request.resource.data.createdByUid == resource.data.createdByUid
+          && request.resource.data.updatedByUid == request.auth.uid
+          && (resource.data.createdByUid == request.auth.uid || managerOrAdmin());
+        allow delete: if activeUser() && (resource.data.createdByUid == request.auth.uid || managerOrAdmin());
+      }
+
+      match /haccpSettings/bottleWashing {
         allow read: if activeUser();
         allow write: if managerOrAdmin();
       }

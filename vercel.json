@@ -45,6 +45,10 @@
             "destination": "/dashboard/haccp-filtering.html"
         },
         {
+            "source": "/haccp-bottle-washing",
+            "destination": "/dashboard/haccp-bottle-washing.html"
+        },
+        {
             "source": "/cost-management",
             "destination": "/dashboard/cost-management.html"
         },

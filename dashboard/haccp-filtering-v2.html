@@ -1,15 +1,17 @@
-﻿<!DOCTYPE html>
-<!--
-  HACCP MASTER TEMPLATE EXPERIMENT
-  Source template: haccp-heating.html
-  Business adapter: CCP-2 filtering
+﻿<!--
+  GENERATED FROM: haccp-master.html
+  BUSINESS ADAPTER: CCP-2 filtering
 -->
+<!DOCTYPE html>
 <html lang="ko">
+
 <head>
-  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>들메내식품 · 중요관리점(CCP-2) 모니터링일지 [여과 공정]</title>
-  <link rel="stylesheet" href="/dashboard/style.css">
-  <style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>들메내식품 · 중요관리점(CCP-2) 모니터링일지 [여과 공정] (New Version)</title>
+    <link rel="stylesheet" href="/dashboard/style.css">
+
+    <style>
         .auth-hidden {
             display: none !important;
         }
@@ -226,6 +228,11 @@
         .section-grid {
             display: grid;
             gap: 0;
+        }
+
+        .haccp-form-sections {
+            display: grid;
+            gap: 16px;
         }
 
         .panel {
@@ -700,7 +707,7 @@
         }
     </style>
 <style>
-  /* CCP-2 business controls only; page geometry remains the CCP-1 master. */
+  /* Filtering adapter controls only; macro geometry comes from haccp-master.html. */
   .choice-group { display:flex; gap:5px; min-height:var(--form-control-height); }
   .choice { flex:1; min-width:0; border:1px solid var(--border); border-radius:6px; background:rgba(255,255,255,.03); color:var(--t1); cursor:pointer; font-size:12px; font-weight:700; }
   .choice.active { border-color:rgba(34,211,238,.28); background:rgba(34,211,238,.18); color:#22d3ee; }
@@ -708,24 +715,42 @@
   .judgment { min-height:var(--form-control-height); display:flex; align-items:center; justify-content:center; border:1px solid var(--border); border-radius:7px; color:var(--t2); font-size:13px; font-weight:800; }
   .judgment.pass { border-color:rgba(74,222,128,.32); background:rgba(74,222,128,.12); color:var(--zr); }
   .judgment.fail { border-color:rgba(248,113,113,.32); background:rgba(248,113,113,.12); color:var(--rv); }
-</style>
-</head>
+</style></head>
+
 <body>
-  <div id="loadingScreen" class="loading-screen"><div class="loading-spinner"></div></div><div class="blobs"><div class="b1"></div><div class="b2"></div></div>
-  <div id="mainContent" class="auth-hidden"><header class="app-header"><div class="header-left"><a class="back-btn" href="/home?category=haccp-all">← HACCP 홈</a><div class="app-title"><span class="dot"></span>중요관리점(CCP-2) 모니터링일지 [여과 공정]</div></div></header>
-  <main class="page-main"><section class="page-card"><div class="page-heading"><div><div class="page-kicker">공정 기록</div><h1>중요관리점(CCP-2) 모니터링일지 [여과 공정]</h1><p>여과망 상태와 여과 압력을 확인하고 기록합니다.</p></div><div style="display:flex;gap:6px;"><button id="settingsBtn" class="btn-secondary settings-btn" type="button">기본 설정</button></div></div>
+    <div class="loading-screen" id="loadingScreen">
+        <div class="loading-spinner"></div>
+    </div>
+    <div class="blobs">
+        <div class="b1"></div>
+        <div class="b2"></div>
+    </div>
+
+    <div class="auth-hidden" id="mainContent">
+        <header class="app-header">
+            <div class="header-left">
+                <a href="/home?category=haccp" class="back-btn">← HACCP 홈</a>
+                <div class="app-title"><span class="dot"></span>CCP-2 여과공정 점검표 (New Version)</div>
+            </div>
+        </header>
+
+        <main class="page-main"><section class="page-card"><div class="page-heading"><div><div class="page-kicker">공정 기록</div><h1>중요관리점(CCP-2) 모니터링일지 [여과 공정] (New Version)</h1><p>여과망 상태와 여과 압력을 확인하고 기록합니다.</p></div><div style="display:flex;gap:6px;"><button id="settingsBtn" class="btn-secondary settings-btn" type="button">기본 설정</button></div></div>
+    <div class="haccp-form-sections">
     <div class="guidance-grid"><div class="guidance-panel"><h3>한계기준</h3><ul class="guidance-list"><li id="criteriaMesh">여과망: 120mesh</li><li id="criteriaCartridge">Cartridge Filter: 100μm</li><li id="criteriaPressure">최대 여과 압력: 0.3MPa (약 43.5psi)</li></ul></div><div class="guidance-panel"><h3>점검 주기</h3><ul class="guidance-list"><li>여과망·Cartridge Filter 설치 시 규격 확인</li><li>작업 시작 전 및 작업 종료 후 확인</li><li>압력 0.3MPa 이상 시 확인</li></ul></div><div class="guidance-panel"><h3>점검 방법</h3><ul class="guidance-list"><li>여과망 파손 여부 확인</li><li>설정된 여과 압력 기준 확인</li><li>파손 발견 시 정상 여과망으로 즉시 교체</li></ul></div></div>
-    <div class="section-grid"><section class="panel"><div class="field-grid">
+    <section class="panel"><div class="field-grid">
       <div class="field"><label for="recordDate">작성일자</label><input id="recordDate" type="date"></div><div class="field"><label for="inspectorName">점검자</label><input id="inspectorName" type="text"></div><div class="field"><label for="productName">품명</label><input id="productName" type="text"></div><div class="field"><label for="checkedTime">확인시각</label><div class="input-row"><input id="checkedTime" type="time"><button id="nowBtn" class="mini-btn" type="button">현재 시각</button></div></div>
       <div class="field"><label>여과망 파손 유무</label><div class="choice-group" role="group" aria-label="여과망 파손 유무"><button class="choice" data-damaged="false" type="button">파손 없음</button><button class="choice damaged" data-damaged="true" type="button">파손 있음</button></div><span class="helper">파손 여부를 선택하세요.</span></div><div class="field"><label for="pressurePsi">압력</label><div class="input-row"><input id="pressurePsi" type="number" min="0" step="0.01" inputmode="decimal" placeholder="예: 40"><span class="helper">psi</span></div><span id="pressureHelp" class="helper">기준: 0.3MPa (약 43.5psi) 이하</span></div><div class="field"><label for="foreignMaterialDescription">걸러진 이물 종류 및 크기</label><input id="foreignMaterialDescription" type="text" placeholder="예: 없음 / 이물 2mm"></div><div class="field"><label>판정</label><output id="judgment" class="judgment" aria-live="polite">입력 대기</output><span class="helper">여과망 상태와 압력으로 자동 판정됩니다.</span></div>
       <div id="failSection" class="fail-section"><div class="field"><label for="deviationDetail">한계기준 이탈내용</label><textarea id="deviationDetail"></textarea></div><div class="field"><label for="correctiveActionResult">개선조치 및 결과</label><textarea id="correctiveActionResult"></textarea></div><div class="field"><label for="actionBy">조치자</label><input id="actionBy" type="text"></div><div class="field"><label for="verifiedBy">확인</label><input id="verifiedBy" type="text"></div></div>
       <div class="field full"><label for="notes">비고</label><textarea id="notes" placeholder="추가 메모(선택)"></textarea></div>
     </div><div class="action-row"><button id="saveBtn" class="btn-primary" type="button">저장</button><button id="resetBtn" class="btn-secondary" type="button">초기화</button><button id="cancelEditBtn" class="btn-secondary" type="button" hidden>취소</button></div><div id="toast" class="toast" role="status"></div></section>
-    <section class="panel"><h2 class="panel-title">개선조치 안내</h2><div class="guidance-grid"><article class="guidance-panel">여과망 파손 발견 시 정상 여과망으로 즉시 교체합니다.</article><article class="guidance-panel">이탈 여과망은 폐기 또는 재사용 금지 처리합니다.</article><article class="guidance-panel">정상 여과망을 사용해 여과 공정을 다시 진행합니다.</article></div></section></div>
+    <section class="panel corrective-guidance"><h2 class="panel-title">개선조치 안내</h2><div class="guidance-grid"><article class="guidance-panel"><ul class="guidance-list"><li>여과망 파손 발견 시 정상 여과망으로 즉시 교체합니다.</li></ul></article><article class="guidance-panel"><ul class="guidance-list"><li>이탈 여과망은 폐기 또는 재사용 금지 처리합니다.</li></ul></article><article class="guidance-panel"><ul class="guidance-list"><li>정상 여과망을 사용해 여과 공정을 다시 진행합니다.</li></ul></article></div></section>
     <section class="table-card"><div class="toolbar"><label class="field" style="min-width:160px;margin:0;"><span class="muted">작성일</span><input id="dateFilter" type="date"></label><label class="field" style="min-width:120px;margin:0;"><span class="muted">결과</span><select id="resultFilter"><option value="all">전체</option><option value="PASS">PASS</option><option value="FAIL">FAIL</option></select></label></div><div class="table-wrap"><table><thead><tr><th>작성일</th><th>확인시각</th><th>품명</th><th>여과망 상태</th><th>압력</th><th>이물</th><th>판정</th><th>점검자</th><th>작업</th></tr></thead><tbody id="recordsBody"><tr><td colspan="9" class="empty-state">기록을 불러오는 중입니다.</td></tr></tbody></table></div></section>
-  </section></main></div>
-  <div id="settingsModal" class="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle"><div class="settings-dialog"><div class="settings-header"><h2 id="settingsTitle">CCP-2 기본 설정</h2><button id="settingsClose" class="settings-close" type="button" aria-label="닫기">×</button></div><div class="settings-grid"><div class="field"><label for="settingInspector">점검자</label><input id="settingInspector"></div><div class="field"><label for="settingProduct">품명</label><input id="settingProduct"></div><div class="field"><label for="settingMesh">여과망 규격</label><input id="settingMesh"></div><div class="field"><label for="settingCartridge">Cartridge Filter 규격</label><input id="settingCartridge"></div><div class="field"><label for="settingPressure">최대 압력 (MPa)</label><input id="settingPressure" type="number" min="0" step="0.01"></div></div><div class="action-row"><button id="settingsSave" class="btn-primary" type="button">설정 저장</button><button id="settingsCancel" class="btn-secondary" type="button">닫기</button></div><div id="settingsMessage" class="settings-status"></div></div></div>
-  <script type="module">
+    </div>
+  </section></main>
+  </div>
+<div id="settingsModal" class="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle"><div class="settings-dialog"><div class="settings-header"><h2 id="settingsTitle">CCP-2 기본 설정</h2><button id="settingsClose" class="settings-close" type="button" aria-label="닫기">×</button></div><div class="settings-grid"><div class="field"><label for="settingInspector">점검자</label><input id="settingInspector"></div><div class="field"><label for="settingProduct">품명</label><input id="settingProduct"></div><div class="field"><label for="settingMesh">여과망 규격</label><input id="settingMesh"></div><div class="field"><label for="settingCartridge">Cartridge Filter 규격</label><input id="settingCartridge"></div><div class="field"><label for="settingPressure">최대 압력 (MPa)</label><input id="settingPressure" type="number" min="0" step="0.01"></div></div><div class="action-row"><button id="settingsSave" class="btn-primary" type="button">설정 저장</button><button id="settingsCancel" class="btn-secondary" type="button">닫기</button></div><div id="settingsMessage" class="settings-status"></div></div></div>
+
+<script type="module">
     import { requireApprovedActiveUser } from '/dashboard/js/firebase-client.js';
     import { DEFAULT_FILTERING_SETTINGS, calculateFilteringJudgment, deleteFilteringRecord, loadFilteringSettings, pressureLimitPsi, saveFilteringRecord, saveFilteringSettings, subscribeToFilteringRecords } from '/dashboard/js/haccp-filtering-firestore.js';
     const $=id=>document.getElementById(id), e={date:$('recordDate'),inspector:$('inspectorName'),product:$('productName'),time:$('checkedTime'),pressure:$('pressurePsi'),foreign:$('foreignMaterialDescription'),judgment:$('judgment'),fail:$('failSection'),deviation:$('deviationDetail'),corrective:$('correctiveActionResult'),actionBy:$('actionBy'),verified:$('verifiedBy'),notes:$('notes'),save:$('saveBtn'),cancel:$('cancelEditBtn'),toast:$('toast'),body:$('recordsBody'),dateFilter:$('dateFilter'),resultFilter:$('resultFilter')};
@@ -747,4 +772,5 @@
     document.querySelectorAll('[data-damaged]').forEach(b=>b.addEventListener('click',()=>choose(b.dataset.damaged==='true')));e.pressure.addEventListener('input',updateJudgment);$('nowBtn').addEventListener('click',()=>{e.time.value=timeNow();$('nowBtn').classList.add('active')});e.save.addEventListener('click',save);$('resetBtn').addEventListener('click',reset);e.cancel.addEventListener('click',reset);e.dateFilter.addEventListener('change',render);e.resultFilter.addEventListener('change',render);$('settingsBtn').addEventListener('click',showSettings);$('settingsClose').addEventListener('click',()=>$('settingsModal').classList.remove('show'));$('settingsCancel').addEventListener('click',()=>$('settingsModal').classList.remove('show'));$('settingsSave').addEventListener('click',saveSettings);e.body.addEventListener('click',async ev=>{const id=ev.target.dataset.edit||ev.target.dataset.delete;if(!id)return;if(ev.target.dataset.edit)return edit(id);if(confirm('이 기록을 삭제할까요?'))try{await deleteFilteringRecord(id)}catch(err){notify('삭제에 실패했습니다.',true)}});
     requireApprovedActiveUser({page:'haccp-filtering'}).then(async session=>{if(!session)return;user=session.user;role=session.role;try{settings=await loadFilteringSettings()}catch(err){console.error(err);notify('기본 설정을 불러오지 못해 안전한 기본값을 사용합니다.',true)}renderCriteria();reset();e.dateFilter.value=today();e.resultFilter.value='all';unsubscribe=subscribeToFilteringRecords(rows=>{records=rows;render()},err=>{console.error(err);e.body.innerHTML='<tr><td colspan="9" class="empty-state">기록을 불러오지 못했습니다.</td></tr>'});$('loadingScreen').classList.add('hidden');$('mainContent').classList.remove('auth-hidden')});window.addEventListener('beforeunload',()=>unsubscribe?.());
   </script>
-</body></html>
+</body>
+</html>

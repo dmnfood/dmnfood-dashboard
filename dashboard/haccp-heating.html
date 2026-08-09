@@ -327,6 +327,12 @@
             flex: 1;
         }
 
+        .unit-label {
+            color: var(--t2);
+            font-size: 10px;
+            min-width: 14px;
+        }
+
         .roaster-buttons {
             display: flex;
             gap: 4px;
@@ -843,9 +849,9 @@
                                 <label>가열시간</label>
                                 <div class="input-row">
                                     <input id="heatingMinutes" type="number" min="0" step="1" placeholder="분" inputmode="numeric">
-                                    <span style="color: var(--t2); font-size: 10px; min-width: 14px;">분</span>
+                                    <span class="unit-label">분</span>
                                     <input id="heatingSeconds" type="number" min="0" max="59" step="1" placeholder="초" inputmode="numeric">
-                                    <span style="color: var(--t2); font-size: 10px; min-width: 14px;">초</span>
+                                    <span class="unit-label">초</span>
                                 </div>
                             </div>
                             <div class="field">

@@ -5,6 +5,13 @@
       function profile() { return get(/databases/$(database)/documents/users/$(request.auth.uid)); }
       function activeUser() { return signedIn() && profile().data.isActive == true; }
       function managerOrAdmin() { return activeUser() && (profile().data.role == 'manager' || profile().data.role == 'admin'); }
+      function approvedActiveUser() {
+        return activeUser()
+          && profile().data.get('approvalStatus', 'approved') == 'approved';
+      }
+      function approvedManagerOrAdmin() {
+        return approvedActiveUser() && (profile().data.role == 'manager' || profile().data.role == 'admin');
+      }
       function administrator() { return activeUser() && profile().data.role == 'admin'; }
       function validRole(role) { return role == 'worker' || role == 'manager' || role == 'admin'; }
       function validApprovalStatus(status) { return status == 'pending' || status == 'approved' || status == 'rejected'; }
@@ -118,6 +125,38 @@
           && validBottleWashingJudgment(data);
       }
 
+      function validRawMaterialUsageRecord(data) {
+        return data.keys().hasOnly(['schemaVersion', 'recordDate', 'materials', 'createdByUid', 'createdByEmail', 'updatedByUid', 'createdAt', 'updatedAt'])
+          && data.schemaVersion == 1
+          && data.recordDate is string
+          && data.materials is map
+          && data.materials.size() > 0
+          && data.materials.keys().hasOnly(['chinaSesame', 'importedSesame', 'koreanSesame', 'importedSesamePowderOil'])
+          && (!('chinaSesame' in data.materials) || (data.materials.chinaSesame is number && data.materials.chinaSesame >= 0))
+          && (!('importedSesame' in data.materials) || (data.materials.importedSesame is number && data.materials.importedSesame >= 0))
+          && (!('koreanSesame' in data.materials) || (data.materials.koreanSesame is number && data.materials.koreanSesame >= 0))
+          && (!('importedSesamePowderOil' in data.materials) || (data.materials.importedSesamePowderOil is number && data.materials.importedSesamePowderOil >= 0))
+          && data.createdByUid is string
+          && data.createdByEmail is string
+          && data.updatedByUid is string
+          && data.createdAt is timestamp
+          && data.updatedAt is timestamp;
+      }
+
+      function validProductionRecord(data) {
+        return data.keys().hasOnly(['schemaVersion', 'recordDate', 'items', 'createdByUid', 'createdByEmail', 'updatedByUid', 'createdAt', 'updatedAt'])
+          && data.schemaVersion == 1
+          && data.recordDate is string
+          && data.items is list
+          && data.items.size() > 0
+          && data.items.size() <= 50
+          && data.createdByUid is string
+          && data.createdByEmail is string
+          && data.updatedByUid is string
+          && data.createdAt is timestamp
+          && data.updatedAt is timestamp;
+      }
+
       match /users/{uid} {
         // Bootstrap read: a signed-in user must be able to inspect only their own profile before approval.
         allow get: if signedIn() && request.auth.uid == uid;
@@ -174,6 +213,38 @@
       match /haccpSettings/bottleWashing {
         allow read: if activeUser();
         allow write: if managerOrAdmin();
+      }
+
+      match /haccpRawMaterialUsageRecords/{recordId} {
+        allow read: if approvedActiveUser();
+        allow create: if approvedActiveUser() && request.resource.data.recordDate == recordId
+          && validRawMaterialUsageRecord(request.resource.data)
+          && request.resource.data.createdByUid == request.auth.uid
+          && request.resource.data.updatedByUid == request.auth.uid;
+        allow update: if approvedActiveUser() && request.resource.data.recordDate == recordId
+          && validRawMaterialUsageRecord(request.resource.data)
+          && request.resource.data.createdByUid == resource.data.createdByUid
+          && request.resource.data.createdByEmail == resource.data.createdByEmail
+          && request.resource.data.createdAt == resource.data.createdAt
+          && request.resource.data.updatedByUid == request.auth.uid
+          && (resource.data.createdByUid == request.auth.uid || approvedManagerOrAdmin());
+        allow delete: if approvedActiveUser() && (resource.data.createdByUid == request.auth.uid || approvedManagerOrAdmin());
+      }
+
+      match /haccpProductionRecords/{recordId} {
+        allow read: if approvedActiveUser();
+        allow create: if approvedActiveUser() && request.resource.data.recordDate == recordId
+          && validProductionRecord(request.resource.data)
+          && request.resource.data.createdByUid == request.auth.uid
+          && request.resource.data.updatedByUid == request.auth.uid;
+        allow update: if approvedActiveUser() && request.resource.data.recordDate == recordId
+          && validProductionRecord(request.resource.data)
+          && request.resource.data.createdByUid == resource.data.createdByUid
+          && request.resource.data.createdByEmail == resource.data.createdByEmail
+          && request.resource.data.createdAt == resource.data.createdAt
+          && request.resource.data.updatedByUid == request.auth.uid
+          && (resource.data.createdByUid == request.auth.uid || approvedManagerOrAdmin());
+        allow delete: if approvedActiveUser() && (resource.data.createdByUid == request.auth.uid || approvedManagerOrAdmin());
       }
     }
   }

@@ -49,6 +49,14 @@
             "destination": "/dashboard/haccp-bottle-washing.html"
         },
         {
+            "source": "/haccp-raw-material-usage",
+            "destination": "/dashboard/haccp-raw-material-usage.html"
+        },
+        {
+            "source": "/haccp-production",
+            "destination": "/dashboard/haccp-production.html"
+        },
+        {
             "source": "/cost-management",
             "destination": "/dashboard/cost-management.html"
         },

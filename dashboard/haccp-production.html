@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>들메내식품 · 생산일지 (제품 생산)</title>
+  <link rel="stylesheet" href="/dashboard/style.css">
+  <link rel="stylesheet" href="/dashboard/haccp-journal.css">
+</head>
+<body>
+  <div id="loadingScreen" class="loading-screen"><div class="loading-spinner"></div></div>
+  <div class="blobs"><div class="b1"></div><div class="b2"></div></div>
+  <div id="mainContent" class="auth-hidden">
+    <header class="app-header"><div class="header-left"><a class="back-btn" data-haccp-home href="/home?category=haccp-production">← HACCP 홈</a><div class="app-title"><span class="dot"></span>생산일지</div></div></header>
+    <main class="page-main">
+      <section class="page-card">
+        <div class="page-heading"><div class="page-kicker">제품 생산</div><h1>생산일지 (제품 생산)</h1><p>당일 실제 생산한 품목만 선택해 하나의 날짜별 생산 일지로 저장합니다.</p></div>
+        <div class="haccp-form-sections">
+          <section class="panel">
+            <div class="field-grid"><div class="field"><label for="recordDate">생산일자</label><input id="recordDate" type="date" required></div></div>
+          </section>
+          <section class="panel">
+            <h2 class="panel-title">생산항목 입력</h2>
+            <div class="selector-grid">
+              <div class="field"><span class="field-label">1. 품목 선택</span><div class="choice-grid two" role="group" aria-label="품목 선택"><button class="choice-btn" data-product-type="sesame_oil" type="button">참기름</button><button class="choice-btn" data-product-type="roasted_sesame" type="button">볶음통깨</button></div></div>
+              <div class="field"><span class="field-label">2. 원료/구분 선택</span><div id="categoryOptions" class="choice-grid" role="group" aria-label="원료 또는 구분 선택"><span class="muted">품목을 먼저 선택해 주세요.</span></div></div>
+              <div class="field size-field"><span class="field-label">3. 규격 선택</span><div id="sizeOptions" class="choice-grid" role="group" aria-label="규격 선택"><span class="muted">구분을 먼저 선택해 주세요.</span></div></div>
+              <div class="field quantity-field"><label for="quantity">4. 생산량</label><input id="quantity" type="number" min="0" step="any" inputmode="decimal" placeholder="생산량 입력"></div>
+            </div>
+            <div class="action-row"><button id="addItemBtn" class="btn-primary" type="button">+ 생산항목 추가</button><button id="cancelItemEditBtn" class="btn-secondary" type="button" hidden>항목 수정 취소</button></div>
+            <div id="itemToast" class="toast" role="status"></div>
+            <div class="daily-items table-wrap"><table><thead><tr><th>품목</th><th>구분</th><th>규격</th><th>생산량</th><th>작업</th></tr></thead><tbody id="itemsBody"><tr><td colspan="5" class="empty-state">추가된 생산항목이 없습니다.</td></tr></tbody></table></div>
+            <div class="action-row"><button id="saveBtn" class="btn-primary" type="button">일지 저장</button><button id="resetBtn" class="btn-secondary" type="button">초기화</button></div>
+            <div id="toast" class="toast" role="status"></div>
+          </section>
+          <section class="table-card">
+            <div class="toolbar"><label class="field"><span class="muted">생산일자</span><input id="dateFilter" type="date"></label><button id="clearFilterBtn" class="btn-secondary" type="button">전체 보기</button></div>
+            <div class="table-wrap"><table><thead><tr><th>생산일자</th><th>입력항목 수</th><th>생산 요약</th><th>작성자</th><th>작업</th></tr></thead><tbody id="recordsBody"><tr><td colspan="5" class="empty-state">기록을 불러오는 중입니다.</td></tr></tbody></table></div>
+          </section>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script type="module">
+    import { requireApprovedActiveUser } from '/dashboard/js/firebase-client.js';
+    import { PRODUCTION_OPTIONS, deleteProductionRecord, isAllowedProductionItem, productionItemKey, saveProductionRecord, subscribeToProductionRecords, upsertProductionItem } from '/dashboard/js/haccp-production-firestore.js';
+    import { initializeHaccpHomeLinks } from '/dashboard/js/haccp-navigation.js';
+
+    initializeHaccpHomeLinks();
+    const $ = id => document.getElementById(id);
+    const elements = { date:$('recordDate'), quantity:$('quantity'), category:$('categoryOptions'), size:$('sizeOptions'), items:$('itemsBody'), records:$('recordsBody'), filter:$('dateFilter'), save:$('saveBtn'), toast:$('toast'), itemToast:$('itemToast') };
+    let currentUser;
+    let currentRole = '';
+    let records = [];
+    let items = [];
+    let editingRecord = null;
+    let editingItemKey = '';
+    let selectedProductType = '';
+    let selectedSourceCategory = '';
+    let selectedSizeValue = null;
+    let unsubscribe;
+    let subscriptionInitialized = false;
+    const today = () => new Date().toISOString().slice(0, 10);
+    const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, character => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[character]));
+    const canManage = record => record.createdByUid === currentUser?.uid || ['manager', 'admin'].includes(currentRole);
+    const productConfig = () => PRODUCTION_OPTIONS[selectedProductType];
+    const sizeLabel = (value, unit) => Number(value) === 1000 ? (unit === 'ml' ? '1L' : '1kg') : Number(value) === 1800 && unit === 'ml' ? '1.8L' : `${value}${unit}`;
+    const itemLabels = item => ({ product:PRODUCTION_OPTIONS[item.productType]?.label || item.productType, category:PRODUCTION_OPTIONS[item.productType]?.categories[item.sourceCategory]?.label || item.sourceCategory, size:sizeLabel(item.sizeValue, item.sizeUnit) });
+
+    function notify(target, message, error = false) { target.textContent = message; target.className = `toast show${error ? ' error' : ''}`; }
+    function clearNotify(target) { target.textContent = ''; target.className = 'toast'; }
+
+    function renderCategories() {
+      const categories = productConfig()?.categories;
+      if (!categories) { elements.category.innerHTML = '<span class="muted">품목을 먼저 선택해 주세요.</span>'; return; }
+      elements.category.innerHTML = Object.entries(categories).map(([value, config]) => `<button class="choice-btn${selectedSourceCategory === value ? ' active' : ''}" data-source-category="${value}" type="button">${config.label}</button>`).join('');
+    }
+
+    function renderSizes() {
+      const category = productConfig()?.categories[selectedSourceCategory];
+      if (!category) { elements.size.innerHTML = '<span class="muted">구분을 먼저 선택해 주세요.</span>'; return; }
+      const unit = productConfig().sizeUnit;
+      elements.size.innerHTML = category.sizes.map(value => `<button class="choice-btn${Number(selectedSizeValue) === value ? ' active' : ''}" data-size-value="${value}" type="button">${sizeLabel(value, unit)}</button>`).join('');
+    }
+
+    function selectProduct(value) {
+      selectedProductType = value;
+      selectedSourceCategory = '';
+      selectedSizeValue = null;
+      document.querySelectorAll('[data-product-type]').forEach(button => button.classList.toggle('active', button.dataset.productType === value));
+      renderCategories();
+      renderSizes();
+    }
+
+    function selectCategory(value) { selectedSourceCategory = value; selectedSizeValue = null; renderCategories(); renderSizes(); }
+    function selectSize(value) { selectedSizeValue = Number(value); renderSizes(); }
+
+    function resetItemEditor() {
+      selectedProductType = '';
+      selectedSourceCategory = '';
+      selectedSizeValue = null;
+      editingItemKey = '';
+      elements.quantity.value = '';
+      $('addItemBtn').textContent = '+ 생산항목 추가';
+      $('cancelItemEditBtn').hidden = true;
+      document.querySelectorAll('[data-product-type]').forEach(button => button.classList.remove('active'));
+      renderCategories();
+      renderSizes();
+      clearNotify(elements.itemToast);
+    }
+
+    function renderItems() {
+      if (!items.length) { elements.items.innerHTML = '<tr><td colspan="5" class="empty-state">추가된 생산항목이 없습니다.</td></tr>'; return; }
+      elements.items.innerHTML = items.map(item => {
+        const labels = itemLabels(item);
+        const key = productionItemKey(item);
+        return `<tr><td>${escapeHtml(labels.product)}</td><td>${escapeHtml(labels.category)}</td><td>${escapeHtml(labels.size)}</td><td>${escapeHtml(item.quantity)}</td><td><button class="record-link" data-item-edit="${key}">수정</button> · <button class="record-link" data-item-delete="${key}">삭제</button></td></tr>`;
+      }).join('');
+    }
+
+    function addOrUpdateItem() {
+      const unit = productConfig()?.sizeUnit || '';
+      const next = { productType:selectedProductType, sourceCategory:selectedSourceCategory, sizeValue:selectedSizeValue, sizeUnit:unit, quantity:elements.quantity.value };
+      if (!selectedProductType) { notify(elements.itemToast, '품목을 선택해 주세요.', true); return; }
+      if (!selectedSourceCategory) { notify(elements.itemToast, '원료/구분을 선택해 주세요.', true); return; }
+      if (selectedSizeValue == null) { notify(elements.itemToast, '규격을 선택해 주세요.', true); return; }
+      if (elements.quantity.value === '' || !isAllowedProductionItem(next)) { notify(elements.itemToast, '생산량은 0 이상의 숫자로 입력해 주세요.', true); return; }
+      const normalized = { ...next, sizeValue:Number(next.sizeValue), quantity:Number(next.quantity) };
+      const result = upsertProductionItem(items, normalized, editingItemKey);
+      items = result.items;
+      renderItems();
+      const message = result.replacedExisting ? '같은 생산항목의 생산량을 업데이트했습니다.' : '생산항목을 추가했습니다.';
+      resetItemEditor();
+      notify(elements.itemToast, message);
+    }
+
+    function editItem(key) {
+      const item = items.find(candidate => productionItemKey(candidate) === key);
+      if (!item) return;
+      editingItemKey = key;
+      selectProduct(item.productType);
+      selectCategory(item.sourceCategory);
+      selectSize(item.sizeValue);
+      elements.quantity.value = item.quantity;
+      $('addItemBtn').textContent = '생산항목 수정';
+      $('cancelItemEditBtn').hidden = false;
+    }
+
+    function clearJournal({ keepDate = false } = {}) {
+      editingRecord = null;
+      elements.date.disabled = false;
+      if (!keepDate) elements.date.value = today();
+      items = [];
+      renderItems();
+      resetItemEditor();
+      elements.save.textContent = '일지 저장';
+      clearNotify(elements.toast);
+    }
+
+    function loadRecord(record) {
+      if (!canManage(record)) { notify(elements.toast, '이 날짜의 일지는 다른 사용자가 작성하여 수정할 수 없습니다.', true); return false; }
+      editingRecord = record;
+      elements.date.value = record.recordDate;
+      elements.date.disabled = true;
+      items = record.items.map(item => ({ ...item }));
+      renderItems();
+      resetItemEditor();
+      elements.save.textContent = '수정 저장';
+      clearNotify(elements.toast);
+      window.scrollTo({ top:0, behavior:'smooth' });
+      return true;
+    }
+
+    function loadSelectedDateIfPresent() { const existing = records.find(record => record.recordDate === elements.date.value); if (existing) loadRecord(existing); }
+
+    function renderRecords() {
+      const filtered = records.filter(record => !elements.filter.value || record.recordDate === elements.filter.value);
+      if (!filtered.length) { elements.records.innerHTML = '<tr><td colspan="5" class="empty-state">조건에 맞는 기록이 없습니다.</td></tr>'; return; }
+      elements.records.innerHTML = filtered.map(record => {
+        const summary = record.items.slice(0, 4).map(item => { const labels = itemLabels(item); return `<span class="summary-chip">${escapeHtml(labels.product)} · ${escapeHtml(labels.category)} · ${escapeHtml(labels.size)} · ${escapeHtml(item.quantity)}</span>`; }).join('');
+        const more = record.items.length > 4 ? `<span class="summary-chip">외 ${record.items.length - 4}건</span>` : '';
+        const actions = canManage(record) ? `<button class="record-link" data-record-edit="${record.id}">수정</button> · <button class="record-link" data-record-delete="${record.id}">삭제</button>` : '<span class="muted">조회만 가능</span>';
+        return `<tr><td>${escapeHtml(record.recordDate)}</td><td>${record.items.length}</td><td><div class="summary-list">${summary}${more}</div></td><td>${escapeHtml(record.createdByEmail || '—')}</td><td>${actions}</td></tr>`;
+      }).join('');
+    }
+
+    async function saveJournal() {
+      if (!elements.date.value) { notify(elements.toast, '생산일자를 선택해 주세요.', true); return; }
+      if (!items.length) { notify(elements.toast, '생산항목을 하나 이상 추가해 주세요.', true); return; }
+      if (items.some(item => !isAllowedProductionItem(item)) || new Set(items.map(productionItemKey)).size !== items.length) { notify(elements.toast, '생산항목 구성을 확인해 주세요.', true); return; }
+      const sameDate = records.find(record => record.recordDate === elements.date.value);
+      const target = editingRecord || sameDate || null;
+      if (target && !canManage(target)) { notify(elements.toast, '이 날짜의 일지는 다른 사용자가 작성하여 저장할 수 없습니다.', true); return; }
+      elements.save.disabled = true;
+      try {
+        await saveProductionRecord({ recordDate:elements.date.value, items }, currentUser, target);
+        clearJournal({ keepDate:true });
+        notify(elements.toast, target ? '제품 생산 일지를 수정했습니다.' : '제품 생산 일지를 저장했습니다.');
+      } catch (error) {
+        console.error('Production journal save failed', error);
+        notify(elements.toast, error?.code === 'permission-denied' ? '이 일지를 저장할 권한이 없습니다.' : '저장하지 못했습니다. 다시 시도해 주세요.', true);
+      } finally { elements.save.disabled = false; }
+    }
+
+    document.querySelectorAll('[data-product-type]').forEach(button => button.addEventListener('click', () => selectProduct(button.dataset.productType)));
+    elements.category.addEventListener('click', event => { if (event.target.dataset.sourceCategory) selectCategory(event.target.dataset.sourceCategory); });
+    elements.size.addEventListener('click', event => { if (event.target.dataset.sizeValue) selectSize(event.target.dataset.sizeValue); });
+    $('addItemBtn').addEventListener('click', addOrUpdateItem);
+    $('cancelItemEditBtn').addEventListener('click', resetItemEditor);
+    elements.items.addEventListener('click', event => {
+      if (event.target.dataset.itemEdit) editItem(event.target.dataset.itemEdit);
+      if (event.target.dataset.itemDelete) { items = items.filter(item => productionItemKey(item) !== event.target.dataset.itemDelete); renderItems(); if (editingItemKey === event.target.dataset.itemDelete) resetItemEditor(); }
+    });
+    elements.date.addEventListener('change', () => { clearJournal({ keepDate:true }); loadSelectedDateIfPresent(); });
+    elements.save.addEventListener('click', saveJournal);
+    $('resetBtn').addEventListener('click', () => clearJournal());
+    elements.filter.addEventListener('change', renderRecords);
+    $('clearFilterBtn').addEventListener('click', () => { elements.filter.value = ''; renderRecords(); });
+    elements.records.addEventListener('click', async event => {
+      const editId = event.target.dataset.recordEdit;
+      const deleteId = event.target.dataset.recordDelete;
+      if (editId) { const record = records.find(item => item.id === editId); if (record) loadRecord(record); return; }
+      if (!deleteId) return;
+      const record = records.find(item => item.id === deleteId);
+      if (!record || !canManage(record) || !confirm(`${record.recordDate} 일지를 삭제할까요?`)) return;
+      try { await deleteProductionRecord(deleteId); if (editingRecord?.id === deleteId) clearJournal(); }
+      catch (error) { console.error(error); notify(elements.toast, '삭제하지 못했습니다.', true); }
+    });
+
+    requireApprovedActiveUser({ page:'haccp-production' }).then(session => {
+      if (!session) return;
+      currentUser = session.user;
+      currentRole = session.role;
+      clearJournal();
+      unsubscribe = subscribeToProductionRecords(rows => {
+        const firstLoad = !subscriptionInitialized;
+        subscriptionInitialized = true;
+        records = rows;
+        renderRecords();
+        if (firstLoad && !editingRecord) loadSelectedDateIfPresent();
+      }, error => { console.error(error); elements.records.innerHTML = '<tr><td colspan="5" class="empty-state">기록을 불러오지 못했습니다.</td></tr>'; });
+      $('loadingScreen').classList.add('hidden');
+      $('mainContent').classList.remove('auth-hidden');
+    });
+    window.addEventListener('beforeunload', () => unsubscribe?.());
+  </script>
+</body>
+</html>

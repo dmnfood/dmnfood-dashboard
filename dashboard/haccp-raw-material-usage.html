@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>들메내식품 · 생산일지 (원재료 사용)</title>
+  <link rel="stylesheet" href="/dashboard/style.css">
+  <link rel="stylesheet" href="/dashboard/haccp-journal.css">
+</head>
+<body>
+  <div id="loadingScreen" class="loading-screen"><div class="loading-spinner"></div></div>
+  <div class="blobs"><div class="b1"></div><div class="b2"></div></div>
+  <div id="mainContent" class="auth-hidden">
+    <header class="app-header"><div class="header-left"><a class="back-btn" data-haccp-home href="/home?category=haccp-production">← HACCP 홈</a><div class="app-title"><span class="dot"></span>생산일지</div></div></header>
+    <main class="page-main">
+      <section class="page-card">
+        <div class="page-heading"><div class="page-kicker">원재료 사용</div><h1>생산일지 (원재료 사용)</h1><p>하루 동안 사용한 원재료만 입력해 날짜별 일지로 저장합니다.</p></div>
+        <div class="haccp-form-sections">
+          <section class="panel">
+            <h2 class="panel-title">일일 원재료 사용량</h2>
+            <div class="field-grid">
+              <div class="field"><label for="recordDate">원료사용 일자</label><input id="recordDate" type="date" required></div>
+            </div>
+            <div class="field-grid material-grid">
+              <div class="field"><label for="chinaSesame">중국산 참깨</label><input id="chinaSesame" type="number" min="0" step="any" inputmode="decimal" placeholder="사용하지 않으면 비워 두세요"></div>
+              <div class="field"><label for="importedSesame">수입산 참깨</label><input id="importedSesame" type="number" min="0" step="any" inputmode="decimal" placeholder="사용하지 않으면 비워 두세요"></div>
+              <div class="field"><label for="koreanSesame">국산 참깨</label><input id="koreanSesame" type="number" min="0" step="any" inputmode="decimal" placeholder="사용하지 않으면 비워 두세요"></div>
+              <div class="field"><label for="importedSesamePowderOil">수입깨분참기름</label><input id="importedSesamePowderOil" type="number" min="0" step="any" inputmode="decimal" placeholder="사용하지 않으면 비워 두세요"></div>
+            </div>
+            <div class="action-row"><button id="saveBtn" class="btn-primary" type="button">기록 저장</button><button id="resetBtn" class="btn-secondary" type="button">초기화</button></div>
+            <div id="toast" class="toast" role="status"></div>
+          </section>
+          <section class="table-card">
+            <div class="toolbar"><label class="field"><span class="muted">일자</span><input id="dateFilter" type="date"></label><button id="clearFilterBtn" class="btn-secondary" type="button">전체 보기</button></div>
+            <div class="table-wrap"><table><thead><tr><th>일자</th><th>중국산 참깨</th><th>수입산 참깨</th><th>국산 참깨</th><th>수입깨분참기름</th><th>작성자</th><th>작업</th></tr></thead><tbody id="recordsBody"><tr><td colspan="7" class="empty-state">기록을 불러오는 중입니다.</td></tr></tbody></table></div>
+          </section>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script type="module">
+    import { requireApprovedActiveUser } from '/dashboard/js/firebase-client.js';
+    import { deleteRawMaterialUsageRecord, saveRawMaterialUsageRecord, subscribeToRawMaterialUsageRecords } from '/dashboard/js/haccp-raw-material-usage-firestore.js';
+    import { initializeHaccpHomeLinks } from '/dashboard/js/haccp-navigation.js';
+
+    initializeHaccpHomeLinks();
+    const $ = id => document.getElementById(id);
+    const materialKeys = ['chinaSesame', 'importedSesame', 'koreanSesame', 'importedSesamePowderOil'];
+    const elements = { date: $('recordDate'), save: $('saveBtn'), toast: $('toast'), body: $('recordsBody'), filter: $('dateFilter') };
+    let currentUser;
+    let currentRole = '';
+    let records = [];
+    let editingRecord = null;
+    let unsubscribe;
+    let subscriptionInitialized = false;
+    const today = () => new Date().toISOString().slice(0, 10);
+    const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, character => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[character]));
+    const canManage = record => record.createdByUid === currentUser?.uid || ['manager', 'admin'].includes(currentRole);
+    const displayValue = value => value === undefined || value === null ? '—' : escapeHtml(value);
+
+    function notify(message, error = false) {
+      elements.toast.textContent = message;
+      elements.toast.className = `toast show${error ? ' error' : ''}`;
+    }
+
+    function clearNotify() { elements.toast.className = 'toast'; elements.toast.textContent = ''; }
+
+    function clearForm({ keepDate = false } = {}) {
+      editingRecord = null;
+      elements.date.disabled = false;
+      if (!keepDate) elements.date.value = today();
+      materialKeys.forEach(key => { $(key).value = ''; });
+      elements.save.textContent = '기록 저장';
+      clearNotify();
+    }
+
+    function formValues() {
+      return {
+        recordDate: elements.date.value,
+        materials: Object.fromEntries(materialKeys.map(key => [key, $(key).value])),
+      };
+    }
+
+    function validate(values) {
+      if (!values.recordDate) return '원료사용 일자를 선택해 주세요.';
+      const entered = Object.values(values.materials).filter(value => value !== '');
+      if (!entered.length) return '사용한 원재료를 하나 이상 입력해 주세요.';
+      if (entered.some(value => !Number.isFinite(Number(value)) || Number(value) < 0)) return '사용량은 0 이상의 숫자로 입력해 주세요.';
+      return '';
+    }
+
+    function loadRecord(record) {
+      if (!canManage(record)) { notify('이 날짜의 일지는 다른 사용자가 작성하여 수정할 수 없습니다.', true); return false; }
+      editingRecord = record;
+      elements.date.value = record.recordDate;
+      elements.date.disabled = true;
+      materialKeys.forEach(key => { $(key).value = record.materials?.[key] ?? ''; });
+      elements.save.textContent = '수정 저장';
+      clearNotify();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return true;
+    }
+
+    function loadSelectedDateIfPresent() {
+      const existing = records.find(record => record.recordDate === elements.date.value);
+      if (existing) loadRecord(existing);
+    }
+
+    function renderRecords() {
+      const filtered = records.filter(record => !elements.filter.value || record.recordDate === elements.filter.value);
+      if (!filtered.length) { elements.body.innerHTML = '<tr><td colspan="7" class="empty-state">조건에 맞는 기록이 없습니다.</td></tr>'; return; }
+      elements.body.innerHTML = filtered.map(record => {
+        const actions = canManage(record) ? `<button class="record-link" data-edit="${record.id}">수정</button> · <button class="record-link" data-delete="${record.id}">삭제</button>` : '<span class="muted">조회만 가능</span>';
+        return `<tr><td>${escapeHtml(record.recordDate)}</td><td>${displayValue(record.materials?.chinaSesame)}</td><td>${displayValue(record.materials?.importedSesame)}</td><td>${displayValue(record.materials?.koreanSesame)}</td><td>${displayValue(record.materials?.importedSesamePowderOil)}</td><td>${escapeHtml(record.createdByEmail || '—')}</td><td>${actions}</td></tr>`;
+      }).join('');
+    }
+
+    async function save() {
+      const values = formValues();
+      const error = validate(values);
+      if (error) { notify(error, true); return; }
+      const sameDate = records.find(record => record.recordDate === values.recordDate);
+      const target = editingRecord || sameDate || null;
+      if (target && !canManage(target)) { notify('이 날짜의 일지는 다른 사용자가 작성하여 저장할 수 없습니다.', true); return; }
+      elements.save.disabled = true;
+      try {
+        await saveRawMaterialUsageRecord(values, currentUser, target);
+        clearForm({ keepDate: true });
+        notify(target ? '원재료 사용 일지를 수정했습니다.' : '원재료 사용 일지를 저장했습니다.');
+      } catch (error_) {
+        console.error('Raw-material usage save failed', error_);
+        notify(error_?.code === 'permission-denied' ? '이 일지를 저장할 권한이 없습니다.' : '저장하지 못했습니다. 다시 시도해 주세요.', true);
+      } finally { elements.save.disabled = false; }
+    }
+
+    elements.date.addEventListener('change', () => { clearForm({ keepDate: true }); loadSelectedDateIfPresent(); });
+    elements.save.addEventListener('click', save);
+    $('resetBtn').addEventListener('click', () => clearForm());
+    elements.filter.addEventListener('change', renderRecords);
+    $('clearFilterBtn').addEventListener('click', () => { elements.filter.value = ''; renderRecords(); });
+    elements.body.addEventListener('click', async event => {
+      const editId = event.target.dataset.edit;
+      const deleteId = event.target.dataset.delete;
+      if (editId) { const record = records.find(item => item.id === editId); if (record) loadRecord(record); return; }
+      if (!deleteId) return;
+      const record = records.find(item => item.id === deleteId);
+      if (!record || !canManage(record) || !confirm(`${record.recordDate} 일지를 삭제할까요?`)) return;
+      try { await deleteRawMaterialUsageRecord(deleteId); if (editingRecord?.id === deleteId) clearForm(); }
+      catch (error) { console.error(error); notify('삭제하지 못했습니다.', true); }
+    });
+
+    requireApprovedActiveUser({ page: 'haccp-raw-material-usage' }).then(session => {
+      if (!session) return;
+      currentUser = session.user;
+      currentRole = session.role;
+      clearForm();
+      unsubscribe = subscribeToRawMaterialUsageRecords(rows => {
+        const firstLoad = !subscriptionInitialized;
+        subscriptionInitialized = true;
+        records = rows;
+        renderRecords();
+        if (firstLoad && !editingRecord) loadSelectedDateIfPresent();
+      }, error => { console.error(error); elements.body.innerHTML = '<tr><td colspan="7" class="empty-state">기록을 불러오지 못했습니다.</td></tr>'; });
+      $('loadingScreen').classList.add('hidden');
+      $('mainContent').classList.remove('auth-hidden');
+    });
+    window.addEventListener('beforeunload', () => unsubscribe?.());
+  </script>
+</body>
+</html>

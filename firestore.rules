@@ -99,7 +99,7 @@
           && data.inspectorName is string
           && data.containerMaterial in ['glass', 'pet']
           && data.containerVolumeMl is int
-          && data.containerVolumeMl in [180, 250, 300, 350, 1000, 1800]
+          && data.containerVolumeMl in [150, 180, 250, 300, 350, 1000, 1800]
           && data.pressureMpa is number && data.pressureMpa >= 0
           && data.washDurationSec is number && data.washDurationSec >= 0
           && data.washedQuantity is int && data.washedQuantity >= 0

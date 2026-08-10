@@ -57,7 +57,22 @@ th { color:var(--t0); font-size:9px; font-weight:700; letter-spacing:.06em; }
 .daily-items table { min-width:620px; }
 .summary-list { display:flex; flex-wrap:wrap; gap:4px; }
 .summary-chip { padding:2px 6px; border:1px solid var(--border); border-radius:6px; background:rgba(255,255,255,.03); color:var(--t1); font-size:9px; }
-.journal-note { margin-bottom:10px; padding:8px 10px; border:1px solid rgba(34,211,238,.2); border-radius:8px; background:rgba(34,211,238,.08); color:var(--t1); font-size:11px; line-height:1.55; }
+.basic-meta { margin-top:7px; color:var(--t2); font-size:10px; line-height:1.5; }
+.ccp-year-panel { padding:10px 12px; }
+.ccp-year-nav { display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:8px; color:var(--t0); font-size:12px; }
+.year-nav-btn { width:28px; height:28px; padding:0; border:1px solid var(--border); border-radius:6px; background:rgba(255,255,255,.035); color:var(--t1); cursor:pointer; font:inherit; font-size:17px; line-height:1; }
+.year-nav-btn:hover { background:rgba(255,255,255,.07); color:var(--t0); }
+.ccp-month-grid { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:6px; }
+.ccp-month-card { min-width:0; padding:8px 6px; display:flex; flex-direction:column; align-items:center; gap:2px; border:1px solid var(--border); border-radius:8px; background:rgba(255,255,255,.025); color:var(--t1); cursor:pointer; font:inherit; }
+.ccp-month-card:hover { background:rgba(255,255,255,.055); }
+.ccp-month-card strong { color:var(--t0); font-size:11px; }
+.ccp-month-card span { color:var(--t2); font-size:10px; }
+.ccp-month-card small { font-size:9px; font-weight:700; }
+.ccp-month-card.status-completed small { color:var(--zr); }
+.ccp-month-card.status-due small { color:#facc15; }
+.ccp-month-card.status-overdue small { color:var(--rv); }
+.ccp-month-card.status-upcoming small { color:var(--t2); }
+.ccp-month-card.selected { border-color:rgba(34,211,238,.52); background:rgba(34,211,238,.1); box-shadow:inset 0 0 0 1px rgba(34,211,238,.12); }
 .question-list, .device-list { display:grid; gap:7px; }
 .question-row { display:grid; grid-template-columns:minmax(0,1fr) 150px; gap:10px; align-items:center; padding:9px; border:1px solid var(--border); border-radius:8px; background:rgba(255,255,255,.025); }
 .question-copy { color:var(--t1); font-size:11px; line-height:1.5; }
@@ -83,6 +98,7 @@ th { color:var(--t0); font-size:9px; font-weight:700; letter-spacing:.06em; }
 @media (max-width:1024px) {
   .field-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .choice-grid { grid-template-columns:repeat(3,minmax(0,1fr)); }
+  .ccp-month-grid { grid-template-columns:repeat(4,minmax(0,1fr)); }
 }
 @media (max-width:760px) {
   .app-header { padding:0 12px; }
@@ -96,4 +112,5 @@ th { color:var(--t0); font-size:9px; font-weight:700; letter-spacing:.06em; }
   .btn-primary, .btn-secondary { padding:7px 10px; font-size:11px; }
   .question-row { grid-template-columns:1fr; }
   .compact-grid, .count-grid { grid-template-columns:1fr; }
+  .ccp-month-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
 }

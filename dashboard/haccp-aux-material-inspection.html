@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>들메내식품 · 부재료 입고검사서</title>
+  <link rel="stylesheet" href="/dashboard/style.css">
+  <link rel="stylesheet" href="/dashboard/haccp-journal.css">
+</head>
+<body>
+  <div id="loadingScreen" class="loading-screen"><div class="loading-spinner"></div></div>
+  <div class="blobs"><div class="b1"></div><div class="b2"></div></div>
+  <div id="mainContent" class="auth-hidden">
+    <header class="app-header"><div class="header-left"><a class="back-btn" data-haccp-home href="/home?category=haccp-incoming">← HACCP 홈</a><div class="app-title"><span class="dot"></span>입고검사</div></div></header>
+    <main class="page-main">
+      <section class="page-card">
+        <div class="page-heading"><div class="page-kicker">부재료</div><h1>부재료 입고검사서</h1><p>입고된 부재료 한 건의 상태를 확인하고 저장합니다.</p></div>
+        <div class="haccp-form-sections">
+          <section class="panel">
+            <h2 class="panel-title">입고 검사 내용</h2>
+            <div class="field-grid">
+              <div class="field"><label for="recordDate">작성일</label><input id="recordDate" type="date" required></div>
+              <div class="field"><label for="itemName">부재료</label><input id="itemName" type="text" autocomplete="off" required placeholder="부재료명"></div>
+              <div class="field"><label for="supplierName">매입처</label><input id="supplierName" type="text" autocomplete="off" required></div>
+              <div class="field"><label for="purchaseQuantity">매입량</label><input id="purchaseQuantity" type="number" min="0" step="any" inputmode="decimal" required></div>
+
+              <div class="field"><span class="field-label" id="offOdorLabel">이미·이취</span><div class="choice-grid two" role="group" aria-labelledby="offOdorLabel"><button class="choice-btn" type="button" data-choice="offOdorDetected" data-value="false" aria-pressed="false">X</button><button class="choice-btn" type="button" data-choice="offOdorDetected" data-value="true" aria-pressed="false">O</button></div></div>
+              <div class="field"><span class="field-label" id="packagingLabel">포장 상태</span><div class="choice-grid two" role="group" aria-labelledby="packagingLabel"><button class="choice-btn" type="button" data-choice="packagingCondition" data-value="good" aria-pressed="false">양호</button><button class="choice-btn" type="button" data-choice="packagingCondition" data-value="poor" aria-pressed="false">불량</button></div></div>
+              <div class="field"><label for="temperature">온도</label><input id="temperature" type="text" required></div>
+              <div class="field"><span class="field-label" id="expirationLabel">유통 기한</span><div class="choice-grid two" role="group" aria-labelledby="expirationLabel"><button class="choice-btn" type="button" data-choice="expirationCheck" data-value="x" aria-pressed="false">X</button><button class="choice-btn" type="button" data-choice="expirationCheck" data-value="o" aria-pressed="false">O</button></div></div>
+
+              <div class="field"><label for="vehicleTemperature">운송차량온도</label><input id="vehicleTemperature" type="text" required></div>
+              <div class="field"><span class="field-label" id="reportLabel">시험성적서 수령</span><div class="choice-grid two" role="group" aria-labelledby="reportLabel"><button class="choice-btn" type="button" data-choice="testReportReceived" data-value="false" aria-pressed="false">X</button><button class="choice-btn" type="button" data-choice="testReportReceived" data-value="true" aria-pressed="false">O</button></div></div>
+              <div class="field"><label for="grade">등급</label><input id="grade" type="text" required></div>
+              <div class="field"><label for="writerConfirmName">작성자/확인</label><input id="writerConfirmName" type="text" required></div>
+
+              <div class="field full"><label for="notes">특이사항</label><textarea id="notes" rows="2" placeholder="필요한 경우에만 입력하세요"></textarea></div>
+            </div>
+            <div class="action-row"><button id="saveBtn" class="btn-primary" type="button">기록 저장</button><button id="resetBtn" class="btn-secondary" type="button">초기화</button></div>
+            <div id="toast" class="toast" role="status"></div>
+          </section>
+          <section class="table-card">
+            <div class="toolbar"><label class="field"><span class="muted">작성일</span><input id="dateFilter" type="date"></label><button id="clearFilterBtn" class="btn-secondary" type="button">전체 보기</button></div>
+            <div class="table-wrap"><table><thead><tr><th>작성일</th><th>부재료</th><th>매입처</th><th>매입량</th><th>포장 상태</th><th>작성자/확인</th><th>작업</th></tr></thead><tbody id="recordsBody"><tr><td colspan="7" class="empty-state">기록을 불러오는 중입니다.</td></tr></tbody></table></div>
+          </section>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script type="module">
+    import * as firestore from '/dashboard/js/haccp-aux-material-inspection-firestore.js';
+    import { initializeIncomingInspectionPage } from '/dashboard/js/haccp-incoming-inspection.js';
+    initializeIncomingInspectionPage({ pageName: 'haccp-aux-material-inspection', itemLabel: '부재료', journalLabel: '부재료 입고검사서', firestore });
+  </script>
+</body>
+</html>

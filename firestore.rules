@@ -157,6 +157,35 @@
           && data.updatedAt is timestamp;
       }
 
+      function validIncomingInspectionRecord(data) {
+        return data.keys().hasOnly([
+            'schemaVersion', 'recordDate', 'itemName', 'supplierName', 'purchaseQuantity',
+            'offOdorDetected', 'packagingCondition', 'temperature', 'expirationCheck',
+            'vehicleTemperature', 'testReportReceived', 'grade', 'writerConfirmName', 'notes',
+            'createdByUid', 'createdByEmail', 'updatedByUid', 'createdAt', 'updatedAt'
+          ])
+          && data.schemaVersion == 1
+          && data.recordDate is string
+          && data.recordDate.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+          && data.itemName is string && data.itemName.size() > 0
+          && data.supplierName is string && data.supplierName.size() > 0
+          && data.purchaseQuantity is number && data.purchaseQuantity >= 0
+          && data.offOdorDetected is bool
+          && data.packagingCondition in ['good', 'poor']
+          && data.temperature is string
+          && data.expirationCheck in ['x', 'o']
+          && data.vehicleTemperature is string
+          && data.testReportReceived is bool
+          && data.grade is string
+          && data.writerConfirmName is string
+          && data.notes is string
+          && data.createdByUid is string
+          && data.createdByEmail is string
+          && data.updatedByUid is string
+          && data.createdAt is timestamp
+          && data.updatedAt is timestamp;
+      }
+
       match /users/{uid} {
         // Bootstrap read: a signed-in user must be able to inspect only their own profile before approval.
         allow get: if signedIn() && request.auth.uid == uid;
@@ -239,6 +268,38 @@
           && request.resource.data.updatedByUid == request.auth.uid;
         allow update: if approvedActiveUser() && request.resource.data.recordDate == recordId
           && validProductionRecord(request.resource.data)
+          && request.resource.data.createdByUid == resource.data.createdByUid
+          && request.resource.data.createdByEmail == resource.data.createdByEmail
+          && request.resource.data.createdAt == resource.data.createdAt
+          && request.resource.data.updatedByUid == request.auth.uid
+          && (resource.data.createdByUid == request.auth.uid || approvedManagerOrAdmin());
+        allow delete: if approvedActiveUser() && (resource.data.createdByUid == request.auth.uid || approvedManagerOrAdmin());
+      }
+
+      match /haccpRawMaterialInspectionRecords/{recordId} {
+        allow read: if approvedActiveUser();
+        allow create: if approvedActiveUser()
+          && validIncomingInspectionRecord(request.resource.data)
+          && request.resource.data.createdByUid == request.auth.uid
+          && request.resource.data.updatedByUid == request.auth.uid;
+        allow update: if approvedActiveUser()
+          && validIncomingInspectionRecord(request.resource.data)
+          && request.resource.data.createdByUid == resource.data.createdByUid
+          && request.resource.data.createdByEmail == resource.data.createdByEmail
+          && request.resource.data.createdAt == resource.data.createdAt
+          && request.resource.data.updatedByUid == request.auth.uid
+          && (resource.data.createdByUid == request.auth.uid || approvedManagerOrAdmin());
+        allow delete: if approvedActiveUser() && (resource.data.createdByUid == request.auth.uid || approvedManagerOrAdmin());
+      }
+
+      match /haccpAuxMaterialInspectionRecords/{recordId} {
+        allow read: if approvedActiveUser();
+        allow create: if approvedActiveUser()
+          && validIncomingInspectionRecord(request.resource.data)
+          && request.resource.data.createdByUid == request.auth.uid
+          && request.resource.data.updatedByUid == request.auth.uid;
+        allow update: if approvedActiveUser()
+          && validIncomingInspectionRecord(request.resource.data)
           && request.resource.data.createdByUid == resource.data.createdByUid
           && request.resource.data.createdByEmail == resource.data.createdByEmail
           && request.resource.data.createdAt == resource.data.createdAt

@@ -57,6 +57,14 @@
             "destination": "/dashboard/haccp-production.html"
         },
         {
+            "source": "/haccp-raw-material-inspection",
+            "destination": "/dashboard/haccp-raw-material-inspection.html"
+        },
+        {
+            "source": "/haccp-aux-material-inspection",
+            "destination": "/dashboard/haccp-aux-material-inspection.html"
+        },
+        {
             "source": "/cost-management",
             "destination": "/dashboard/cost-management.html"
         },

@@ -25,13 +25,9 @@
     .export-status.loading, .export-status.notice { color:#facc15; }
     .export-status.success { color:var(--zr); }
     .export-status.error { color:var(--rv); }
-    .preview-heading { display:flex; align-items:end; justify-content:space-between; gap:12px; margin-bottom:10px; }
-    .preview-heading .field { width:min(280px,100%); }
-    .preview-caption { color:var(--t2); font-size:10px; }
-    .export-preview table { min-width:1100px; }
-    .export-preview td { white-space:nowrap; }
     .export-empty { grid-column:1 / -1; }
-    .download-row { display:flex; justify-content:flex-end; margin-top:12px; }
+    .download-row { margin-top:12px; }
+    .download-row .btn-primary { width:100%; }
     @media (max-width:1024px) {
       .dataset-grid, .summary-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
       .export-range { grid-template-columns:1fr auto 1fr; }
@@ -41,10 +37,7 @@
       .export-range, .dataset-grid, .summary-grid { grid-template-columns:1fr; }
       .range-separator { display:none; }
       .export-range .all-period-field { grid-column:auto; }
-      .dataset-toolbar, .preview-heading { align-items:stretch; flex-direction:column; }
-      .preview-heading .field { width:100%; }
-      .download-row { justify-content:stretch; }
-      .download-row button { width:100%; }
+      .dataset-toolbar { align-items:stretch; flex-direction:column; }
     }
   </style>
 </head>
@@ -76,21 +69,13 @@
               <label class="checkbox-control"><input type="checkbox" data-export-dataset value="auxMaterialInspection" checked>부재료 입고</label>
             </div>
             <div class="action-row"><button id="queryBtn" class="btn-primary" type="button">조회</button></div>
-            <p id="queryStatus" class="export-status" role="status" aria-live="polite"></p>
           </section>
 
           <section class="panel">
             <h2 class="panel-title">조회 결과</h2>
             <div id="summaryGrid" class="summary-grid"><div class="empty-state export-empty">조회 후 기록 건수가 표시됩니다.</div></div>
-          </section>
-
-          <section class="table-card export-preview">
-            <div class="preview-heading">
-              <label class="field" for="previewDataset"><span class="field-label">미리보기 일지</span><select id="previewDataset" disabled><option value="">조회 후 선택</option></select></label>
-              <span id="previewCaption" class="preview-caption"></span>
-            </div>
-            <div class="table-wrap"><table><thead id="previewHead"></thead><tbody id="previewBody"><tr><td class="empty-state">조회 후 데이터 미리보기가 표시됩니다.</td></tr></tbody></table></div>
             <div class="download-row"><button id="downloadBtn" class="btn-primary" type="button" disabled>Excel 다운로드</button></div>
+            <p id="queryStatus" class="export-status" role="status" aria-live="polite"></p>
           </section>
         </div>
       </section>

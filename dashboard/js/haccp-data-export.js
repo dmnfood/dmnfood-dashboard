@@ -16,8 +16,6 @@ const $ = id => document.getElementById(id);
 const elements = {
   startDate: $('startDate'), endDate: $('endDate'), allPeriod: $('allPeriod'), selectAll: $('selectAllDatasets'),
   query: $('queryBtn'), download: $('downloadBtn'), status: $('queryStatus'), summary: $('summaryGrid'),
-  previewSelect: $('previewDataset'), previewHead: $('previewHead'), previewBody: $('previewBody'),
-  previewCaption: $('previewCaption'),
 };
 
 let lastQuery = null;
@@ -51,11 +49,6 @@ function clearResults(message = '') {
   lastQuery = null;
   elements.download.disabled = true;
   elements.summary.innerHTML = '<div class="empty-state export-empty">조회 후 기록 건수가 표시됩니다.</div>';
-  elements.previewSelect.innerHTML = '<option value="">조회 후 선택</option>';
-  elements.previewSelect.disabled = true;
-  elements.previewHead.innerHTML = '';
-  elements.previewBody.innerHTML = '<tr><td class="empty-state">조회 후 데이터 미리보기가 표시됩니다.</td></tr>';
-  elements.previewCaption.textContent = '';
   if (message) setStatus(message, 'notice');
 }
 
@@ -104,32 +97,6 @@ function renderSummary(keys, results, failures) {
   }).join('');
 }
 
-function renderPreview(key) {
-  const result = lastQuery?.results.get(key);
-  if (!result) {
-    elements.previewHead.innerHTML = '';
-    elements.previewBody.innerHTML = '<tr><td class="empty-state">미리볼 데이터가 없습니다.</td></tr>';
-    elements.previewCaption.textContent = '';
-    return;
-  }
-  const columns = result.definition.columns;
-  elements.previewHead.innerHTML = `<tr>${columns.map(item => `<th>${escapeHtml(item.label)}</th>`).join('')}</tr>`;
-  if (!result.rows.length) {
-    elements.previewBody.innerHTML = `<tr><td colspan="${columns.length}" class="empty-state">0건</td></tr>`;
-  } else {
-    elements.previewBody.innerHTML = result.rows.slice(0, 50).map(row => `<tr>${columns.map(item => `<td>${escapeHtml(row[item.key])}</td>`).join('')}</tr>`).join('');
-  }
-  const limited = result.rows.length > 50 ? ` · 처음 50행 표시` : '';
-  elements.previewCaption.textContent = `${result.definition.label} · 총 ${result.rows.length}행${limited}`;
-}
-
-function renderPreviewSelector(keys, results) {
-  const availableKeys = keys.filter(key => results.has(key));
-  elements.previewSelect.innerHTML = availableKeys.map(key => `<option value="${key}">${escapeHtml(EXPORT_DEFINITIONS[key].label)}</option>`).join('');
-  elements.previewSelect.disabled = !availableKeys.length;
-  renderPreview(availableKeys[0] || '');
-}
-
 async function runQuery() {
   const keys = selectedKeys();
   const error = validateQuery(keys);
@@ -143,7 +110,6 @@ async function runQuery() {
   setQueryControlsDisabled(true);
   elements.download.disabled = true;
   elements.summary.innerHTML = '<div class="empty-state export-empty">Firestore 기록을 조회하는 중입니다.</div>';
-  elements.previewSelect.disabled = true;
   setStatus(`${keys.length}개 일지를 조회하는 중입니다.`, 'loading');
 
   const settled = await Promise.allSettled(keys.map(key => loadDataset(key, range)));
@@ -157,7 +123,6 @@ async function runQuery() {
 
   lastQuery = { keys, range, results, complete: failures.length === 0, queriedAt: new Date() };
   renderSummary(keys, results, failures);
-  renderPreviewSelector(keys, results);
   setQueryControlsDisabled(false);
 
   if (failures.length) {
@@ -175,7 +140,7 @@ async function runQuery() {
   elements.download.disabled = false;
   setStatus(anomalyCount
     ? `조회가 완료되었습니다. ${anomalyCount}개 기록은 저장 형식을 확인해 주세요.`
-    : '조회가 완료되었습니다. 미리보기 확인 후 Excel을 다운로드할 수 있습니다.', anomalyCount ? 'notice' : 'success');
+    : '조회가 완료되었습니다. Excel을 다운로드할 수 있습니다.', anomalyCount ? 'notice' : 'success');
 }
 
 const displayWidth = value => [...String(value ?? '')].reduce((width, character) => width + (character.charCodeAt(0) > 127 ? 2 : 1), 0);
@@ -237,7 +202,6 @@ function exportWorkbook() {
 
 elements.query.addEventListener('click', runQuery);
 elements.download.addEventListener('click', exportWorkbook);
-elements.previewSelect.addEventListener('change', () => renderPreview(elements.previewSelect.value));
 elements.allPeriod.addEventListener('change', () => { updateDateDisabledState(); clearResults('조회 조건이 변경되었습니다. 다시 조회해 주세요.'); });
 elements.startDate.addEventListener('change', () => clearResults('조회 조건이 변경되었습니다. 다시 조회해 주세요.'));
 elements.endDate.addEventListener('change', () => clearResults('조회 조건이 변경되었습니다. 다시 조회해 주세요.'));

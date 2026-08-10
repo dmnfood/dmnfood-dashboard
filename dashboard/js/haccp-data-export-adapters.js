@@ -1,3 +1,5 @@
+import { CCP_GROUPS, HYGIENE_GROUPS } from '/dashboard/js/haccp-management-definitions.js';
+
 const column = (key, label) => Object.freeze({ key, label });
 
 const METADATA_COLUMNS = Object.freeze([
@@ -220,10 +222,31 @@ export const EXPORT_DEFINITIONS = Object.freeze({
     columns: incomingColumns,
     flattenRecord: (data, documentId) => [incomingRow(data, documentId)],
   }),
+  ccpVerification: Object.freeze({
+    label:'CCP 검증', sheetName:'CCP 검증', collection:'haccpCcpVerificationRecords', dateField:'recordDate',
+    columns:Object.freeze([column('periodKey','점검월'),column('recordDate','점검일'),column('inspectorName','점검자'),column('process','공정'),column('question','검증내용'),column('answer','응답'),column('deviationDetail','이탈내용'),column('correctiveActionResult','개선조치 및 결과'),column('actionBy','조치자'),column('confirmedBy','확인'),...METADATA_COLUMNS]),
+    flattenRecord:(data,documentId)=>CCP_GROUPS.flatMap(group=>group.questions.map(question=>{const answer=data.answers?.[question.key];return{periodKey:safeText(data.periodKey),recordDate:safeText(data.recordDate),inspectorName:safeText(data.inspectorName),process:group.label,question:question.text,answer:answer===true?'예':answer===false?'아니오':'',deviationDetail:safeText(data.deviationDetail),correctiveActionResult:safeText(data.correctiveActionResult),actionBy:safeText(data.actionBy),confirmedBy:safeText(data.confirmedBy),...metadata(data,documentId)}})),
+  }),
+  generalHygiene: Object.freeze({
+    label:'일반위생/공정점검', sheetName:'일반위생 공정점검', collection:'haccpGeneralHygieneProcessRecords', dateField:'recordDate',
+    columns:Object.freeze([column('recordDate','점검일'),column('inspectionGroup','점검구분'),column('cadence','주기'),column('managementGroup','관리구분'),column('question','점검내용'),column('answer','응답/값'),column('notes','특이사항'),column('correctiveActionResult','개선조치 및 결과'),column('actionBy','조치자'),column('confirmedBy','확인자'),column('inspectorName','점검자'),...METADATA_COLUMNS]),
+    flattenRecord:(data,documentId)=>{const group=HYGIENE_GROUPS.find(item=>item.key===data.inspectionGroup);const base={recordDate:safeText(data.recordDate),inspectionGroup:group?.label||safeText(data.inspectionGroup),cadence:safeText(data.cadence),notes:safeText(data.notes),correctiveActionResult:safeText(data.correctiveActionResult),actionBy:safeText(data.actionBy),confirmedBy:safeText(data.confirmedBy),inspectorName:safeText(data.inspectorName),...metadata(data,documentId)};if(group?.dates)return[['검·교정','온도계 등 검·교정일',data.annualDates?.thermometer],['검·교정','CCP 모니터링 장비 검·교정일',data.annualDates?.ccpEquipment]].map(([managementGroup,question,answer])=>({...base,managementGroup,question,answer:safeText(answer)}));const rows=(group?.questions||[]).map(([managementGroup,question],index)=>({...base,managementGroup,question,answer:data.answers?.[index]===true?'예':data.answers?.[index]===false?'아니오':''}));if(group?.numeric)rows.unshift({...base,managementGroup:'방충방서',question:'포획 개체수',answer:numberOrBlank(data.capturedPestCount)});return rows;},
+  }),
+  compressedAir: Object.freeze({
+    label:'압축공기 필터', sheetName:'압축공기 필터', collection:'haccpCompressedAirFilterRecords', dateField:'recordDate',
+    columns:Object.freeze([column('managementMonth','관리월'),column('recordDate','점검일'),column('responsibleName','담당자'),column('number','번호'),column('installationLocation','설치위치'),column('purpose','용도'),column('productName','제품명'),column('specification','규격'),column('installationDate','설치일'),column('replacementCycle','교체주기'),column('replacementDate','이번달 교체일'),column('notes','비고'),...METADATA_COLUMNS]),
+    flattenRecord:(data,documentId)=>(Array.isArray(data.filters)?data.filters:[]).map(filter=>({managementMonth:safeText(data.managementMonth||data.periodKey),recordDate:safeText(data.recordDate),responsibleName:safeText(data.responsibleName),number:numberOrBlank(filter.number),installationLocation:safeText(filter.installationLocation),purpose:safeText(filter.purpose),productName:safeText(filter.productName),specification:safeText(filter.specification),installationDate:safeText(filter.installationDate),replacementCycle:safeText(filter.replacementCycle),replacementDate:safeText(filter.replacementDate),notes:safeText(data.notes),...metadata(data,documentId)})),
+  }),
+  pestControl: Object.freeze({
+    label:'방충·방서', sheetName:'방충 방서', collection:'haccpPestControlRecords', dateField:'recordDate',
+    columns:Object.freeze([column('periodKey','점검주'),column('recordDate','점검일'),column('inspectorName','점검자'),column('deviceType','구분'),column('deviceNumber','번호'),column('location','설치위치'),column('fly','파리'),column('moth','나방'),column('mosquito','모기'),column('mayfly','하루살이'),column('cockroach','바퀴'),column('spider','거미'),column('ant','개미'),column('mouse','쥐'),column('other','기타'),column('total','합계'),column('deviationCause','기준이탈/원인'),column('correctiveAction','개선조치'),...METADATA_COLUMNS]),
+    flattenRecord:(data,documentId)=>(Array.isArray(data.devices)?data.devices:[]).map(device=>({periodKey:safeText(data.periodKey),recordDate:safeText(data.recordDate),inspectorName:safeText(data.inspectorName),deviceType:({insect_light:'포충등',cockroach_trap:'바퀴 트랩',mouse_trap:'쥐 트랩'}[device.deviceType]||safeText(device.deviceType)),deviceNumber:numberOrBlank(device.deviceNumber),location:safeText(device.location),fly:numberOrBlank(device.counts?.['파리']),moth:numberOrBlank(device.counts?.['나방']),mosquito:numberOrBlank(device.counts?.['모기']),mayfly:numberOrBlank(device.counts?.['하루살이']),cockroach:numberOrBlank(device.counts?.['바퀴']),spider:numberOrBlank(device.counts?.['거미']),ant:numberOrBlank(device.counts?.['개미']),mouse:numberOrBlank(device.counts?.['쥐']),other:numberOrBlank(device.counts?.['기타']),total:numberOrBlank(device.total),deviationCause:safeText(data.deviationCause),correctiveAction:safeText(data.correctiveAction),...metadata(data,documentId)})),
+  }),
 });
 
 export const EXPORT_ORDER = Object.freeze([
   'heating', 'filtering', 'bottleWashing', 'rawMaterialUsage', 'production', 'rawMaterialInspection', 'auxMaterialInspection',
+  'ccpVerification', 'generalHygiene', 'compressedAir', 'pestControl',
 ]);
 
 export function normalizeDocuments(definition, documents) {

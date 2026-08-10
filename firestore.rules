@@ -186,6 +186,49 @@
           && data.updatedAt is timestamp;
       }
 
+      function validOperationalMetadata(data) {
+        return data.schemaVersion == 1
+          && data.recordDate is string
+          && data.periodKey is string
+          && data.cadence is string
+          && data.createdByUid is string
+          && data.createdByEmail is string
+          && data.updatedByUid is string
+          && data.createdAt is timestamp
+          && data.updatedAt is timestamp;
+      }
+      function validCcpVerificationRecord(data) {
+        return data.keys().hasOnly(['schemaVersion','recordDate','periodKey','cadence','inspectorName','answers','nonconformanceCount','deviationDetail','correctiveActionResult','actionBy','confirmedBy','createdByUid','createdByEmail','updatedByUid','createdAt','updatedAt'])
+          && validOperationalMetadata(data) && data.cadence == 'monthly'
+          && data.inspectorName is string && data.answers is map
+          && data.nonconformanceCount is int && data.nonconformanceCount >= 0
+          && data.deviationDetail is string && data.correctiveActionResult is string
+          && data.actionBy is string && data.confirmedBy is string;
+      }
+      function validGeneralHygieneRecord(data) {
+        return data.keys().hasOnly(['schemaVersion','recordDate','periodKey','inspectionGroup','cadence','inspectorName','answers','capturedPestCount','annualDates','notes','correctiveActionResult','actionBy','confirmedBy','createdByUid','createdByEmail','updatedByUid','createdAt','updatedAt'])
+          && validOperationalMetadata(data)
+          && data.inspectionGroup in ['pre_work','during_work','post_work','incoming','weekly','monthly','annual']
+          && data.cadence in ['daily','event','weekly','monthly','annual']
+          && data.inspectorName is string && data.answers is map && data.annualDates is map
+          && (data.capturedPestCount == null || (data.capturedPestCount is number && data.capturedPestCount >= 0))
+          && data.notes is string && data.correctiveActionResult is string
+          && data.actionBy is string && data.confirmedBy is string;
+      }
+      function validCompressedAirRecord(data) {
+        return data.keys().hasOnly(['schemaVersion','recordDate','periodKey','managementMonth','cadence','responsibleName','filters','notes','createdByUid','createdByEmail','updatedByUid','createdAt','updatedAt'])
+          && validOperationalMetadata(data) && data.cadence == 'monthly'
+          && data.managementMonth is string && data.responsibleName is string
+          && data.filters is list && data.filters.size() == 3 && data.notes is string;
+      }
+      function validPestControlRecord(data) {
+        return data.keys().hasOnly(['schemaVersion','recordDate','periodKey','cadence','inspectorName','devices','deviationCause','correctiveAction','actionBy','confirmedBy','createdByUid','createdByEmail','updatedByUid','createdAt','updatedAt'])
+          && validOperationalMetadata(data) && data.cadence == 'weekly'
+          && data.inspectorName is string && data.devices is list && data.devices.size() == 24
+          && data.deviationCause is string && data.correctiveAction is string
+          && data.actionBy is string && data.confirmedBy is string;
+      }
+
       match /users/{uid} {
         // Bootstrap read: a signed-in user must be able to inspect only their own profile before approval.
         allow get: if signedIn() && request.auth.uid == uid;
@@ -300,6 +343,64 @@
           && request.resource.data.updatedByUid == request.auth.uid;
         allow update: if approvedActiveUser()
           && validIncomingInspectionRecord(request.resource.data)
+          && request.resource.data.createdByUid == resource.data.createdByUid
+          && request.resource.data.createdByEmail == resource.data.createdByEmail
+          && request.resource.data.createdAt == resource.data.createdAt
+          && request.resource.data.updatedByUid == request.auth.uid
+          && (resource.data.createdByUid == request.auth.uid || approvedManagerOrAdmin());
+        allow delete: if approvedActiveUser() && (resource.data.createdByUid == request.auth.uid || approvedManagerOrAdmin());
+      }
+
+      match /haccpCcpVerificationRecords/{recordId} {
+        allow read: if approvedActiveUser();
+        allow create: if approvedActiveUser() && recordId == request.resource.data.periodKey
+          && validCcpVerificationRecord(request.resource.data)
+          && request.resource.data.createdByUid == request.auth.uid && request.resource.data.updatedByUid == request.auth.uid;
+        allow update: if approvedActiveUser() && recordId == request.resource.data.periodKey
+          && validCcpVerificationRecord(request.resource.data)
+          && request.resource.data.createdByUid == resource.data.createdByUid
+          && request.resource.data.createdByEmail == resource.data.createdByEmail
+          && request.resource.data.createdAt == resource.data.createdAt
+          && request.resource.data.updatedByUid == request.auth.uid
+          && (resource.data.createdByUid == request.auth.uid || approvedManagerOrAdmin());
+        allow delete: if approvedActiveUser() && (resource.data.createdByUid == request.auth.uid || approvedManagerOrAdmin());
+      }
+
+      match /haccpGeneralHygieneProcessRecords/{recordId} {
+        allow read: if approvedActiveUser();
+        allow create: if approvedActiveUser() && validGeneralHygieneRecord(request.resource.data)
+          && request.resource.data.createdByUid == request.auth.uid && request.resource.data.updatedByUid == request.auth.uid;
+        allow update: if approvedActiveUser() && validGeneralHygieneRecord(request.resource.data)
+          && request.resource.data.createdByUid == resource.data.createdByUid
+          && request.resource.data.createdByEmail == resource.data.createdByEmail
+          && request.resource.data.createdAt == resource.data.createdAt
+          && request.resource.data.updatedByUid == request.auth.uid
+          && (resource.data.createdByUid == request.auth.uid || approvedManagerOrAdmin());
+        allow delete: if approvedActiveUser() && (resource.data.createdByUid == request.auth.uid || approvedManagerOrAdmin());
+      }
+
+      match /haccpCompressedAirFilterRecords/{recordId} {
+        allow read: if approvedActiveUser();
+        allow create: if approvedActiveUser() && recordId == request.resource.data.periodKey
+          && validCompressedAirRecord(request.resource.data)
+          && request.resource.data.createdByUid == request.auth.uid && request.resource.data.updatedByUid == request.auth.uid;
+        allow update: if approvedActiveUser() && recordId == request.resource.data.periodKey
+          && validCompressedAirRecord(request.resource.data)
+          && request.resource.data.createdByUid == resource.data.createdByUid
+          && request.resource.data.createdByEmail == resource.data.createdByEmail
+          && request.resource.data.createdAt == resource.data.createdAt
+          && request.resource.data.updatedByUid == request.auth.uid
+          && (resource.data.createdByUid == request.auth.uid || approvedManagerOrAdmin());
+        allow delete: if approvedActiveUser() && (resource.data.createdByUid == request.auth.uid || approvedManagerOrAdmin());
+      }
+
+      match /haccpPestControlRecords/{recordId} {
+        allow read: if approvedActiveUser();
+        allow create: if approvedActiveUser() && recordId == request.resource.data.periodKey
+          && validPestControlRecord(request.resource.data)
+          && request.resource.data.createdByUid == request.auth.uid && request.resource.data.updatedByUid == request.auth.uid;
+        allow update: if approvedActiveUser() && recordId == request.resource.data.periodKey
+          && validPestControlRecord(request.resource.data)
           && request.resource.data.createdByUid == resource.data.createdByUid
           && request.resource.data.createdByEmail == resource.data.createdByEmail
           && request.resource.data.createdAt == resource.data.createdAt

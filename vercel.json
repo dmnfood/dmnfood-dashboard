@@ -69,6 +69,22 @@
             "destination": "/dashboard/haccp-data-export.html"
         },
         {
+            "source": "/haccp-ccp-verification",
+            "destination": "/dashboard/haccp-ccp-verification.html"
+        },
+        {
+            "source": "/haccp-general-hygiene-process",
+            "destination": "/dashboard/haccp-general-hygiene-process.html"
+        },
+        {
+            "source": "/haccp-compressed-air-filter",
+            "destination": "/dashboard/haccp-compressed-air-filter.html"
+        },
+        {
+            "source": "/haccp-pest-control",
+            "destination": "/dashboard/haccp-pest-control.html"
+        },
+        {
             "source": "/cost-management",
             "destination": "/dashboard/cost-management.html"
         },

@@ -1,0 +1,8 @@
+import { addDoc, collection, deleteDoc, doc, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { db } from '/dashboard/js/firebase-client.js';
+import { isoWeekKey, monthKey } from '/dashboard/js/haccp-management-utils.js';
+export const GENERAL_HYGIENE_COLLECTION='haccpGeneralHygieneProcessRecords';
+export function hygienePeriodKey(date,group){if(group==='weekly')return isoWeekKey(date);if(group==='monthly')return monthKey(date);if(group==='annual')return String(date).slice(0,4);if(['pre_work','during_work','post_work'].includes(group))return `${date}:${group}`;return date;}
+export const subscribeGeneralHygiene=(ok,fail)=>onSnapshot(query(collection(db,GENERAL_HYGIENE_COLLECTION),orderBy('recordDate','desc'),limit(100)),s=>ok(s.docs.map(d=>({id:d.id,...d.data()}))),fail);
+export async function saveGeneralHygiene(values,user,existing=null){const periodKey=hygienePeriodKey(values.recordDate,values.inspectionGroup);const payload={schemaVersion:1,...values,periodKey,createdByUid:existing?.createdByUid||user.uid,createdByEmail:existing?.createdByEmail||user.email||'',updatedByUid:user.uid,updatedAt:serverTimestamp()};if(!existing)payload.createdAt=serverTimestamp();if(values.inspectionGroup==='incoming'&&!existing)return (await addDoc(collection(db,GENERAL_HYGIENE_COLLECTION),payload)).id;const id=existing?.id||`${values.inspectionGroup}__${periodKey}`;await setDoc(doc(db,GENERAL_HYGIENE_COLLECTION,id),payload,{merge:Boolean(existing)});return id;}
+export const deleteGeneralHygiene=id=>deleteDoc(doc(db,GENERAL_HYGIENE_COLLECTION,id));

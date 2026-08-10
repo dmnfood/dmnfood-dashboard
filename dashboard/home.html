@@ -456,6 +456,9 @@
       overflow: hidden;
     }
 
+    [data-manager-only] { display: none; }
+    [data-manager-only].role-visible { display: block; }
+
     .dashboard-card::before {
       content: '';
       position: absolute;
@@ -856,7 +859,7 @@
 
         <div class="category-panel" id="category-haccp-management" role="tabpanel">
           <div class="section-header">
-            <span class="section-title">전체 관리</span><span class="section-count">4</span>
+            <span class="section-title">전체 관리</span><span class="section-count" data-haccp-management-count>4</span>
           </div>
           <div class="card-grid">
             <div class="dashboard-card card-placeholder" aria-disabled="true">
@@ -875,6 +878,10 @@
               <div class="card-icon">🛡️</div><div class="card-title">방충 / 방서 관리</div>
               <div class="card-meta"><span class="badge badge-soon">준비 중</span></div>
             </div>
+            <a href="/haccp-data-export" class="dashboard-card card-active" data-manager-only>
+              <div class="card-icon">📊</div><div class="card-title">HACCP 데이터 내보내기</div><div class="card-desc">Firestore 기록을 조회하고 Excel 파일로 내보냅니다.</div>
+              <div class="card-meta"><span class="badge badge-live"><span class="badge-dot"></span> 운영 중</span><span class="card-arrow">→</span></div>
+            </a>
           </div>
         </div>
 
@@ -913,12 +920,13 @@
           </section>
 
           <section class="haccp-category-section">
-            <div class="section-header"><span class="section-title">전체 관리</span><span class="section-count">4</span></div>
+            <div class="section-header"><span class="section-title">전체 관리</span><span class="section-count" data-haccp-management-count>4</span></div>
             <div class="card-grid">
               <div class="dashboard-card card-placeholder" aria-disabled="true"><div class="card-icon">✓</div><div class="card-title">중요관리점(CCP) 검증점검표</div><div class="card-meta"><span class="badge badge-soon">준비 중</span></div></div>
               <div class="dashboard-card card-placeholder" aria-disabled="true"><div class="card-icon">🧼</div><div class="card-title">일반위생관리 및 공정관리</div><div class="card-meta"><span class="badge badge-soon">준비 중</span></div></div>
               <div class="dashboard-card card-placeholder" aria-disabled="true"><div class="card-icon">🌬️</div><div class="card-title">공기청정기 필터 관리</div><div class="card-meta"><span class="badge badge-soon">준비 중</span></div></div>
               <div class="dashboard-card card-placeholder" aria-disabled="true"><div class="card-icon">🛡️</div><div class="card-title">방충 / 방서 관리</div><div class="card-meta"><span class="badge badge-soon">준비 중</span></div></div>
+              <a href="/haccp-data-export" class="dashboard-card card-active" data-manager-only><div class="card-icon">📊</div><div class="card-title">HACCP 데이터 내보내기</div><div class="card-desc">Firestore 기록을 조회하고 Excel 파일로 내보냅니다.</div><div class="card-meta"><span class="badge badge-live"><span class="badge-dot"></span> 운영 중</span><span class="card-arrow">→</span></div></a>
             </div>
           </section>
         </div>
@@ -1077,6 +1085,9 @@
           navigateOnce('/', 'profile-blocked');
           return;
         }
+        const canExportHaccpData = ['manager', 'admin'].includes(profile.role);
+        document.querySelectorAll('[data-manager-only]').forEach(card => card.classList.toggle('role-visible', canExportHaccpData));
+        document.querySelectorAll('[data-haccp-management-count]').forEach(count => { count.textContent = canExportHaccpData ? '5' : '4'; });
       } catch (error) {
         console.error('[auth] profile read failed', { page: 'home', code: error.code || 'unknown', error });
         await signOut(auth).catch(() => {});

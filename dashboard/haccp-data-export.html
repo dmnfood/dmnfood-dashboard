@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>들메내식품 · HACCP 데이터 내보내기</title>
+  <link rel="stylesheet" href="/dashboard/style.css">
+  <link rel="stylesheet" href="/dashboard/haccp-journal.css">
+  <style>
+    .export-range { display:grid; grid-template-columns:minmax(180px,1fr) auto minmax(180px,1fr) minmax(150px,.8fr); gap:8px; align-items:end; }
+    .range-separator { min-height:42px; display:flex; align-items:center; justify-content:center; color:var(--t2); font-size:12px; }
+    .checkbox-control { min-height:42px; display:flex; align-items:center; gap:8px; padding:7px 10px; border:1px solid var(--border); border-radius:7px; background:var(--in-bg); color:var(--t1); font-size:12px; font-weight:700; cursor:pointer; }
+    .checkbox-control input { width:16px; height:16px; accent-color:#22d3ee; }
+    .dataset-toolbar { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:14px 0 8px; }
+    .dataset-toolbar h3 { color:var(--t0); font-size:11px; }
+    .dataset-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:6px; }
+    .dataset-grid .checkbox-control { background:rgba(255,255,255,.025); }
+    .summary-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; }
+    .summary-card { min-height:74px; display:flex; flex-direction:column; justify-content:center; gap:5px; padding:10px; border:1px solid var(--border); border-radius:9px; background:rgba(255,255,255,.025); }
+    .summary-card span, .summary-card small { color:var(--t2); font-size:10px; }
+    .summary-card strong { color:var(--t0); font-size:15px; }
+    .summary-card.error { border-color:rgba(248,113,113,.3); }
+    .summary-card.error strong { color:var(--rv); }
+    .export-status { min-height:18px; margin-top:8px; color:var(--t2); font-size:11px; }
+    .export-status.loading, .export-status.notice { color:#facc15; }
+    .export-status.success { color:var(--zr); }
+    .export-status.error { color:var(--rv); }
+    .preview-heading { display:flex; align-items:end; justify-content:space-between; gap:12px; margin-bottom:10px; }
+    .preview-heading .field { width:min(280px,100%); }
+    .preview-caption { color:var(--t2); font-size:10px; }
+    .export-preview table { min-width:1100px; }
+    .export-preview td { white-space:nowrap; }
+    .export-empty { grid-column:1 / -1; }
+    .download-row { display:flex; justify-content:flex-end; margin-top:12px; }
+    @media (max-width:1024px) {
+      .dataset-grid, .summary-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .export-range { grid-template-columns:1fr auto 1fr; }
+      .export-range .all-period-field { grid-column:1 / -1; }
+    }
+    @media (max-width:760px) {
+      .export-range, .dataset-grid, .summary-grid { grid-template-columns:1fr; }
+      .range-separator { display:none; }
+      .export-range .all-period-field { grid-column:auto; }
+      .dataset-toolbar, .preview-heading { align-items:stretch; flex-direction:column; }
+      .preview-heading .field { width:100%; }
+      .download-row { justify-content:stretch; }
+      .download-row button { width:100%; }
+    }
+  </style>
+</head>
+<body>
+  <div id="loadingScreen" class="loading-screen"><div class="loading-spinner"></div></div>
+  <div class="blobs"><div class="b1"></div><div class="b2"></div></div>
+  <div id="mainContent" class="auth-hidden">
+    <header class="app-header"><div class="header-left"><a class="back-btn" data-haccp-home href="/home?category=haccp-management">← HACCP 홈</a><div class="app-title"><span class="dot"></span>전체 관리</div></div></header>
+    <main class="page-main">
+      <section class="page-card">
+        <div class="page-heading"><div class="page-kicker">READ-ONLY EXPORT</div><h1>HACCP 데이터 내보내기</h1><p>Firestore에 저장된 HACCP 기록을 조회하고 Excel 파일로 내보냅니다.</p></div>
+        <div class="haccp-form-sections">
+          <section class="panel">
+            <h2 class="panel-title">조회 조건</h2>
+            <div class="export-range">
+              <label class="field" for="startDate"><span class="field-label">시작일</span><input id="startDate" type="date"></label>
+              <div class="range-separator" aria-hidden="true">~</div>
+              <label class="field" for="endDate"><span class="field-label">종료일</span><input id="endDate" type="date"></label>
+              <div class="field all-period-field"><span class="field-label">기간 설정</span><label class="checkbox-control"><input id="allPeriod" type="checkbox">전체 기간</label></div>
+            </div>
+            <div class="dataset-toolbar"><h3>조회 일지</h3><label class="checkbox-control"><input id="selectAllDatasets" type="checkbox" checked>전체 선택</label></div>
+            <div class="dataset-grid">
+              <label class="checkbox-control"><input type="checkbox" data-export-dataset value="heating" checked>CCP-1 가열</label>
+              <label class="checkbox-control"><input type="checkbox" data-export-dataset value="filtering" checked>CCP-2 여과</label>
+              <label class="checkbox-control"><input type="checkbox" data-export-dataset value="bottleWashing" checked>CCP-3 세병</label>
+              <label class="checkbox-control"><input type="checkbox" data-export-dataset value="rawMaterialUsage" checked>원료 사용</label>
+              <label class="checkbox-control"><input type="checkbox" data-export-dataset value="production" checked>제품 생산</label>
+              <label class="checkbox-control"><input type="checkbox" data-export-dataset value="rawMaterialInspection" checked>원재료 입고</label>
+              <label class="checkbox-control"><input type="checkbox" data-export-dataset value="auxMaterialInspection" checked>부재료 입고</label>
+            </div>
+            <div class="action-row"><button id="queryBtn" class="btn-primary" type="button">조회</button></div>
+            <p id="queryStatus" class="export-status" role="status" aria-live="polite"></p>
+          </section>
+
+          <section class="panel">
+            <h2 class="panel-title">조회 결과</h2>
+            <div id="summaryGrid" class="summary-grid"><div class="empty-state export-empty">조회 후 기록 건수가 표시됩니다.</div></div>
+          </section>
+
+          <section class="table-card export-preview">
+            <div class="preview-heading">
+              <label class="field" for="previewDataset"><span class="field-label">미리보기 일지</span><select id="previewDataset" disabled><option value="">조회 후 선택</option></select></label>
+              <span id="previewCaption" class="preview-caption"></span>
+            </div>
+            <div class="table-wrap"><table><thead id="previewHead"></thead><tbody id="previewBody"><tr><td class="empty-state">조회 후 데이터 미리보기가 표시됩니다.</td></tr></tbody></table></div>
+            <div class="download-row"><button id="downloadBtn" class="btn-primary" type="button" disabled>Excel 다운로드</button></div>
+          </section>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script type="module" src="/dashboard/js/haccp-data-export.js"></script>
+</body>
+</html>

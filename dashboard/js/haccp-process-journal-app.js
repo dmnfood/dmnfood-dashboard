@@ -3,13 +3,13 @@ import { createJournalModal } from '/dashboard/js/journal-modal.js';
 import { createJournalDateSelector, groupJournalDates, journalSelectionError } from '/dashboard/js/journal-date-selection.js';
 
 // Each process supplies its own settings, date query and paper renderer.
-export function mountProcessJournal({ title, code, loadSettings, subscribeByRange, render, summarize }) {
+export function mountProcessJournal({ title, code, loadSettings, subscribeByRange, render, summarize, createSelector = createJournalDateSelector, groupRecords = groupJournalDates, subtitle = `날짜별 ${code} 모니터링 기록을 조회하고 인쇄합니다.` }) {
   const overlay = document.createElement('div');
   overlay.id = 'processJournalModal';
   overlay.className = 'journal-modal-overlay';
   overlay.setAttribute('aria-hidden', 'true');
   overlay.innerHTML = `<section class="journal-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="processJournalTitle">
-    <header class="journal-modal-header"><div><h2 class="journal-modal-title" id="processJournalTitle">${escapeHtml(title)} 일지 조회 / 인쇄</h2><p class="journal-modal-subtitle">날짜별 ${escapeHtml(code)} 모니터링 기록을 조회하고 인쇄합니다.</p></div><button type="button" class="journal-modal-close" data-journal-close aria-label="일지 조회 창 닫기">×</button></header>
+    <header class="journal-modal-header"><div><h2 class="journal-modal-title" id="processJournalTitle">${escapeHtml(title)} 일지 조회 / 인쇄</h2><p class="journal-modal-subtitle">${escapeHtml(subtitle)}</p></div><button type="button" class="journal-modal-close" data-journal-close aria-label="일지 조회 창 닫기">×</button></header>
     <div class="journal-modal-body"><aside class="journal-dashboard"><h3 class="journal-dashboard-heading">조회 조건</h3><div class="journal-modal-toolbar"><div class="journal-date-selector"></div><button class="btn-primary journal-print-button" id="processJournalPrint" type="button" disabled>인쇄 / PDF 저장</button></div><h3 class="journal-summary-heading">기록 요약</h3><div class="journal-modal-summary" id="processJournalSummary"></div><p class="journal-modal-status" id="processJournalStatus" role="status"></p></aside><div class="journal-preview-viewport"><div class="journal-preview-scale-stage"><div id="ccpJournalPrintRoot" class="journal-sheet-list"></div></div></div></div></section>`;
   document.body.append(overlay);
   const find = id => overlay.querySelector(`#${id}`);
@@ -47,7 +47,7 @@ export function mountProcessJournal({ title, code, loadSettings, subscribeByRang
         if (request !== version) return;
         try {
           output.replaceChildren();
-          const groups = groupJournalDates(records, selection);
+          const groups = groupRecords(records, selection);
           const selectedRecords = groups.flatMap(([, items]) => items);
           let pages = 0;
           for (const [date, items] of groups) {
@@ -62,7 +62,7 @@ export function mountProcessJournal({ title, code, loadSettings, subscribeByRang
           if (selection.mode === 'range') totals.push(['기록 날짜', `${groups.length}일`]);
           summary.innerHTML = totals.map(([label, count]) => `<div class="journal-summary-card"><b>${escapeHtml(label)}</b><span>${escapeHtml(count)}</span></div>`).join('');
           const period = selection.start === selection.end ? selection.start : `${selection.start} ~ ${selection.end}`;
-          setStatus(selectedRecords.length ? `${period} · ${selectedRecords.length}건 · ${pages}장` : selection.mode === 'date' ? `${period}에 저장된 기록이 없습니다. 빈 양식으로 인쇄할 수 있습니다.` : `${period}에 저장된 기록이 없습니다.`);
+          setStatus(selectedRecords.length ? `${period} · ${selectedRecords.length}건 · ${pages}장` : pages ? `${period}에 저장된 기록이 없습니다. 빈 양식으로 인쇄할 수 있습니다.` : `${period}에 저장된 기록이 없습니다.`);
           loadedSelection = selection;
           print.disabled = pages === 0;
           requestAnimationFrame(modal.fitPreview);
@@ -70,7 +70,7 @@ export function mountProcessJournal({ title, code, loadSettings, subscribeByRang
       }, fail);
     } catch (error) { fail(error); }
   };
-  const selector = createJournalDateSelector(overlay.querySelector('.journal-date-selector'), load);
+  const selector = createSelector(overlay.querySelector('.journal-date-selector'), load);
   const modal = createJournalModal({ modalId: overlay.id, printRootId: output.id, onOpen: () => load(), onClose: stop });
   document.getElementById('openJournalBtn').addEventListener('click', modal.open);
 
@@ -87,7 +87,7 @@ export function mountProcessJournal({ title, code, loadSettings, subscribeByRang
     if (print.disabled) return;
     originalTitle = document.title;
     const period = loadedSelection.start === loadedSelection.end ? loadedSelection.start : `${loadedSelection.start}_${loadedSelection.end}`;
-    document.title = `${code}_${title}_모니터링일지_${period}`;
+    document.title = `${code}_${title}_${period}`;
     window.print();
   });
   window.addEventListener('beforeunload', stop);

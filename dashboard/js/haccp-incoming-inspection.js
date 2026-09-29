@@ -1,5 +1,6 @@
 import { requireApprovedActiveUser } from '/dashboard/js/firebase-client.js';
 import { initializeHaccpHomeLinks } from '/dashboard/js/haccp-navigation.js';
+import { mountIncomingJournal } from '/dashboard/js/haccp-incoming-journal.js';
 
 const DEFAULT_CHOICES = Object.freeze({
   offOdorDetected: false,
@@ -203,6 +204,7 @@ export function initializeIncomingInspectionPage({
     if (!session) return;
     currentUser = session.user;
     currentRole = session.role;
+    mountIncomingJournal({ itemLabel, journalLabel, firestore });
     resetForm();
     unsubscribe = firestore.subscribeToInspectionRecords(rows => {
       records = rows;

@@ -1,7 +1,9 @@
 import { addDoc, collection, deleteDoc, doc, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { db } from '/dashboard/js/firebase-client.js';
+import { subscribeJournalRange } from '/dashboard/js/haccp-journal-records.js';
 
 export const RAW_MATERIAL_INSPECTION_COLLECTION = 'haccpRawMaterialInspectionRecords';
+export const subscribeInspectionRecordsByRange = (start, end, onRecords, onError) => subscribeJournalRange(RAW_MATERIAL_INSPECTION_COLLECTION, mapInspectionRecord, start, end, onRecords, onError);
 
 const timestampToIso = timestamp => timestamp?.toDate ? timestamp.toDate().toISOString() : '';
 

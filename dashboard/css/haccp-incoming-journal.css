@@ -1,0 +1,25 @@
+:root{--journal-page-width:297mm;--journal-page-height:210mm;--journal-page-padding-top:25.5mm;--journal-page-padding-bottom:25.5mm;--journal-page-padding-left:20.5mm;--journal-page-padding-right:20.5mm}
+.journal-month-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin-top:12px}
+.journal-month-grid button{height:42px;border:1px solid var(--border);border-radius:8px;background:var(--panel2);color:var(--t1);cursor:pointer}
+.journal-month-grid button[aria-pressed=true]{background:#174f57;border-color:#52cbbb;color:#fff;font-weight:700}
+.journal-month-grid button:focus-visible{outline:2px solid #52cbbb;outline-offset:2px}
+.inspection-sheet{font-size:9pt}
+.inspection-paper{height:159mm;flex-shrink:0;display:flex;flex-direction:column}
+.inspection-sheet td,.inspection-sheet th{text-align:center;vertical-align:middle;font-weight:400;line-height:1.35;white-space:normal;overflow-wrap:anywhere}
+.inspection-heading{height:23mm}
+.inspection-heading tr:first-child{height:6mm}
+.inspection-heading .inspection-title{font-size:20pt;font-weight:700}
+.inspection-title small{display:block;font-size:9pt;font-weight:400;margin-top:1mm}
+.inspection-records{height:110mm;margin-top:-.5pt}
+.inspection-records thead tr:first-child{height:13.5mm}
+.inspection-records thead tr:last-child{height:21mm}
+.inspection-records th{background:#dcecf5}
+.inspection-records tbody tr{height:8.4mm}
+.inspection-records.is-expanded tbody tr{height:auto}
+.inspection-records td{padding:.5mm;font-size:8pt}
+.inspection-records .inspection-material{white-space:nowrap;font-size:7pt;line-height:1.05;padding:.2mm .5mm}
+.inspection-material.is-wrapped{white-space:normal}
+.inspection-material.is-wrapped .inspection-item,.inspection-material.is-wrapped .inspection-supplier{display:block}
+.inspection-notes{height:26mm;border:.5pt solid #000;margin-top:-.5pt;padding:2mm;display:flex;flex-direction:column;flex-shrink:0}
+.inspection-note-content{flex:1;min-height:0;overflow:hidden;white-space:pre-wrap;overflow-wrap:anywhere;font-size:8pt;line-height:1.35}
+@page{size:A4 landscape;margin:0}

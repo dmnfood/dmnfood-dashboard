@@ -6,6 +6,8 @@
   <title>들메내식품 · 부재료 입고검사서</title>
   <link rel="stylesheet" href="/dashboard/style.css">
   <link rel="stylesheet" href="/dashboard/haccp-journal.css">
+  <link rel="stylesheet" href="/dashboard/css/journal-modal.css">
+  <link rel="stylesheet" href="/dashboard/css/haccp-incoming-journal.css">
 </head>
 <body>
   <div id="loadingScreen" class="loading-screen"><div class="loading-spinner"></div></div>
@@ -40,7 +42,7 @@
             <div id="toast" class="toast" role="status"></div>
           </section>
           <section class="table-card">
-            <div class="toolbar"><label class="field"><span class="muted">작성일</span><input id="dateFilter" type="date"></label><button id="clearFilterBtn" class="btn-secondary" type="button">전체 보기</button></div>
+            <div class="toolbar"><label class="field"><span class="muted">작성일</span><input id="dateFilter" type="date"></label><button id="clearFilterBtn" class="btn-secondary" type="button">전체 보기</button><button id="openJournalBtn" class="btn-primary" type="button">일지 조회 / 인쇄</button></div>
             <div class="table-wrap"><table><thead><tr><th>작성일</th><th>부재료</th><th>매입처</th><th>매입량</th><th>포장 상태</th><th>작성자/확인</th><th>작업</th></tr></thead><tbody id="recordsBody"><tr><td colspan="7" class="empty-state">기록을 불러오는 중입니다.</td></tr></tbody></table></div>
           </section>
         </div>

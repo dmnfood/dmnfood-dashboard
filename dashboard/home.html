@@ -161,6 +161,8 @@
       color: var(--t2);
     }
 
+    [hidden] { display: none !important; }
+    a.btn-ecount-test { text-decoration: none; display: inline-flex; align-items: center; }
     .btn-ecount-test {
       height: 30px;
       padding: 0 12px;
@@ -402,6 +404,9 @@
     }
 
     @media (max-width: 900px) {
+      .app-header { height: auto; min-height: 56px; padding: 12px 20px; gap: 12px; flex-wrap: wrap; }
+      .header-right { flex-wrap: wrap; gap: 10px; max-width: 100%; }
+      #userIdDisplay { max-width: 140px; overflow: hidden; text-overflow: ellipsis; }
       .all-category-grid {
         grid-template-columns: 1fr;
       }
@@ -626,7 +631,8 @@
         <span class="header-title">들메내식품 대시보드</span>
       </div>
       <div class="header-right">
-        <button class="btn-ecount-test" type="button" id="ecountTestBtn">Ecount 연결 테스트</button>
+        <a class="btn-ecount-test" id="userManagementLink" href="/users" hidden>가입 승인 / 사용자 관리</a>
+        <button class="btn-ecount-test" type="button" id="ecountTestBtn" hidden>Ecount 연결 테스트</button>
         <span class="current-time" id="clockDisplay">--:--:--</span>
         <div class="user-info">
           <div class="user-avatar" id="userAvatar">—</div>
@@ -1001,40 +1007,17 @@
   </div>
 
   <script type="module">
-    import { onAuthStateChanged, signOut }
-      from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
-    import { auth, isApprovedActiveProfile, loadUserProfile, profileAccessMessage } from '/dashboard/js/firebase-client.js';
+    import { requireApprovedActiveUser, logoutToLogin, auth } from '/dashboard/js/firebase-client.js';
     import { rememberHaccpCategory } from '/dashboard/js/haccp-navigation.js';
 
-    let navigationCommitted = false;
-    function navigateOnce(url, reason) {
-      if (navigationCommitted) return;
-      navigationCommitted = true;
-      console.info('[auth] redirect', { page: 'home', target: url, reason });
-      window.location.replace(url);
-    }
-
-    onAuthStateChanged(auth, async user => {
-      console.info('[auth] auth state resolved', { page: 'home', projectId: 'dmnfood-erp', uid: user?.uid || null });
-      if (!user) { navigateOnce('/', 'signed-out'); return; }
-      try {
-        console.info('[auth] profile path', { page: 'home', path: `users/${user.uid}` });
-        const profile = await loadUserProfile(user.uid);
-        if (!isApprovedActiveProfile(profile)) {
-          console.info('[auth] profile blocked', { page: 'home', reason: profileAccessMessage(profile) });
-          await signOut(auth);
-          navigateOnce('/', 'profile-blocked');
-          return;
-        }
-        const canExportHaccpData = ['manager', 'admin'].includes(profile.role);
-        document.querySelectorAll('[data-manager-only]').forEach(card => card.classList.toggle('role-visible', canExportHaccpData));
-        document.querySelectorAll('[data-haccp-management-count]').forEach(count => { count.textContent = canExportHaccpData ? '5' : '4'; });
-      } catch (error) {
-        console.error('[auth] profile read failed', { page: 'home', code: error.code || 'unknown', error });
-        await signOut(auth).catch(() => {});
-        navigateOnce('/', 'profile-read-failed');
-        return;
-      }
+    requireApprovedActiveUser({ page: 'home' }).then(session => {
+      if (!session) return;
+      const { user, profile } = session;
+      const canExportHaccpData = ['manager', 'admin'].includes(profile.role);
+      document.getElementById('userManagementLink').hidden = !canExportHaccpData;
+      document.getElementById('ecountTestBtn').hidden = !canExportHaccpData;
+      document.querySelectorAll('[data-manager-only]').forEach(card => card.classList.toggle('role-visible', canExportHaccpData));
+      document.querySelectorAll('[data-haccp-management-count]').forEach(count => { count.textContent = canExportHaccpData ? '5' : '4'; });
       const emailId = user.email.split('@')[0];
       document.getElementById('userAvatar').textContent = emailId.charAt(0).toUpperCase();
       document.getElementById('userIdDisplay').textContent = emailId;
@@ -1153,7 +1136,7 @@
       try {
         const res = await fetch('/api/ecount/login', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await auth.currentUser.getIdToken()}` },
           body: '{}',
         });
         const data = await res.json().catch(() => ({}));
@@ -1175,8 +1158,7 @@
 
     window.handleLogout = async () => {
       if (!confirm('로그아웃 하시겠습니까?')) return;
-      await signOut(auth);
-      navigateOnce('/', 'logout');
+      await logoutToLogin({ page: 'home' });
     };
   </script>
 </body>

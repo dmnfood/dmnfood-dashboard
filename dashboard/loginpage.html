@@ -160,15 +160,17 @@
 
       <!-- 폼 -->
       <div class="form-group">
-        <label class="form-label" for="email">아이디 또는 이메일</label>
+        <label class="form-label" for="email">이메일</label>
         <input class="input" type="email" id="email" placeholder="이메일 주소 입력" autocomplete="username" />
       </div>
       <div class="form-group">
-        <label class="form-label">비밀번호</label>
+        <label class="form-label" for="password">비밀번호</label>
         <input class="input" type="password" id="password" placeholder="비밀번호" autocomplete="current-password" />
       </div>
 
-      <div class="error-msg" id="errorMsg"></div>
+      <label style="display:block;margin:14px 0;font-size:13px"><input type="checkbox" id="rememberLogin"> 로그인 유지 (7일 · 개인 기기에서만 사용)</label>
+      <p style="font-size:12px;color:var(--t1)">기본 로그인은 최대 8시간 유지되며, 탭을 닫으면 종료됩니다.</p>
+      <div class="error-msg" id="errorMsg" role="alert"></div>
 
       <button class="btn-login" id="loginBtn" onclick="handleLogin()">
         <div class="spinner" id="spinner"></div>
@@ -178,11 +180,11 @@
       <div class="login-actions" aria-label="계정 도움말">
         <button class="login-text-action" id="openSignUpBtn" type="button">회원가입</button>
         <span class="login-action-divider" aria-hidden="true">|</span>
-        <button class="login-text-action" id="openRecoveryBtn" type="button">아이디·PW 찾기</button>
+        <button class="login-text-action" id="openRecoveryBtn" type="button">비밀번호 찾기</button>
       </div>
 
       <div class="footer-note">
-        접속 문의: 이승표 대표<br>Ecount 로그인 정보와 동일하게 입력하세요
+        대시보드 전용 이메일 계정으로 로그인하세요.<br>신규 가입은 관리자 승인 후 이용할 수 있습니다.<br>접속 문의: 이승표 대표
       </div>
     </div>
   </div>
@@ -203,7 +205,7 @@
 
   <div class="modal-backdrop" id="recoveryModal" aria-hidden="true">
     <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="recoveryTitle">
-      <div class="modal-header"><h2 class="modal-title" id="recoveryTitle">아이디·PW 찾기</h2><button class="modal-close" type="button" data-close-modal="recoveryModal" aria-label="비밀번호 찾기 창 닫기">×</button></div>
+      <div class="modal-header"><h2 class="modal-title" id="recoveryTitle">비밀번호 찾기</h2><button class="modal-close" type="button" data-close-modal="recoveryModal" aria-label="비밀번호 찾기 창 닫기">×</button></div>
       <p class="modal-note">로그인 아이디는 가입할 때 등록한 이메일 주소입니다.<br>이메일 주소를 모르는 경우 관리자에게 문의해 주세요.</p>
       <form id="recoveryForm">
         <div class="form-group"><label class="form-label" for="recoveryEmail">등록 이메일</label><input class="input" id="recoveryEmail" type="email" autocomplete="email" required></div>
@@ -217,7 +219,7 @@
     import { createUserWithEmailAndPassword, onAuthStateChanged, sendPasswordResetEmail, signInWithEmailAndPassword, signOut }
       from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
     import { doc, serverTimestamp, setDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
-    import { auth, db, isApprovedActiveProfile, loadUserProfile, profileAccessMessage } from '/dashboard/js/firebase-client.js';
+    import { auth, db, beginLoginSession, configureLoginPersistence, hasValidLoginSession, isApprovedActiveProfile, loadUserProfile, profileAccessMessage } from '/dashboard/js/firebase-client.js';
 
     let loginInProgress = false;
     let registrationInProgress = false;
@@ -247,10 +249,17 @@
       }[error.code] || '로그인하지 못했습니다. 관리자에게 문의해 주세요.';
     }
 
-    async function accessResult(user) {
+    async function accessResult(user, completeRegistration = false) {
       try {
         console.info('[auth] profile path', { page: 'login', path: `users/${user.uid}` });
-        const profile = await loadUserProfile(user.uid);
+        let profile = await loadUserProfile(user.uid);
+        if (!profile && completeRegistration) {
+          const name = window.prompt('가입 설정을 완료하기 위해 이름을 입력해 주세요.');
+          if (name?.trim()) {
+            profile = { email: user.email, displayName: name.trim().slice(0, 100), employeeName: name.trim().slice(0, 100), role: 'worker', approvalStatus: 'pending', isActive: false, createdAt: serverTimestamp(), updatedAt: serverTimestamp() };
+            await setDoc(doc(db, 'users', user.uid), profile);
+          }
+        }
         if (!profile) return { allowed: false, message: '사용자 프로필이 등록되지 않았습니다. 관리자에게 문의해 주세요.' };
         console.info('[auth] profile status', { page: 'login', uid: user.uid, approvalStatus: profile.approvalStatus || 'legacy', isActive: profile.isActive === true, role: profile.role || '' });
         if (isApprovedActiveProfile(profile)) return { allowed: true };
@@ -270,9 +279,11 @@
     }
 
     onAuthStateChanged(auth, async user => {
-      console.info('[auth] auth state resolved', { page: 'login', projectId: 'dmnfood-erp', uid: user?.uid || null });
+      console.info('[auth] auth state resolved', { page: 'login', projectId: 'dmnfood-haccp', uid: user?.uid || null });
       if (!user || loginInProgress || registrationInProgress) return;
+      if (!hasValidLoginSession(user)) { await denyAccess('로그인 유지 정책이 변경되었거나 시간이 만료되었습니다. 다시 로그인해 주세요.'); return; }
       const result = await accessResult(user);
+      if (auth.currentUser?.uid !== user.uid) return;
       if (result.allowed) navigateOnce('/home', 'approved-auth-state');
       else await denyAccess(result.message);
     });
@@ -290,8 +301,11 @@
       el('spinner').style.display = 'block';
       el('loginBtnText').textContent = '확인 중...';
       try {
+        const remember = el('rememberLogin').checked;
+        await configureLoginPersistence(remember);
         const credential = await signInWithEmailAndPassword(auth, email, password);
-        const result = await accessResult(credential.user);
+        beginLoginSession(credential.user, remember);
+        const result = await accessResult(credential.user, true);
         if (result.allowed) navigateOnce('/home', 'approved-login');
         else await denyAccess(result.message);
       } catch (error) {
@@ -303,6 +317,9 @@
         el('loginBtnText').textContent = '로그인';
       }
     };
+
+    el('password').addEventListener('keydown', event => { if (event.key === 'Enter') window.handleLogin(); });
+    el('email').addEventListener('keydown', event => { if (event.key === 'Enter') window.handleLogin(); });
 
     function showError(message) {
       el('errorMsg').textContent = message;
@@ -353,6 +370,7 @@
       el('signUpSubmitBtn').disabled = true;
       showModalStatus('signUpStatus');
       try {
+        await configureLoginPersistence(false);
         const credential = await createUserWithEmailAndPassword(auth, email, password);
         try {
           await setDoc(doc(db, 'users', credential.user.uid), {
@@ -368,7 +386,7 @@
         } catch (profileError) {
           console.error('Firebase account was created but profile setup failed:', profileError);
           await signOut(auth);
-          showModalStatus('signUpStatus', '계정은 생성되었지만 가입 설정을 완료하지 못했습니다. 관리자에게 문의해 주세요.', 'error');
+          showModalStatus('signUpStatus', '계정은 생성되었지만 가입 설정을 완료하지 못했습니다. 입력한 이메일과 비밀번호로 로그인하면 가입 설정을 다시 진행할 수 있습니다.', 'error');
           return;
         }
         await signOut(auth);
@@ -399,11 +417,14 @@
       auth.languageCode = 'ko';
       try {
         await sendPasswordResetEmail(auth, email);
-      } catch (error) {
-        console.error('Password reset request failed:', error);
-      } finally {
-        // Keep the response private: do not disclose whether the account exists.
         showModalStatus('recoveryStatus', '등록된 계정인 경우 비밀번호 재설정 메일을 발송합니다.', 'success');
+      } catch (error) {
+        if (error.code === 'auth/user-not-found') {
+          showModalStatus('recoveryStatus', '등록된 계정인 경우 비밀번호 재설정 메일을 발송합니다.', 'success');
+        } else {
+          showModalStatus('recoveryStatus', error.code === 'auth/too-many-requests' ? '요청이 많습니다. 잠시 후 다시 시도해 주세요.' : '메일을 요청하지 못했습니다. 이메일 주소와 네트워크 연결을 확인해 주세요.', 'error');
+        }
+      } finally {
         el('recoverySubmitBtn').disabled = false;
       }
     });

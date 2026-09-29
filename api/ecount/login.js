@@ -1,3 +1,4 @@
+const authorize = require('../../lib/server/firebase-authorize.cjs');
 let cachedSession = null;
 
 const REQUIRED_ENV = [
@@ -94,6 +95,13 @@ const safeErrorDetails = (payload, fallback = 'Ecount login failed') => {
 };
 
 module.exports = async function handler(request, response) {
+  if (request.method === 'POST') {
+    try { await authorize(request); }
+    catch (error) {
+      sendJson(response, error.status || 503, { ok: false, message: error.status ? error.message : '로그인 확인 서비스에 연결할 수 없습니다.' });
+      return;
+    }
+  }
   if (request.method !== 'POST') {
     response.setHeader('Allow', 'POST');
     return sendJson(response, 405, {

@@ -203,7 +203,19 @@
     .filter-card [hidden] { display: none !important; }
     .import-tools { padding-bottom: 16px; margin-bottom: 16px; border-bottom: 1px solid var(--border); }
     .import-tools .filter-row { margin-top: 12px; }
-    .import-actions { display: flex; gap: 8px; }
+    #pilotFetch, .upload-inline-field .upload-box {
+      height: 38px;
+      box-sizing: border-box;
+    }
+    #pilotFetch {
+      background: #4ade80;
+      border-color: #4ade80;
+      color: #052e16;
+    }
+    #pilotFetch:hover:not(:disabled) {
+      background: #86efac;
+      border-color: #86efac;
+    }
     .status-text:empty { display: none; }
     .btn:disabled, .btn-secondary:disabled { opacity: .5; cursor: wait; }
 
@@ -254,6 +266,7 @@
     }
 
     .upload-inline-field .upload-title {
+      margin-bottom: 0;
       font-size: 12px;
       font-weight: 700;
       color: var(--t0);
@@ -480,10 +493,7 @@
             <div class="filter-row">
               <div class="field"><label for="pilotStart">마감기간 시작</label><input type="date" id="pilotStart" required></div>
               <div class="field"><label for="pilotEnd">마감기간 종료</label><input type="date" id="pilotEnd" required></div>
-              <div class="import-actions">
-                <button class="btn" type="button" id="pilotFetch">자동 가져오기</button>
-                <button class="btn-secondary" type="button" id="pilotCancel" hidden>중지</button>
-              </div>
+              <button class="btn" type="button" id="pilotFetch">자동 가져오기</button>
               <div class="upload-inline-field">
                 <button class="upload-box" id="dropZone" type="button" aria-label="수동 HAR 파일 업로드 또는 드롭" title="HAR 파일을 선택하거나 끌어다 놓으세요">
                   <span class="upload-title">수동 파일 업로드</span>
@@ -906,7 +916,6 @@
     function pilotStatus(message, error = false) {
       setStatus(message, error);
     }
-    $('pilotCancel').addEventListener('click', () => pilotController?.abort());
     $('pilotFetch').addEventListener('click', async () => {
       const start = $('pilotStart').value, end = $('pilotEnd').value;
       if (!start || !end || start > end || (Date.parse(end) - Date.parse(start)) / 86400000 > 366) {
@@ -918,7 +927,6 @@
       pilotController = controller;
       $('pilotFetch').disabled = true;
       $('pilotStart').disabled = $('pilotEnd').disabled = true;
-      $('pilotCancel').hidden = false;
       pilotStatus('aT에서 첫 페이지를 조회하고 있습니다…');
       const timeout = setTimeout(() => controller.abort(), 180000);
       try {
@@ -943,7 +951,6 @@
         pilotController = null;
         $('pilotFetch').disabled = false;
         $('pilotStart').disabled = $('pilotEnd').disabled = false;
-        $('pilotCancel').hidden = true;
       }
     });
 

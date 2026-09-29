@@ -38,7 +38,7 @@ function sheet(groups, index, date, inspectors, settings) {
     return Array.from({ length: 4 }, (_, rowIndex) => {
       const record = items[rowIndex];
       const setTemperature = record ? escapeHtml(formatTemperature(record.measurements?.setTemperature)) : escapeHtml(formatTemperature(settings.roasterSetTemperatures?.[number]));
-      const judgment = record ? (record.judgement === 'PASS' ? '<b>○</b> / ×' : record.judgement === 'FAIL' ? '○ / <b>×</b>' : '') : '○ / ×';
+      const judgment = `<span class="journal-judgment-option${record?.judgement === 'PASS' ? ' is-selected' : ''}">○</span><span aria-hidden="true"> / </span><span class="journal-judgment-option${record?.judgement === 'FAIL' ? ' is-selected' : ''}">×</span>`;
       return `<tr><td class="product">${value(record, item => item.productName)}</td>${rowIndex === 0 ? `<td rowspan="4">${number}</td>` : ''}<td>${setTemperature}</td><td>${record ? value(record, timeOf) : ':'}</td><td>${value(record, item => item.measurements ? `${item.measurements.heatingMinutes || ''}분 ${item.measurements.heatingSeconds || ''}초` : '')}</td><td>${record ? escapeHtml(formatTemperature(record.measurements?.productTemperature)) : ''}</td><td class="judgment ${record?.judgement === 'PASS' ? 'pass' : record?.judgement === 'FAIL' ? 'fail' : ''}">${judgment}</td><td class="signature"></td></tr>`;
     }).join('');
   }).join('');

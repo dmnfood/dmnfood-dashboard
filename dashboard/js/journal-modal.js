@@ -13,7 +13,7 @@ export function createJournalModal({ modalId, title, subtitle, query, render, su
     printRoot.classList.remove('is-preview-scaled');
     const sheet = sheets[0]; const width = sheet.offsetWidth; const height = sheet.offsetHeight;
     const viewportWidth = Math.max(1, previewViewport.clientWidth - 32); const viewportHeight = Math.max(1, previewViewport.clientHeight - 32);
-    const scale = Math.min(viewportWidth / width, sheets.length === 1 ? viewportHeight / height : viewportWidth / width, 1);
+    const scale = Math.min(viewportWidth / width, viewportHeight / height, 1);
     const unscaledHeight = printRoot.scrollHeight;
     printRoot.style.setProperty('--journal-preview-scale', String(scale));
     printRoot.classList.add('is-preview-scaled');

@@ -48,25 +48,20 @@ function filteringSheet(records, date, settings, additions, page) {
   </div></section>`;
 }
 
-const originalContainers = [180,250,300,350].map(volume => ({ material:'glass', volume })).concat([{ material:'pet', volume:1000 }, { material:'pet', volume:1800 }]);
-const containerKey = (material, volume) => `${material}:${Number(volume)}`;
-const volumeLabel = volume => Number(volume) >= 1000 ? `${Number(volume)/1000}L` : `${volume}<br>ml`;
-function bottleSheet(slots, date, settings, additions, page) {
-  const records = slots.map(slot => slot.record).filter(Boolean);
-  const rows = slots.map((slot, i) => {
-    const record = slot.record;
-    const material = slot.material === 'glass' ? '유리병' : slot.material === 'pet' ? 'PET' : slot.material;
-    const first = i === 0 || slots[i-1].material !== slot.material;
-    const span = slots.slice(i).findIndex(next => next.material !== slot.material);
-    return `<tr>${first ? `<td rowspan="${span < 0 ? slots.length-i : span}" class="process-material">${text(material)}</td>` : ''}<td>${volumeLabel(slot.volume)}</td><td>${text(record?.measuredTime || ':')}</td><td>${text(record?.pressureMpa)}${record ? ' ' : ''}MPa</td><td>${record ? `${text(record.washDurationSec)}초` : ''}</td><td>${record ? `${text(record.washedQuantity)}개` : ''}</td><td class="judgment">${judgment(record)}</td><td></td></tr>`;
+const volumeLabel = volume => volume == null ? '' : Number(volume) >= 1000 ? `${text(Number(volume)/1000)}L` : `${text(volume)}ml`;
+function bottleSheet(records, date, settings, additions, page) {
+  const rows = Array.from({ length:6 }, (_, i) => {
+    const record = records[i];
+    const material = record?.containerMaterial === 'glass' ? '유리병' : record?.containerMaterial === 'pet' ? 'PET' : record?.containerMaterial;
+    return `<tr><td>${text(material)}</td><td>${volumeLabel(record?.containerVolumeMl)}</td><td>${text(record?.measuredTime || ':')}</td><td>${text(record?.pressureMpa)}${record ? ' ' : ''}MPa</td><td>${record ? `${text(record.washDurationSec)}초` : ''}</td><td>${record ? `${text(record.washedQuantity)}개` : ''}</td><td class="judgment">${judgment(record)}</td><td></td></tr>`;
   }).join('');
   notes(records, additions, page);
-  return `<section class="journal-sheet sheet-page"><div class="process-paper process-bottle" style="--process-record-count:${slots.length}">
+  return `<section class="journal-sheet sheet-page"><div class="process-paper process-bottle">
     ${header('CCP-3', '세병 공정')}${pageInfo(date, records, additions, page)}
     <table class="process-criteria"><colgroup><col style="width:10.5%"><col style="width:14%"><col style="width:31%"><col></colgroup><tbody><tr><th rowspan="2">한계기준</th><th class="process-diagonal"><svg viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden="true"><path d="M0 0 L100 30" fill="none" stroke="black" stroke-width="0.7"/></svg></th><th>압력</th><th>시간</th></tr><tr><td>유리병,<br>PET 등</td><td>${text(settings.minPressureMpa)}MPa 이상</td><td>${text(settings.minDurationSec)}초 이상</td></tr></tbody></table>
     <table><colgroup><col style="width:10.5%"><col></colgroup><tbody><tr><th>주　기</th><td>작업 시작 전/후, 2시간마다</td></tr></tbody></table>
     <table class="process-instruction"><colgroup><col style="width:10.5%"><col></colgroup><tbody><tr><th>방　법</th><td>○ 압력 : 압축기의 압력계 확인<br>○ 시간 : 타이머로 확인</td></tr></tbody></table>
-    <table class="process-records"><colgroup>${[5.25,5.25,13.5,16.25,16.25,16.25,12,15.25].map(width => `<col style="width:${width}%">`).join('')}</colgroup><thead><tr><th colspan="2">품명</th><th>측정시각</th><th>압력수치</th><th>시간</th><th>세병완료수</th><th>판정</th><th>서명</th></tr></thead><tbody>${rows}</tbody></table>
+    <table class="process-records"><colgroup>${[9,9,12,14,11,14,12,19].map(width => `<col style="width:${width}%">`).join('')}</colgroup><thead><tr><th colspan="2">품명</th><th>측정시각</th><th>압력수치</th><th>시간</th><th>세병완료수</th><th>판정</th><th>서명</th></tr></thead><tbody>${rows}</tbody></table>
     <table class="process-instruction"><colgroup><col style="width:10.5%"><col></colgroup><tbody><tr><th>개선조치<br>방법</th><td>○ 기준 이탈 시 재세병 실시<br>○ 압력이 기준 이탈인 경우 일정시간 압력이 정상범위로 올라간 후 재세병 실시<br>○ 세병시간이 짧은 경우 기준 이상으로 세병할 수 있도록 개선</td></tr></tbody></table>
     ${corrective(records, additions, page, true)}
   </div></section>`;
@@ -116,17 +111,9 @@ export function renderFilteringJournal({ container, date, records, settings }) {
 }
 
 export function renderBottleWashingJournal({ container, date, records, settings }) {
-  const sorted = sortRecords(records), additions = [], groups = new Map();
-  const containers = [...originalContainers];
-  sorted.forEach(record => {
-    const key = containerKey(record.containerMaterial, record.containerVolumeMl);
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key).push(record);
-    if (!containers.some(item => containerKey(item.material,item.volume) === key)) containers.push({material:record.containerMaterial,volume:Number(record.containerVolumeMl)});
-  });
-  containers.sort((a,b) => a.material.localeCompare(b.material) || a.volume-b.volume);
-  const count = Math.max(1,...[...groups.values()].map(group => group.length));
-  container.innerHTML = Array.from({length:count}, (_, index) => bottleSheet(containers.map(item => ({...item,record:groups.get(containerKey(item.material,item.volume))?.[index]})), date, settings, additions, index+1)).join('');
+  const sorted = sortRecords(records), additions = [];
+  const count = Math.max(1, Math.ceil(sorted.length/6));
+  container.innerHTML = Array.from({length:count}, (_, index) => bottleSheet(sorted.slice(index*6,index*6+6), date, settings, additions, index+1)).join('');
   appendContinuations(container, additions, 'CCP-3', '세병 공정', date);
   return container.querySelectorAll('.journal-sheet').length;
 }

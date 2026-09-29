@@ -764,8 +764,8 @@
 <script type="module">
   import { mountProcessJournal } from '/dashboard/js/haccp-process-journal-app.js';
   import { renderBottleWashingJournal } from '/dashboard/js/haccp-process-journal.js';
-  import { subscribeBottleWashingRecordsByDate } from '/dashboard/js/haccp-bottle-washing-firestore.js';
-  mountProcessJournal({ title: '세병공정', code: 'CCP-3', loadSettings: loadBottleWashingSettings, subscribeByDate: subscribeBottleWashingRecordsByDate, render: renderBottleWashingJournal });
+  import { subscribeBottleWashingRecordsByRange } from '/dashboard/js/haccp-bottle-washing-firestore.js';
+  mountProcessJournal({ title: '세병공정', code: 'CCP-3', loadSettings: loadBottleWashingSettings, subscribeByRange: subscribeBottleWashingRecordsByRange, render: renderBottleWashingJournal });
 
   import { requireApprovedActiveUser } from '/dashboard/js/firebase-client.js';
   import {

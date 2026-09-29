@@ -1,3 +1,4 @@
+import { subscribeJournalRange } from '/dashboard/js/haccp-journal-records.js';
 import { addDoc, collection, deleteDoc, doc, getDoc, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, where } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { db } from '/dashboard/js/firebase-client.js';
 
@@ -116,3 +117,7 @@ export async function saveBottleWashingRecord(values, user, existingId = '', set
 }
 
 export const deleteBottleWashingRecord = id => deleteDoc(doc(db, RECORDS_COLLECTION, id));
+
+export function subscribeBottleWashingRecordsByRange(start, end, onRecords, onError) {
+  return subscribeJournalRange(RECORDS_COLLECTION, mapBottleWashingRecord, start, end, onRecords, onError);
+}

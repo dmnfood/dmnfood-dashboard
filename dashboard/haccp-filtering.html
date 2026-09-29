@@ -762,8 +762,8 @@
 <script type="module">
   import { mountProcessJournal } from '/dashboard/js/haccp-process-journal-app.js';
   import { renderFilteringJournal } from '/dashboard/js/haccp-process-journal.js';
-  import { subscribeFilteringRecordsByDate } from '/dashboard/js/haccp-filtering-firestore.js';
-  mountProcessJournal({ title: '여과공정', code: 'CCP-2', loadSettings: loadFilteringSettings, subscribeByDate: subscribeFilteringRecordsByDate, render: renderFilteringJournal });
+  import { subscribeFilteringRecordsByRange } from '/dashboard/js/haccp-filtering-firestore.js';
+  mountProcessJournal({ title: '여과공정', code: 'CCP-2', loadSettings: loadFilteringSettings, subscribeByRange: subscribeFilteringRecordsByRange, render: renderFilteringJournal });
 
     import { requireApprovedActiveUser } from '/dashboard/js/firebase-client.js';
     import { DEFAULT_FILTERING_SETTINGS, calculateFilteringJudgment, deleteFilteringRecord, loadFilteringSettings, pressureLimitPsi, saveFilteringRecord, saveFilteringSettings, subscribeToFilteringRecords } from '/dashboard/js/haccp-filtering-firestore.js';

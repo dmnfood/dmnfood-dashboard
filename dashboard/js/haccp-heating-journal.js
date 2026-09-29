@@ -1,15 +1,8 @@
 import { escapeHtml } from '/dashboard/js/haccp-form-common.js';
-import { loadHeatingSettings, subscribeHeatingRecordsByDate } from '/dashboard/js/haccp-heating-firestore.js';
 
 const timeOf = record => record.measurements?.measuredTime || '';
 const sortRecords = records => [...records].sort((a, b) => Number(a.measurements?.roasterNo) - Number(b.measurements?.roasterNo) || timeOf(a).localeCompare(timeOf(b)));
 const value = (record, selector) => record ? escapeHtml(selector(record) || '') : '&nbsp;';
-
-export async function loadHeatingJournalData(date, { onRecords, onError }) {
-  const settings = await loadHeatingSettings();
-  const unsubscribe = subscribeHeatingRecordsByDate(date, onRecords, onError);
-  return { settings, unsubscribe };
-}
 
 export function buildHeatingJournalSummary(records, sheetCount) {
   const sorted = sortRecords(records);

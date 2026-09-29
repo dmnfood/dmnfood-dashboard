@@ -1,3 +1,4 @@
+import { subscribeJournalRange } from '/dashboard/js/haccp-journal-records.js';
 import {
     addDoc,
     collection,
@@ -174,4 +175,8 @@ export async function migrateLocalHeatingRecordsOnce(user) {
         localStorage.setItem(MIGRATION_KEY, JSON.stringify({ migratedIds: [...migratedIds], migratedAt: new Date().toISOString() }));
     }
     return migratedIds.size;
+}
+
+export function subscribeHeatingRecordsByRange(start, end, onRecords, onError) {
+  return subscribeJournalRange(RECORDS_COLLECTION, toCompatibleHeatingRecord, start, end, onRecords, onError);
 }

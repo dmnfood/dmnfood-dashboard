@@ -17,10 +17,9 @@
 .process-filtering .process-records thead tr{height:9.5mm}
 .process-filtering .process-records tbody tr{height:19.5mm}
 .process-bottle .process-records thead tr{height:11.1mm}
-.process-bottle .process-records tbody tr{height:calc(105.5mm / var(--process-record-count,6))}
+.process-bottle .process-records tbody tr{height:calc(105.5mm / 6)}
 .process-paper td.judgment{white-space:nowrap;padding:0;font-size:8pt}
 .process-paper .journal-judgment-option{width:3.8mm;height:3.8mm;line-height:calc(3.8mm - 1.5pt)}
-.process-paper .process-material{writing-mode:vertical-rl;text-orientation:upright;letter-spacing:1mm}
 .process-paper .process-corrective th{height:5.5mm;padding:.5mm;font-size:8pt}
 .process-paper .process-corrective td{vertical-align:top;text-align:left;white-space:pre-line;font-size:8pt;padding:1.5mm;line-height:1.35}
 .process-diagonal{position:relative}

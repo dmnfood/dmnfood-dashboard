@@ -1,0 +1,24 @@
+.journal-date-selector{grid-column:1/-1;min-width:0}
+.journal-date-mode{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;margin-bottom:14px;background:#080f1c;border:1px solid var(--border);border-radius:9px}
+.journal-date-mode button{border:0;border-radius:6px;background:transparent;color:var(--t2);height:32px;font:inherit;font-size:12px;font-weight:700;cursor:pointer}
+.journal-date-mode button[aria-pressed="true"]{background:#17384a;color:#7de3f4;box-shadow:inset 0 0 0 1px #22d3ee40}
+.journal-calendar-heading{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;color:var(--t0);font-size:13px;font-weight:700}
+.journal-calendar-heading button{width:30px;height:30px;border:1px solid var(--border);border-radius:7px;background:transparent;color:var(--t1);font-size:22px;line-height:1;cursor:pointer}
+.journal-calendar-weekdays,.journal-calendar-days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px}
+.journal-calendar-weekdays{margin-bottom:5px;text-align:center;font-size:10px;color:var(--t2)}
+.journal-calendar-weekdays span:first-child{color:#fa9b9b}.journal-calendar-weekdays span:last-child{color:#91b9f4}
+.journal-calendar-days button{position:relative;aspect-ratio:1;min-width:0;border:1px solid transparent;border-radius:7px;background:transparent;color:var(--t1);font:inherit;font-size:12px;cursor:pointer}
+.journal-calendar-days button.outside-month{color:#657186}
+.journal-calendar-days button:hover,.journal-calendar-heading button:hover{background:#1b2e42}
+.journal-calendar-days button[aria-pressed="true"]{background:#22d3ee;color:#061923;font-weight:800;border-color:#6ae6f7}
+.journal-calendar-days button.is-today::after{content:"";position:absolute;bottom:3px;left:calc(50% - 1.5px);width:3px;height:3px;border-radius:50%;background:currentColor}
+.journal-date-selector button:focus-visible,.journal-date-selector input:focus-visible{outline:2px solid #67e8f9;outline-offset:2px}
+.journal-date-range{display:grid;gap:12px}
+.journal-date-range label{min-width:0}.journal-date-range input{width:100%;min-width:0;color-scheme:dark}
+.journal-date-range p{margin:0;font-size:11px;line-height:1.6;color:var(--t2)}
+.journal-date-selector [hidden]{display:none!important}
+.journal-date-selector{margin-bottom:5px}
+@media(max-width:700px){
+  .journal-modal-header,.journal-dashboard{flex-shrink:0}
+  .journal-preview-viewport{flex:1 0 auto}
+}

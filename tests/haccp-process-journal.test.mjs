@@ -31,14 +31,32 @@ test('filtering preserves zero pressure, undamaged state and escapes recorded te
   assert.ok(html.includes('is-selected">○'));assert.ok(!html.includes('is-selected">×'));
 });
 
-test('bottle washing includes 150ml, keeps MPa and zero quantity, and paginates repeated containers', () => {
+test('bottle washing puts repeated containers on consecutive rows and preserves units and zero quantity', () => {
   const record={containerMaterial:'glass',containerVolumeMl:150,pressureMpa:0.35,washDurationSec:1.5,washedQuantity:0,judgment:'PASS'};
   const {pages,html}=render('bottle',[{...record,measuredTime:'12:00'},{...record,measuredTime:'08:00'}]);
-  assert.equal(pages,2);
-  assert.equal((html.match(/150<br>ml/g)||[]).length,2);
+  assert.equal(pages,1);
+  assert.equal((html.match(/150ml/g)||[]).length,2);
   assert.equal((html.match(/0\.35 MPa/g)||[]).length,2);
   assert.equal((html.match(/>0개</g)||[]).length,2);
   assert.ok(html.indexOf('08:00')<html.indexOf('12:00'));
+});
+
+test('bottle washing starts a new sheet only after six records, regardless of container size', () => {
+  for(const count of [2,6,7,12,13]) {
+    const records=Array.from({length:count},(_,i)=>({id:String(i),containerMaterial:'glass',containerVolumeMl:180,measuredTime:`${String(i).padStart(2,'0')}:00`,judgment:'PASS'}));
+    const {pages,html}=render('bottle',records);
+    assert.equal(pages,Math.ceil(count/6));
+    assert.equal((html.match(/180ml/g)||[]).length,count);
+    assert.equal((html.match(/class="judgment"/g)||[]).length,pages*6);
+    assert.equal((html.match(/is-selected/g)||[]).length,count);
+  }
+});
+
+test('empty bottle rows do not prefill a material or volume', () => {
+  const {html}=render('bottle',[]);
+  const body=html.split('class="process-records"')[1].split('<tbody>')[1].split('</tbody>')[0];
+  assert.ok(!body.includes('PET')); assert.ok(!body.includes('유리병')); assert.ok(!body.includes('ml'));assert.ok(!body.includes('180'));
+  assert.equal((body.match(/<tr><td><\/td><td><\/td>/g)||[]).length,6);
 });
 
 test('failed records and corrective actions stay on their own filtering page', () => {

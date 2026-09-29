@@ -1,3 +1,4 @@
+import { subscribeJournalRange } from '/dashboard/js/haccp-journal-records.js';
 import { addDoc, collection, deleteDoc, doc, getDoc, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, where } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { db } from '/dashboard/js/firebase-client.js';
 
@@ -51,3 +52,7 @@ export async function saveFilteringRecord(values, user, existingId = '', setting
   return (await addDoc(collection(db, RECORDS_COLLECTION), { ...payload, createdAt: serverTimestamp() })).id;
 }
 export const deleteFilteringRecord = id => deleteDoc(doc(db, RECORDS_COLLECTION, id));
+
+export function subscribeFilteringRecordsByRange(start, end, onRecords, onError) {
+  return subscribeJournalRange(RECORDS_COLLECTION, mapFilteringRecord, start, end, onRecords, onError);
+}

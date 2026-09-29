@@ -1,0 +1,34 @@
+/* Dimensions follow the supplied A4 CCP-2 / CCP-3 paper forms. */
+.process-paper{height:246mm;width:100%;display:grid;font-size:8.5pt;line-height:1.35}
+.process-filtering{grid-template-rows:16.5mm 6.8mm 10mm 12.8mm 14.5mm 128mm 27.2mm 30.2mm}
+.process-bottle{grid-template-rows:19.2mm 7.3mm 15.2mm 6.4mm 16.8mm 117.3mm 32mm 31.8mm}
+.process-paper table{height:100%;min-height:0;margin:0}
+.process-paper th,.process-paper td{padding:.8mm 1mm;text-align:center;vertical-align:middle;border:.5pt solid #000;overflow-wrap:anywhere}
+.process-paper th,.process-paper .process-title{background:#d1e0ef}
+.process-paper .process-title{font-size:14pt;font-weight:800;line-height:1.3}
+.process-title small{display:block;font-size:12pt}
+.process-paper .process-header td{padding:0}
+.process-header tr:first-child{height:5mm}
+.process-header .process-approval{line-height:1.7}
+.process-paper .process-info td{text-align:left;padding-left:2mm}
+.process-paper .process-criteria th,.process-paper .process-criteria td{padding:.3mm 1mm;line-height:1.15}
+.process-paper .process-instruction td{text-align:left;padding:2mm;line-height:1.75}
+.process-records{font-size:8pt}
+.process-filtering .process-records thead tr{height:9.5mm}
+.process-filtering .process-records tbody tr{height:19.5mm}
+.process-bottle .process-records thead tr{height:11.1mm}
+.process-bottle .process-records tbody tr{height:calc(105.5mm / var(--process-record-count,6))}
+.process-paper td.judgment{white-space:nowrap;padding:0;font-size:8pt}
+.process-paper .journal-judgment-option{width:3.8mm;height:3.8mm;line-height:calc(3.8mm - 1.5pt)}
+.process-paper .process-material{writing-mode:vertical-rl;text-orientation:upright;letter-spacing:1mm}
+.process-paper .process-corrective th{height:5.5mm;padding:.5mm;font-size:8pt}
+.process-paper .process-corrective td{vertical-align:top;text-align:left;white-space:pre-line;font-size:8pt;padding:1.5mm;line-height:1.35}
+.process-diagonal{position:relative}
+.process-diagonal svg{position:absolute;inset:0;width:100%;height:100%}
+.journal-addendum{height:246mm;display:flex;flex-direction:column;gap:3mm;font-size:9pt}
+.journal-addendum h2{font-size:14pt;margin:0}
+.journal-addendum>p{margin:0}
+.journal-addendum-body{flex:1;min-height:0;overflow:hidden}
+.journal-addendum-body section{padding:2mm;border:.5pt solid #000;break-inside:avoid}
+.journal-addendum-body h3{font-size:9pt;margin:0 0 1mm}
+.journal-addendum-body p{white-space:pre-wrap;overflow-wrap:anywhere;margin:0;line-height:1.5}

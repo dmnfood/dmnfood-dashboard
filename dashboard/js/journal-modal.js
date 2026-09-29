@@ -9,7 +9,7 @@ export function createJournalModal({ modalId, title, subtitle, query, render, su
 
   const fitPreview = () => {
     const sheets = printRoot?.querySelectorAll('.journal-sheet');
-    if (!previewViewport || !previewStage || !printRoot || !sheets?.length) return;
+    if (!previewViewport || !previewStage || !printRoot || !sheets?.length || !previewStage.contains(printRoot)) return;
     printRoot.classList.remove('is-preview-scaled');
     const sheet = sheets[0]; const width = sheet.offsetWidth; const height = sheet.offsetHeight;
     const viewportWidth = Math.max(1, previewViewport.clientWidth - 32); const viewportHeight = Math.max(1, previewViewport.clientHeight - 32);

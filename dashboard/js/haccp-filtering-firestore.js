@@ -1,4 +1,4 @@
-import { addDoc, collection, deleteDoc, doc, getDoc, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { addDoc, collection, deleteDoc, doc, getDoc, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, where } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { db } from '/dashboard/js/firebase-client.js';
 
 const RECORDS_COLLECTION = 'haccpFilteringRecords';
@@ -27,6 +27,10 @@ export async function saveFilteringSettings(settings, user) {
 }
 export function subscribeToFilteringRecords(onRecords, onError) {
   return onSnapshot(query(collection(db, RECORDS_COLLECTION), orderBy('createdAt', 'desc'), limit(100)), snapshot => onRecords(snapshot.docs.map(mapFilteringRecord)), onError);
+}
+export function subscribeFilteringRecordsByDate(recordDate, onRecords, onError) {
+  return onSnapshot(query(collection(db, RECORDS_COLLECTION), where('recordDate', '==', recordDate)),
+    snapshot => onRecords(snapshot.docs.map(mapFilteringRecord)), onError);
 }
 export function mapFilteringRecord(snapshot) {
   const data = snapshot.data();

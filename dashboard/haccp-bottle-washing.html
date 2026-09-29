@@ -10,6 +10,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>들메내식품 · 중요관리점(CCP-3) 모니터링일지 [세병 공정]</title>
     <link rel="stylesheet" href="/dashboard/style.css">
+    <link rel="stylesheet" href="/dashboard/css/journal-modal.css">
+    <link rel="stylesheet" href="/dashboard/css/haccp-process-journal.css">
 
     <style>
         .auth-hidden {
@@ -743,7 +745,7 @@
             </div>
         </header>
 
-        <main class="page-main"><section class="page-card"><div class="page-heading"><div><div class="page-kicker">공정 기록</div><h1>중요관리점(CCP-3) 모니터링일지 [세병 공정]</h1><p>세병 압력과 세병시간을 확인하고 기록합니다.</p></div><div style="display:flex;gap:6px;"><button id="settingsBtn" class="btn-secondary settings-btn" type="button">기본 설정</button></div></div>
+        <main class="page-main"><section class="page-card"><div class="page-heading"><div><div class="page-kicker">공정 기록</div><h1>중요관리점(CCP-3) 모니터링일지 [세병 공정]</h1><p>세병 압력과 세병시간을 확인하고 기록합니다.</p></div><div style="display:flex;gap:6px;"><button id="openJournalBtn" class="btn-secondary settings-btn" type="button">일지 조회 / 인쇄</button><button id="settingsBtn" class="btn-secondary settings-btn" type="button">기본 설정</button></div></div>
     <div class="haccp-form-sections">
     <div class="guidance-grid"><div class="guidance-panel"><h3>한계기준</h3><ul class="guidance-list"><li id="criteriaPressure">압력 0.3 MPa 이상</li><li id="criteriaDuration">세병시간 1초 이상</li></ul></div><div class="guidance-panel"><h3>점검 주기</h3><ul class="guidance-list"><li>작업 시작 전 및 2시간마다</li></ul></div><div class="guidance-panel"><h3>점검 방법</h3><ul class="guidance-list"><li>압력: 압축기의 압력계 확인</li><li>시간: 타이머로 확인</li></ul></div></div>
     <section class="panel"><div class="field-grid">
@@ -760,6 +762,11 @@
 <div id="settingsModal" class="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle"><div class="settings-dialog"><div class="settings-header"><h2 id="settingsTitle">CCP-3 기본 설정</h2><button id="settingsClose" class="settings-close" type="button" aria-label="닫기">×</button></div><div class="settings-grid"><div class="field"><label for="settingInspector">기본 점검자</label><input id="settingInspector"></div><div class="field"><label for="settingPressure">최소 압력 (MPa)</label><input id="settingPressure" type="number" min="0" step="0.01"></div><div class="field"><label for="settingDuration">최소 세병시간 (초)</label><input id="settingDuration" type="number" min="0" step="0.1"></div></div><div class="action-row"><button id="settingsSave" class="btn-primary" type="button">설정 저장</button><button id="settingsCancel" class="btn-secondary" type="button">닫기</button></div><div id="settingsMessage" class="settings-status"></div></div></div>
 
 <script type="module">
+  import { mountProcessJournal } from '/dashboard/js/haccp-process-journal-app.js';
+  import { renderBottleWashingJournal } from '/dashboard/js/haccp-process-journal.js';
+  import { subscribeBottleWashingRecordsByDate } from '/dashboard/js/haccp-bottle-washing-firestore.js';
+  mountProcessJournal({ title: '세병공정', code: 'CCP-3', loadSettings: loadBottleWashingSettings, subscribeByDate: subscribeBottleWashingRecordsByDate, render: renderBottleWashingJournal });
+
   import { requireApprovedActiveUser } from '/dashboard/js/firebase-client.js';
   import {
     DEFAULT_BOTTLE_WASHING_SETTINGS,

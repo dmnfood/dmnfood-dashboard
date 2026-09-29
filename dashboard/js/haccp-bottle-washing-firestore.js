@@ -1,4 +1,4 @@
-import { addDoc, collection, deleteDoc, doc, getDoc, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { addDoc, collection, deleteDoc, doc, getDoc, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, where } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { db } from '/dashboard/js/firebase-client.js';
 
 const RECORDS_COLLECTION = 'haccpBottleWashingRecords';
@@ -70,6 +70,10 @@ export function subscribeToBottleWashingRecords(onRecords, onError) {
     snapshot => onRecords(snapshot.docs.map(mapBottleWashingRecord)),
     onError,
   );
+}
+export function subscribeBottleWashingRecordsByDate(recordDate, onRecords, onError) {
+  return onSnapshot(query(collection(db, RECORDS_COLLECTION), where('recordDate', '==', recordDate)),
+    snapshot => onRecords(snapshot.docs.map(mapBottleWashingRecord)), onError);
 }
 
 export async function saveBottleWashingRecord(values, user, existingId = '', settings = DEFAULT_BOTTLE_WASHING_SETTINGS, existingRecord = null) {

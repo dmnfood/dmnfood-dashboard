@@ -1,13 +1,9 @@
 import { requireApprovedActiveUser } from '/dashboard/js/firebase-client.js';
 import { initializeHaccpHomeLinks } from '/dashboard/js/haccp-navigation.js';
 import { mountIncomingJournal } from '/dashboard/js/haccp-incoming-journal.js';
+import { DEFAULT_INSPECTION_SETTINGS, mountInspectionSettings } from '/dashboard/js/haccp-inspection-settings.js';
 
-const DEFAULT_CHOICES = Object.freeze({
-  offOdorDetected: false,
-  packagingCondition: 'good',
-  expirationCheck: 'x',
-  testReportReceived: false,
-});
+const CHOICE_NAMES = ['offOdorDetected', 'packagingCondition', 'expirationCheck', 'testReportReceived'];
 
 const localDateValue = () => {
   const date = new Date();
@@ -51,7 +47,8 @@ export function initializeIncomingInspectionPage({
   let records = [];
   let editingRecord = null;
   let unsubscribe;
-  let choices = { ...DEFAULT_CHOICES };
+  let choices = Object.fromEntries(CHOICE_NAMES.map(name => [name, DEFAULT_INSPECTION_SETTINGS[name]]));
+  let settings = { ...DEFAULT_INSPECTION_SETTINGS };
 
   const canManage = record => record.createdByUid === currentUser?.uid || ['manager', 'admin'].includes(currentRole);
 
@@ -80,12 +77,9 @@ export function initializeIncomingInspectionPage({
     elements.itemName.value = '';
     elements.supplierName.value = '';
     elements.purchaseQuantity.value = '';
-    elements.temperature.value = '실온';
-    elements.vehicleTemperature.value = '실온';
-    elements.grade.value = '일반';
-    elements.writerConfirmName.value = '이승표';
+    for (const key of ['temperature', 'vehicleTemperature', 'grade', 'writerConfirmName']) elements[key].value = settings[key];
     elements.notes.value = '';
-    Object.entries(DEFAULT_CHOICES).forEach(([name, value]) => setChoice(name, value));
+    CHOICE_NAMES.forEach(name => setChoice(name, settings[name]));
     elements.save.textContent = '기록 저장';
     clearNotify();
   }
@@ -133,7 +127,7 @@ export function initializeIncomingInspectionPage({
     elements.grade.value = record.grade;
     elements.writerConfirmName.value = record.writerConfirmName;
     elements.notes.value = record.notes;
-    Object.keys(DEFAULT_CHOICES).forEach(name => setChoice(name, record[name]));
+    CHOICE_NAMES.forEach(name => setChoice(name, record[name]));
     elements.save.textContent = '수정 저장';
     clearNotify();
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -200,12 +194,17 @@ export function initializeIncomingInspectionPage({
     }
   });
 
-  requireApprovedActiveUser({ page: pageName }).then(session => {
+  requireApprovedActiveUser({ page: pageName }).then(async session => {
     if (!session) return;
     currentUser = session.user;
     currentRole = session.role;
+    let settingsError = false;
+    try { settings = await firestore.loadInspectionSettings(); }
+    catch (error) { console.error(`${pageName} settings failed`, error); settingsError = true; }
+    mountInspectionSettings({ title: journalLabel, canEdit: () => ['manager', 'admin'].includes(currentRole), getSettings: () => settings, saveSettings: values => firestore.saveInspectionSettings(values, currentUser), onSaved: values => { settings = values; } });
     mountIncomingJournal({ itemLabel, journalLabel, firestore });
     resetForm();
+    if (settingsError) notify('기본 설정을 불러오지 못해 기존 기본값을 사용합니다.', true);
     unsubscribe = firestore.subscribeToInspectionRecords(rows => {
       records = rows;
       renderRecords();

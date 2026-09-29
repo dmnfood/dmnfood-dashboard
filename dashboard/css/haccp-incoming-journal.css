@@ -23,3 +23,17 @@
 .inspection-notes{height:26mm;border:.5pt solid #000;margin-top:-.5pt;padding:2mm;display:flex;flex-direction:column;flex-shrink:0}
 .inspection-note-content{flex:1;min-height:0;overflow:hidden;white-space:pre-wrap;overflow-wrap:anywhere;font-size:8pt;line-height:1.35}
 @page{size:A4 landscape;margin:0}
+.inspection-page-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.inspection-heading-actions{display:flex;gap:6px;flex-shrink:0;margin-top:4px}
+.inspection-heading-actions button{width:auto;flex:0 0 auto;height:36px;margin:0;white-space:nowrap}
+.inspection-settings-modal{position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(3,7,18,.76)}
+.inspection-settings-modal[hidden]{display:none}
+.inspection-settings-dialog{width:min(100%,720px);max-height:calc(100dvh - 40px);overflow:auto;padding:20px;border:1px solid var(--border);border-radius:14px;background:#101827;box-shadow:var(--shadow)}
+.inspection-settings-dialog header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.inspection-settings-dialog h2{font-size:18px;color:var(--t0)}
+.inspection-settings-dialog header button{border:0;background:none;color:var(--t1);font-size:26px;cursor:pointer}
+.inspection-settings-dialog .field-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+.inspection-settings-dialog [role=status]{margin-top:12px;color:var(--t2);font-size:12px}
+.inspection-settings-dialog .action-row button{width:auto;margin:0}
+body.inspection-settings-open{overflow:hidden}
+@media(max-width:700px){.inspection-page-heading{flex-direction:column}.inspection-settings-dialog .field-grid{grid-template-columns:1fr}}

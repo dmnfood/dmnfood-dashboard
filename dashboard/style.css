@@ -581,3 +581,7 @@ tr.co:last-child { border-bottom: none; }
 .text-success { color: var(--zr); }
 .text-info    { color: var(--nm); }
 .text-warn    { color: var(--ac); }
+/* Primary entry point for journal preview and printing across HACCP pages. */
+#openJournalBtn{background:#15803d;border:1px solid #22a653;color:#fff;font-weight:700;white-space:nowrap}
+#openJournalBtn:hover:not(:disabled){background:#166534;border-color:#4ade80;color:#fff;opacity:1}
+#openJournalBtn:focus-visible{outline:2px solid #86efac;outline-offset:3px}

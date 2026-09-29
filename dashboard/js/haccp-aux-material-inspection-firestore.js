@@ -1,6 +1,8 @@
 import { addDoc, collection, deleteDoc, doc, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { db } from '/dashboard/js/firebase-client.js';
 import { subscribeJournalRange } from '/dashboard/js/haccp-journal-records.js';
+import { createInspectionSettingsStore } from '/dashboard/js/haccp-inspection-settings.js';
+export const { loadInspectionSettings, saveInspectionSettings } = createInspectionSettingsStore('auxMaterialInspection');
 
 export const AUX_MATERIAL_INSPECTION_COLLECTION = 'haccpAuxMaterialInspectionRecords';
 export const subscribeInspectionRecordsByRange = (start, end, onRecords, onError) => subscribeJournalRange(AUX_MATERIAL_INSPECTION_COLLECTION, mapInspectionRecord, start, end, onRecords, onError);

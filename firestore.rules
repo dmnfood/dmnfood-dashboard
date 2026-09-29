@@ -287,6 +287,11 @@
         allow write: if managerOrAdmin();
       }
 
+      match /haccpSettings/{inspectionType} {
+        allow read: if inspectionType in ['rawMaterialInspection', 'auxMaterialInspection'] && approvedActiveUser();
+        allow create, update: if inspectionType in ['rawMaterialInspection', 'auxMaterialInspection'] && approvedManagerOrAdmin();
+      }
+
       match /haccpRawMaterialUsageRecords/{recordId} {
         allow read: if approvedActiveUser();
         allow create: if approvedActiveUser() && request.resource.data.recordDate == recordId

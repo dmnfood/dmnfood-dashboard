@@ -802,16 +802,8 @@
         state.chart.destroy();
       }
 
-      if (!data.length) {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = 'rgba(255,255,255,0.7)';
-        ctx.font = '14px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText('조회하거나 HAR 파일을 업로드하면 차트가 표시됩니다.', canvas.width / 2, canvas.height / 2);
-        return;
-      }
-
-      const labels = data.map((item) => item.date);
+      const hasData = data.length > 0;
+      const labels = hasData ? data.map((item) => item.date) : Array(8).fill('');
       const averageLines = [
         { key: 'max', label: '최고 단가 · 기간 평균', color: 'rgba(248,113,113,0.45)' },
         { key: 'avg', label: '평균 단가 · 기간 평균', color: 'rgba(96,165,250,0.45)' },
@@ -861,14 +853,16 @@
           plugins: {
             legend: { display: false },
             tooltip: {
+              enabled: hasData,
+              filter: (context) => context.datasetIndex < 3,
               callbacks: {
                 label: (context) => `${context.dataset.label}: ${money(context.parsed.y)}`
               }
             }
           },
           scales: {
-            x: { ticks: { color: 'rgba(255,255,255,0.7)' }, grid: { color: 'rgba(255,255,255,0.08)' } },
-            y: { ticks: { color: 'rgba(255,255,255,0.7)', callback: (value) => `${fmt(value)}` }, grid: { color: 'rgba(255,255,255,0.08)' } }
+            x: { ticks: { display: hasData, color: 'rgba(255,255,255,0.7)' }, grid: { color: 'rgba(255,255,255,0.08)' } },
+            y: { ticks: { display: hasData, color: 'rgba(255,255,255,0.7)', callback: (value) => `${fmt(value)}` }, grid: { color: 'rgba(255,255,255,0.08)' } }
           }
         }
       });

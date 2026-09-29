@@ -516,15 +516,6 @@
       background: rgba(34, 211, 238, .12);
     }
 
-    .card-icon-planning {
-      background: linear-gradient(135deg, rgba(34, 211, 238, .18), rgba(99, 102, 241, .18)) !important;
-      border: 1px solid rgba(34, 211, 238, .24);
-      color: #22d3ee;
-      font-size: 13px;
-      font-weight: 800;
-      letter-spacing: .2px;
-    }
-
     .card-placeholder .card-icon {
       background: rgba(255, 255, 255, .05);
     }
@@ -658,8 +649,6 @@
               사무</button>
             <button class="category-tab" type="button" role="tab" aria-selected="false" data-category="finance">회계
               재무</button>
-            <button class="category-tab" type="button" role="tab" aria-selected="false"
-              data-category="management">경영관리</button>
             <button class="category-tab" type="button" role="tab" aria-selected="false" data-category="cost">원가
               관리</button>
             <button class="category-tab" type="button" role="tab" aria-selected="false" data-category="all">전체</button>
@@ -682,13 +671,22 @@
         <div class="category-panel active" id="category-office" role="tabpanel">
           <div class="section-header">
             <span class="section-title">일반 사무</span>
-            <span class="section-count">1</span>
+            <span class="section-count">2</span>
           </div>
           <div class="card-grid">
             <a href="/school-meal-weekly" class="dashboard-card card-active">
               <div class="card-icon">🏫</div>
               <div class="card-title">학교급식 주간현황표</div>
               <div class="card-desc">Ecount ERP 매출 엑셀을 업로드해 학교급식 납품 현황표를 자동 생성하고 엑셀로 내보냅니다.</div>
+              <div class="card-meta">
+                <span class="badge badge-live"><span class="badge-dot"></span> 운영 중</span>
+                <span class="card-arrow">→</span>
+              </div>
+            </a>
+            <a href="/sesame-bid-analysis" class="dashboard-card card-active">
+              <div class="card-icon">🫘</div>
+              <div class="card-title">참깨 입찰 분석</div>
+              <div class="card-desc">HAR 업로드로 참깨 정부 비축물자 입찰 결과를 정리하고 현재 입찰 참고가를 검토합니다.</div>
               <div class="card-meta">
                 <span class="badge badge-live"><span class="badge-dot"></span> 운영 중</span>
                 <span class="card-arrow">→</span>
@@ -718,33 +716,6 @@
               <div class="card-desc">통장 거래내역과 카드 이용명세서를 업로드해 월별 지출 패턴과 고정비 구조를 분석합니다.</div>
               <div class="card-meta">
                 <span class="badge badge-live"><span class="badge-dot"></span> 운영 중</span>
-                <span class="card-arrow">→</span>
-              </div>
-            </a>
-          </div>
-        </div>
-
-        <div class="category-panel" id="category-management" role="tabpanel">
-          <div class="section-header">
-            <span class="section-title">경영관리</span>
-            <span class="section-count">2</span>
-          </div>
-          <div class="card-grid">
-            <a href="/planning" class="dashboard-card card-active">
-              <div class="card-icon card-icon-planning">PA</div>
-              <div class="card-title">계획 비서</div>
-              <div class="card-desc">업무 일정, 지연 항목, 긴급 업무, 알림을 로컬 저장소 기준으로 관리하고 후속 조치를 정리합니다.</div>
-              <div class="card-meta">
-                <span class="badge badge-live"><span class="badge-dot"></span> 운영 중</span>
-                <span class="card-arrow">→</span>
-              </div>
-            </a>
-            <a href="/sesame-bid-analysis" class="dashboard-card card-active">
-              <div class="card-icon">🫘</div>
-              <div class="card-title">참깨 입찰 분석</div>
-              <div class="card-desc">HAR 업로드로 참깨 정부 비축물자 입찰 결과를 정리하고 현재 입찰 참고가를 검토합니다.</div>
-              <div class="card-meta">
-                <span class="badge badge-basic"><span class="badge-dot"></span> 신규 운영</span>
                 <span class="card-arrow">→</span>
               </div>
             </a>
@@ -928,13 +899,22 @@
             <div class="all-category-column">
               <div class="section-header">
                 <span class="section-title">일반 사무</span>
-                <span class="section-count">1</span>
+                <span class="section-count">2</span>
               </div>
               <div class="card-grid">
                 <a href="/school-meal-weekly" class="dashboard-card card-active">
                   <div class="card-icon">🏫</div>
                   <div class="card-title">학교급식 주간현황표</div>
                   <div class="card-desc">Ecount ERP 매출 엑셀을 업로드해 학교급식 납품 현황표를 자동 생성하고 엑셀로 내보냅니다.</div>
+                  <div class="card-meta">
+                    <span class="badge badge-live"><span class="badge-dot"></span> 운영 중</span>
+                    <span class="card-arrow">→</span>
+                  </div>
+                </a>
+                <a href="/sesame-bid-analysis" class="dashboard-card card-active">
+                  <div class="card-icon">🫘</div>
+                  <div class="card-title">참깨 입찰 분석</div>
+                  <div class="card-desc">HAR 업로드로 참깨 정부 비축물자 입찰 결과를 정리하고 현재 입찰 참고가를 검토합니다.</div>
                   <div class="card-meta">
                     <span class="badge badge-live"><span class="badge-dot"></span> 운영 중</span>
                     <span class="card-arrow">→</span>
@@ -964,33 +944,6 @@
                   <div class="card-desc">통장 거래내역과 카드 이용명세서를 업로드해 월별 지출 패턴과 고정비 구조를 분석합니다.</div>
                   <div class="card-meta">
                     <span class="badge badge-live"><span class="badge-dot"></span> 운영 중</span>
-                    <span class="card-arrow">→</span>
-                  </div>
-                </a>
-              </div>
-            </div>
-
-            <div class="all-category-column">
-              <div class="section-header">
-                <span class="section-title">경영관리</span>
-                <span class="section-count">2</span>
-              </div>
-              <div class="card-grid">
-                <a href="/planning" class="dashboard-card card-active">
-                  <div class="card-icon card-icon-planning">PA</div>
-                  <div class="card-title">계획 비서</div>
-                  <div class="card-desc">업무 일정, 지연 항목, 긴급 업무, 알림을 로컬 저장소 기준으로 관리하고 후속 조치를 정리합니다.</div>
-                  <div class="card-meta">
-                    <span class="badge badge-live"><span class="badge-dot"></span> 운영 중</span>
-                    <span class="card-arrow">→</span>
-                  </div>
-                </a>
-                <a href="/sesame-bid-analysis" class="dashboard-card card-active">
-                  <div class="card-icon">🫘</div>
-                  <div class="card-title">참깨 입찰 분석</div>
-                  <div class="card-desc">HAR 업로드로 참깨 정부 비축물자 입찰 결과를 정리하고 현재 입찰 참고가를 검토합니다.</div>
-                  <div class="card-meta">
-                    <span class="badge badge-basic"><span class="badge-dot"></span> 신규 운영</span>
                     <span class="card-arrow">→</span>
                   </div>
                 </a>
@@ -1126,7 +1079,8 @@
     });
 
     const requestedCategory = new URLSearchParams(window.location.search).get('category');
-    const initialCategory = requestedCategory === 'haccp' ? 'haccp-all' : (requestedCategory || 'office');
+    const initialCategory = requestedCategory === 'haccp' ? 'haccp-all'
+      : (Array.from(tabButtons).some(tab => tab.dataset.category === requestedCategory) ? requestedCategory : 'office');
     activateCategory(initialCategory);
 
     const allColumns = Array.from(document.querySelectorAll('#category-all .all-category-column'));

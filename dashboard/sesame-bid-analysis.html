@@ -200,11 +200,11 @@
       margin-bottom: 16px;
     }
 
-    .pilot-tools [hidden] { display: none !important; }
-    .pilot-tools { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
-    .pilot-tools summary { cursor: pointer; color: var(--t0); font-weight: 700; font-size: 13px; }
-    .pilot-tools .filter-row { margin-top: 12px; align-items: end; }
-    .pilot-note { font-size: 12px; color: var(--t2); margin: 10px 0 0; line-height: 1.6; }
+    .filter-card [hidden] { display: none !important; }
+    .import-tools { padding-bottom: 16px; margin-bottom: 16px; border-bottom: 1px solid var(--border); }
+    .import-tools .filter-row { margin-top: 12px; }
+    .import-actions { display: flex; gap: 8px; }
+    .status-text:empty { display: none; }
     .btn:disabled, .btn-secondary:disabled { opacity: .5; cursor: wait; }
 
     .filter-card {
@@ -475,14 +475,25 @@
     <main class="page-main">
       <section id="analysisSection">
         <section class="section-card filter-card">
-          <div class="filter-row">
-            <div class="upload-inline-field">
-              <label for="harFile">HAR 파일 업로드</label>
-              <button class="upload-box" id="dropZone" type="button" aria-label="HAR 파일 선택 또는 드롭">
-                <span class="upload-title">드롭 또는 클릭</span>
-              </button>
-              <input type="file" id="harFile" accept=".har,application/json" />
+          <div class="import-tools" aria-label="aT 자동 가져오기">
+            <div class="card-title">aT 자동 가져오기</div>
+            <div class="filter-row">
+              <div class="field"><label for="pilotStart">마감기간 시작</label><input type="date" id="pilotStart" required></div>
+              <div class="field"><label for="pilotEnd">마감기간 종료</label><input type="date" id="pilotEnd" required></div>
+              <div class="import-actions">
+                <button class="btn" type="button" id="pilotFetch">자동 가져오기</button>
+                <button class="btn-secondary" type="button" id="pilotCancel" hidden>중지</button>
+              </div>
+              <div class="upload-inline-field">
+                <button class="upload-box" id="dropZone" type="button" aria-label="수동 HAR 파일 업로드 또는 드롭" title="HAR 파일을 선택하거나 끌어다 놓으세요">
+                  <span class="upload-title">수동 파일 업로드</span>
+                </button>
+                <input type="file" id="harFile" accept=".har,application/json" />
+              </div>
             </div>
+            <div class="status-text" id="statusText" role="status" aria-live="polite"></div>
+          </div>
+          <div class="filter-row">
             <div class="field">
               <label for="fDate">입찰일</label>
               <select id="fDate"></select>
@@ -508,18 +519,6 @@
               <input id="q" type="text" placeholder="입찰명 또는 항목 검색" />
             </div>
           </div>
-          <details class="pilot-tools" open>
-            <summary>aT 자동 가져오기 · 파일럿</summary>
-            <div class="filter-row">
-              <div class="field"><label for="pilotStart">마감기간 시작</label><input type="date" id="pilotStart" required></div>
-              <div class="field"><label for="pilotEnd">마감기간 종료</label><input type="date" id="pilotEnd" required></div>
-              <button class="btn" type="button" id="pilotFetch">자동 가져오기 (시험)</button>
-              <button class="btn-secondary" type="button" id="pilotCancel" hidden>중지</button>
-            </div>
-            <p class="pilot-note">참깨 · 낙찰취소 포함 · 한 번에 최대 1년. 전체 수집을 확인한 뒤 분석에 반영합니다. 연결이 안 되면 위의 HAR 업로드를 이용하세요.</p>
-            <div class="status-text" id="pilotStatus" role="status" aria-live="polite"></div>
-          </details>
-          <div class="status-text" id="statusText">HAR 파일을 올리면 분석이 시작됩니다.</div>
         </section>
 
         <div class="chart-row">
@@ -905,14 +904,13 @@
     $('pilotEnd').value = dateInKorea;
     $('pilotStart').value = new Date(Date.parse(dateInKorea) - 90 * 86400000).toISOString().slice(0, 10);
     function pilotStatus(message, error = false) {
-      $('pilotStatus').textContent = message;
-      $('pilotStatus').classList.toggle('error', error);
+      setStatus(message, error);
     }
     $('pilotCancel').addEventListener('click', () => pilotController?.abort());
     $('pilotFetch').addEventListener('click', async () => {
       const start = $('pilotStart').value, end = $('pilotEnd').value;
       if (!start || !end || start > end || (Date.parse(end) - Date.parse(start)) / 86400000 > 366) {
-        pilotStatus('시작일과 종료일을 확인해 주세요. 파일럿은 한 번에 최대 1년까지 조회합니다.', true);
+        pilotStatus('시작일과 종료일을 확인해 주세요. 한 번에 최대 1년까지 조회할 수 있습니다.', true);
         return;
       }
       const version = ++loadVersion;
@@ -936,8 +934,7 @@
         ['fDate', 'fOrigin', 'fGrade', 'fPack', 'fRegion', 'q'].forEach(id => { $(id).value = ''; });
         initFilters();
         applyFilters();
-        pilotStatus('전체 ' + result.total.toLocaleString() + '건 수집 확인 · 분석 반영 ' + rows.length.toLocaleString() + '건');
-        setStatus('aT 자동 조회 · ' + start + ' ~ ' + end + ' · ' + rows.length.toLocaleString() + '건');
+        setStatus('');
       } catch (error) {
         if (version !== loadVersion) return;
         pilotStatus(controller.signal.aborted ? '수집이 중지되었거나 제한 시간이 지났습니다. 기존 분석을 유지합니다.' : error.message + ' 기존 분석을 유지합니다.', !controller.signal.aborted);
@@ -957,6 +954,7 @@
         pilotController.abort();
         pilotStatus('자동 수집을 중지하고 HAR 파일을 불러옵니다.');
       }
+      setStatus('HAR 파일을 불러오고 있습니다…');
       try {
         const content = await file.text();
         if (version !== loadVersion) return;
@@ -966,7 +964,7 @@
         $('analysisSection').classList.remove('hidden');
         initFilters();
         applyFilters();
-        setStatus(`${fmt(rows.length)}건의 데이터를 불러왔습니다.`);
+        setStatus('');
       } catch (error) {
         setStatus(error.message, true);
       }

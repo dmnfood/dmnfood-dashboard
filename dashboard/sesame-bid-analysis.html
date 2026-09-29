@@ -132,11 +132,6 @@
       max-width: 860px;
     }
 
-    .upload-card {
-      padding: 20px;
-      margin-bottom: 16px;
-    }
-
     .upload-box {
       border: 1px dashed rgba(255,255,255,.20);
       border-radius: 14px;
@@ -161,27 +156,10 @@
       display: none;
     }
 
-    .upload-copy {
-      min-width: 0;
-    }
-
     .upload-title {
       font-size: 14px;
       font-weight: 700;
       margin-bottom: 4px;
-    }
-
-    .upload-sub {
-      font-size: 12px;
-      color: var(--t2);
-      line-height: 1.6;
-    }
-
-    .upload-actions {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex-wrap: wrap;
     }
 
     .btn,
@@ -222,6 +200,13 @@
       padding: 16px 18px;
       margin-bottom: 16px;
     }
+
+    .pilot-tools [hidden] { display: none !important; }
+    .pilot-tools { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
+    .pilot-tools summary { cursor: pointer; color: var(--t0); font-weight: 700; font-size: 13px; }
+    .pilot-tools .filter-row { margin-top: 12px; align-items: end; }
+    .pilot-note { font-size: 12px; color: var(--t2); margin: 10px 0 0; line-height: 1.6; }
+    .btn:disabled, .btn-secondary:disabled { opacity: .5; cursor: wait; }
 
     .filter-card {
       padding: 16px 18px;
@@ -265,7 +250,7 @@
       background: rgba(74,222,128,.08);
     }
 
-    .upload-inline-field .upload-box input {
+    .upload-inline-field input[type="file"] {
       display: none;
     }
 
@@ -604,25 +589,13 @@
     <main class="page-main">
       <section id="analysisSection">
         <section class="section-card filter-card">
-          <div class="upload-inline-card">
-            <div class="upload-box" id="dropZone">
-              <div class="upload-copy">
-                <div class="upload-title">HAR 파일 업로드</div>
-                <div class="upload-sub">파일 선택 혹은 드롭하면 list.do 응답을 자동으로 읽어옵니다.</div>
-              </div>
-              <div class="upload-actions">
-                <label class="btn" for="harFile">파일 선택</label>
-                <input type="file" id="harFile" accept=".har,application/json" />
-              </div>
-            </div>
-          </div>
           <div class="filter-row">
             <div class="upload-inline-field">
               <label for="harFile">HAR 파일 업로드</label>
-              <div class="upload-box" id="dropZone">
-                <div class="upload-title">드롭 또는 클릭</div>
-                <input type="file" id="harFile" accept=".har,application/json" />
-              </div>
+              <button class="upload-box" id="dropZone" type="button" aria-label="HAR 파일 선택 또는 드롭">
+                <span class="upload-title">드롭 또는 클릭</span>
+              </button>
+              <input type="file" id="harFile" accept=".har,application/json" />
             </div>
             <div class="field">
               <label for="fDate">입찰일</label>
@@ -653,6 +626,17 @@
               <button class="btn-secondary" type="button" id="clearFilters">초기화</button>
             </div>
           </div>
+          <details class="pilot-tools" open>
+            <summary>aT 자동 가져오기 · 파일럿</summary>
+            <div class="filter-row">
+              <div class="field"><label for="pilotStart">마감기간 시작</label><input type="date" id="pilotStart" required></div>
+              <div class="field"><label for="pilotEnd">마감기간 종료</label><input type="date" id="pilotEnd" required></div>
+              <button class="btn" type="button" id="pilotFetch">자동 가져오기 (시험)</button>
+              <button class="btn-secondary" type="button" id="pilotCancel" hidden>중지</button>
+            </div>
+            <p class="pilot-note">참깨 · 낙찰취소 포함 · 한 번에 최대 1년. 전체 수집을 확인한 뒤 분석에 반영합니다. 연결이 안 되면 위의 HAR 업로드를 이용하세요.</p>
+            <div class="status-text" id="pilotStatus" role="status" aria-live="polite"></div>
+          </details>
           <div class="status-text" id="statusText">HAR 파일을 올리면 분석이 시작됩니다.</div>
         </section>
 
@@ -753,6 +737,7 @@
   </div>
 
   <script type="module">
+    import { collectBidPages } from '/dashboard/js/atbid-pilot.js';
     import { logoutToLogin, requireApprovedActiveUser } from '/dashboard/js/firebase-client.js';
     const state = { rawRows: [], filteredRows: [], chart: null };
 
@@ -797,11 +782,13 @@
 
     function parseTitle(title) {
       title = title || '';
-      const inner = [...title.matchAll(/\(([^()]*)\)/g)].map((m) => m[1].trim());
-      const spec = inner.find((x) => x.includes(':') && (/산|등|파렛|점보|일반품/.test(x))) || '';
+      // 지사/판매형태와 구분 괄호는 제외하고 참깨 바로 뒤의 상품 규격만 읽는다.
+      const spec = title.match(/참깨\s*\(([^()]*)\)/)?.[1] || '';
       const parts = spec.split(':').map((s) => s.trim()).filter(Boolean);
-      const origin = parts.find((x) => /산$/.test(x)) || '';
-      const grade = parts.find((x) => /등$/.test(x)) || '';
+      const countries = ['인도', '중국', '파키스탄', '부르키나파소', '모잠비크', '나이지리아', '탄자니아'];
+      const originPart = parts.find((x) => /산$/.test(x) || countries.includes(x)) || '';
+      const origin = countries.includes(originPart) ? `${originPart}산` : originPart;
+      const grade = parts.find((x) => /^\d+\s*등$/.test(x))?.replace(/\s/g, '') || '';
       let pack = parts.find((x) => /파렛|점보|벌크|톤백|포대/.test(x)) || '';
       if (!pack) {
         if (spec.includes('파렛타이징')) pack = '파렛타이징';
@@ -1151,10 +1138,67 @@
       render();
     }
 
+    let pilotController = null;
+    let loadVersion = 0;
+    const dateInKorea = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Seoul' }).format(new Date());
+    $('pilotEnd').value = dateInKorea;
+    $('pilotStart').value = new Date(Date.parse(dateInKorea) - 90 * 86400000).toISOString().slice(0, 10);
+    function pilotStatus(message, error = false) {
+      $('pilotStatus').textContent = message;
+      $('pilotStatus').classList.toggle('error', error);
+    }
+    $('pilotCancel').addEventListener('click', () => pilotController?.abort());
+    $('pilotFetch').addEventListener('click', async () => {
+      const start = $('pilotStart').value, end = $('pilotEnd').value;
+      if (!start || !end || start > end || (Date.parse(end) - Date.parse(start)) / 86400000 > 366) {
+        pilotStatus('시작일과 종료일을 확인해 주세요. 파일럿은 한 번에 최대 1년까지 조회합니다.', true);
+        return;
+      }
+      const version = ++loadVersion;
+      const controller = new AbortController();
+      pilotController = controller;
+      $('pilotFetch').disabled = true;
+      $('pilotStart').disabled = $('pilotEnd').disabled = true;
+      $('pilotCancel').hidden = false;
+      pilotStatus('aT에서 첫 페이지를 조회하고 있습니다…');
+      const timeout = setTimeout(() => controller.abort(), 180000);
+      try {
+        const result = await collectBidPages({ start, end, signal: controller.signal,
+          onProgress: (loaded, total) => pilotStatus(loaded.toLocaleString() + ' / ' + total.toLocaleString() + '건 수집 중…') });
+        controller.signal.throwIfAborted();
+        if (version !== loadVersion) return;
+        if (!result.total) { pilotStatus('해당 기간의 참깨 결과가 없습니다. 기존 분석을 유지합니다.'); return; }
+        const rows = normalizeRows(result.rows);
+        if (!rows.length) throw new Error('분석 가능한 결과가 없습니다. 기존 분석을 유지합니다.');
+        state.rawRows = rows;
+        state.filteredRows = rows;
+        ['fDate', 'fOrigin', 'fGrade', 'fPack', 'fRegion', 'q'].forEach(id => { $(id).value = ''; });
+        initFilters();
+        applyFilters();
+        pilotStatus('전체 ' + result.total.toLocaleString() + '건 수집 확인 · 분석 반영 ' + rows.length.toLocaleString() + '건');
+        setStatus('aT 자동 조회 · ' + start + ' ~ ' + end + ' · ' + rows.length.toLocaleString() + '건');
+      } catch (error) {
+        if (version !== loadVersion) return;
+        pilotStatus(controller.signal.aborted ? '수집이 중지되었거나 제한 시간이 지났습니다. 기존 분석을 유지합니다.' : error.message + ' 기존 분석을 유지합니다.', !controller.signal.aborted);
+      } finally {
+        clearTimeout(timeout);
+        pilotController = null;
+        $('pilotFetch').disabled = false;
+        $('pilotStart').disabled = $('pilotEnd').disabled = false;
+        $('pilotCancel').hidden = true;
+      }
+    });
+
     async function handleFile(file) {
       if (!file) return;
+      const version = ++loadVersion;
+      if (pilotController) {
+        pilotController.abort();
+        pilotStatus('자동 수집을 중지하고 HAR 파일을 불러옵니다.');
+      }
       try {
         const content = await file.text();
+        if (version !== loadVersion) return;
         const rows = parseInput(content);
         state.rawRows = rows;
         state.filteredRows = rows;
@@ -1170,6 +1214,7 @@
     document.getElementById('harFile').addEventListener('change', (event) => handleFile(event.target.files[0]));
 
     const dropZone = $('dropZone');
+    dropZone.addEventListener('click', () => $('harFile').click());
     ['dragenter', 'dragover'].forEach((eventName) => {
       dropZone.addEventListener(eventName, (event) => {
         event.preventDefault();

@@ -91,7 +91,6 @@
     .hero-card,
     .section-card,
     .chart-card,
-    .reference-card,
     .table-card {
       background: var(--card);
       border: 1px solid var(--border);
@@ -313,105 +312,6 @@
       border-color: rgba(34,211,238,.24);
     }
 
-    .kpi-grid {
-      display: grid;
-      grid-template-columns: repeat(5, minmax(0, 1fr));
-      gap: 12px;
-      margin-bottom: 16px;
-    }
-
-    .kpi-stack-card {
-      display: flex;
-      flex-direction: row;
-      gap: 8px;
-      min-width: 0;
-    }
-
-    .kpi-card,
-    .kpi-mini-card {
-      background: rgba(255,255,255,.04);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 10px 12px;
-      min-height: 74px;
-    }
-
-    .kpi-mini-card {
-      flex: 1;
-      min-height: 74px;
-      padding: 10px 12px;
-    }
-
-    .kpi-label {
-      font-size: 10px;
-      text-transform: uppercase;
-      letter-spacing: .5px;
-      color: var(--t2);
-      margin-bottom: 6px;
-    }
-
-    .kpi-value {
-      font-size: 16px;
-      font-weight: 700;
-      letter-spacing: -0.2px;
-    }
-
-    .kpi-sub {
-      margin-top: 3px;
-      font-size: 11px;
-      color: var(--t2);
-    }
-
-    .reference-card {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      padding: 10px 12px;
-    }
-
-    .reference-price-grid {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 6px;
-    }
-
-    .reference-price-pill {
-      border-radius: 10px;
-      padding: 7px 8px;
-      border: 1px solid var(--border);
-      background: rgba(255,255,255,.03);
-    }
-
-    .reference-price-pill.conservative {
-      background: rgba(74,222,128,.08);
-      border-color: rgba(74,222,128,.16);
-    }
-
-    .reference-price-pill.safe {
-      background: rgba(96,165,250,.08);
-      border-color: rgba(96,165,250,.16);
-    }
-
-    .reference-price-pill.aggressive {
-      background: rgba(251,191,36,.08);
-      border-color: rgba(251,191,36,.16);
-    }
-
-    .reference-price-title {
-      font-size: 10px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: .4px;
-      color: var(--t2);
-      margin-bottom: 3px;
-    }
-
-    .reference-price-value {
-      font-size: 13px;
-      font-weight: 800;
-      color: var(--t0);
-    }
-
     .chart-row {
       display: grid;
       grid-template-columns: 1fr;
@@ -419,7 +319,6 @@
     }
 
     .chart-card,
-    .reference-card,
     .table-card {
       padding: 16px 18px;
       margin-bottom: 16px;
@@ -432,6 +331,8 @@
       gap: 10px;
       margin-bottom: 12px;
     }
+
+    .chart-count { font-size: 12px; color: var(--t2); text-align: right; white-space: nowrap; }
 
     .card-title {
       font-size: 14px;
@@ -470,12 +371,6 @@
       display: inline-block;
     }
 
-    .ref-note {
-      margin-top: 12px;
-      font-size: 12px;
-      color: var(--t2);
-      line-height: 1.7;
-    }
 
     .table-wrapper {
       overflow-x: auto;
@@ -536,17 +431,11 @@
     }
 
     @media (max-width: 980px) {
-      .kpi-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
 
       .chart-row {
         grid-template-columns: 1fr;
       }
 
-      .reference-price-grid {
-        grid-template-columns: 1fr;
-      }
     }
 
     @media (max-width: 640px) {
@@ -554,9 +443,6 @@
         padding: 16px 14px 40px;
       }
 
-      .kpi-grid {
-        grid-template-columns: 1fr;
-      }
 
       .filter-row {
         gap: 8px;
@@ -621,10 +507,6 @@
               <label for="q">검색</label>
               <input id="q" type="text" placeholder="입찰명 또는 항목 검색" />
             </div>
-            <div class="field">
-              <label class="sr-only" for="clearFilters">초기화</label>
-              <button class="btn-secondary" type="button" id="clearFilters">초기화</button>
-            </div>
           </div>
           <details class="pilot-tools" open>
             <summary>aT 자동 가져오기 · 파일럿</summary>
@@ -640,58 +522,14 @@
           <div class="status-text" id="statusText">HAR 파일을 올리면 분석이 시작됩니다.</div>
         </section>
 
-        <section class="kpi-grid">
-          <div class="kpi-stack-card">
-            <div class="kpi-mini-card">
-              <div class="kpi-label">분석 건수</div>
-              <div class="kpi-value" id="kCount">-</div>
-            </div>
-            <div class="kpi-mini-card">
-              <div class="kpi-label">전체 데이터</div>
-              <div class="kpi-value" id="kTotal">-</div>
-            </div>
-          </div>
-          <div class="kpi-card">
-            <div class="kpi-label">평균 단가</div>
-            <div class="kpi-value" id="kAvg">-</div>
-            <div class="kpi-sub">원/개</div>
-          </div>
-          <div class="kpi-card">
-            <div class="kpi-label">최저 단가</div>
-            <div class="kpi-value" id="kMin">-</div>
-            <div class="kpi-sub">낙찰 최저값</div>
-          </div>
-          <div class="kpi-card">
-            <div class="kpi-label">최고 단가</div>
-            <div class="kpi-value" id="kMax">-</div>
-            <div class="kpi-sub">낙찰 최고값</div>
-          </div>
-          <div class="kpi-card reference-card">
-            <div class="kpi-label">입찰 참고가</div>
-            <div class="reference-price-grid">
-              <div class="reference-price-pill conservative">
-                <div class="reference-price-title">보수권</div>
-                <div class="reference-price-value" id="refConservative">-</div>
-              </div>
-              <div class="reference-price-pill safe">
-                <div class="reference-price-title">안전권</div>
-                <div class="reference-price-value" id="refSafe">-</div>
-              </div>
-              <div class="reference-price-pill aggressive">
-                <div class="reference-price-title">공격권</div>
-                <div class="reference-price-value" id="refAggressive">-</div>
-              </div>
-            </div>
-          </div>
-        </section>
-
         <div class="chart-row">
           <section class="chart-card">
             <div class="card-title-row">
               <div>
                 <div class="card-title">입찰일별 단가 추이</div>
-                <div class="card-caption">필터 기준으로 다시 계산됩니다.</div>
+                <div class="card-caption">점선은 현재 필터의 입찰일별 단가를 평균한 값입니다.</div>
               </div>
+              <div class="chart-count" id="chartCount" aria-live="polite">분석 0건 / 전체 0건</div>
             </div>
             <div class="legend">
               <span class="legend-item"><span class="legend-dot" style="background:#f87171"></span>최고 단가</span>
@@ -699,7 +537,6 @@
               <span class="legend-item"><span class="legend-dot" style="background:#4ade80"></span>최저 단가</span>
             </div>
             <div class="chart-wrap"><canvas id="trendChart"></canvas></div>
-            <div class="ref-note" id="refNote">HAR 파일을 업로드하면 필터 기준 참고가와 추세가 계산됩니다.</div>
           </section>
         </div>
 
@@ -745,20 +582,6 @@
     const fmt = (value) => Number.isFinite(value) ? Math.round(value).toLocaleString('ko-KR') : '-';
     const money = (value) => Number.isFinite(value) ? `${fmt(value)}원` : '-';
     const avg = (values) => values.length ? values.reduce((s, x) => s + x, 0) / values.length : NaN;
-    const median = (values) => {
-      const sorted = values.filter(Number.isFinite).sort((a, b) => a - b);
-      if (!sorted.length) return NaN;
-      const mid = Math.floor(sorted.length / 2);
-      return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
-    };
-    const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
-    const stdev = (values) => {
-      const clean = values.filter(Number.isFinite);
-      if (!clean.length) return 0;
-      const m = avg(clean);
-      return clean.length > 1 ? Math.sqrt(avg(clean.map((x) => (x - m) ** 2))) : 0;
-    };
-
     function setStatus(message, isError = false) {
       const el = $('statusText');
       el.textContent = message;
@@ -945,72 +768,6 @@
         .sort((a, b) => a.date.localeCompare(b.date));
     }
 
-    function renderKpis() {
-      const rows = state.filteredRows;
-      const hasRows = rows.length > 0;
-      const avgPrices = rows.map((row) => row.avgPrice).filter(Number.isFinite);
-      const minPrices = rows.map((row) => row.minPrice).filter(Number.isFinite);
-      const maxPrices = rows.map((row) => row.maxPrice).filter(Number.isFinite);
-
-      $('kCount').textContent = hasRows ? fmt(rows.length) : '-';
-      $('kAvg').textContent = hasRows ? money(avg(avgPrices)) : '-';
-      $('kMin').textContent = hasRows && minPrices.length ? money(Math.min(...minPrices)) : '-';
-      $('kMax').textContent = hasRows && maxPrices.length ? money(Math.max(...maxPrices)) : '-';
-      $('kTotal').textContent = state.rawRows.length ? fmt(state.rawRows.length) : '-';
-    }
-
-    function renderReference() {
-      const setText = (id, value) => {
-        const el = $(id);
-        if (el) {
-          el.textContent = value;
-        }
-      };
-
-      if (!state.filteredRows.length) {
-        ['refConservative', 'refSafe', 'refAggressive', 'refNote'].forEach((id) => {
-          setText(id, id === 'refNote' ? 'HAR 파일을 업로드하면 필터 기준 참고가가 계산됩니다.' : '-');
-        });
-        return;
-      }
-
-      const sorted = [...state.filteredRows].filter((row) => Number.isFinite(row.avgPrice)).sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.title || '').localeCompare(b.title || ''));
-      const recent5 = sorted.slice(-5);
-      const recent10 = sorted.slice(-10);
-      const recent5Avg = avg(recent5.map((row) => row.avgPrice));
-      const recent10Avg = avg(recent10.map((row) => row.avgPrice));
-      const fullAvg = avg(sorted.map((row) => row.avgPrice));
-      const daily = groupByDate(sorted);
-
-      let trendEstimate = fullAvg;
-      if (daily.length >= 2) {
-        const x = daily.map((_, index) => index + 1);
-        const y = daily.map((d) => d.avg);
-        const meanX = avg(x);
-        const meanY = avg(y);
-        const denom = x.reduce((sum, value, index) => sum + (value - meanX) ** 2, 0);
-        const slope = denom ? x.reduce((sum, value, index) => sum + (value - meanX) * (y[index] - meanY), 0) / denom : 0;
-        trendEstimate = y[y.length - 1] + slope;
-      }
-
-      const recentVol = stdev(sorted.map((row) => row.avgPrice));
-      const dailyMoves = [];
-      for (let i = 1; i < daily.length; i += 1) {
-        dailyMoves.push(Math.abs(daily[i].avg - daily[i - 1].avg));
-      }
-      const volatility = Math.max(recentVol * 0.45, avg(dailyMoves.filter(Number.isFinite)) || 0, 10);
-
-      const weightedBase = recent5Avg * 0.45 + recent10Avg * 0.25 + fullAvg * 0.20 + trendEstimate * 0.10;
-      const conservative = weightedBase - volatility * 0.35;
-      const safe = weightedBase;
-      const aggressive = weightedBase + volatility * 0.35;
-
-      setText('refConservative', money(conservative));
-      setText('refSafe', money(safe));
-      setText('refAggressive', money(aggressive));
-      setText('refNote', `계산 기준: 최근 5회 평균 45%, 최근 10회 평균 25%, 전체 평균 20%, 추세 예측 10%. 변동성은 필터 기준 데이터의 분산과 일별 이동폭을 반영해 보수·공격권을 나눴습니다. 이 값은 의사결정 참고용이며, 실제 낙찰가와는 차이가 날 수 있습니다.`);
-    }
-
     function renderTable() {
       const tbody = $('tableBody');
       const hasRows = state.filteredRows.length > 0;
@@ -1050,11 +807,21 @@
         ctx.fillStyle = 'rgba(255,255,255,0.7)';
         ctx.font = '14px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('HAR 파일을 업로드하면 차트가 표시됩니다.', canvas.width / 2, canvas.height / 2);
+        ctx.fillText('조회하거나 HAR 파일을 업로드하면 차트가 표시됩니다.', canvas.width / 2, canvas.height / 2);
         return;
       }
 
       const labels = data.map((item) => item.date);
+      const averageLines = [
+        { key: 'max', label: '최고 단가 · 기간 평균', color: 'rgba(248,113,113,0.45)' },
+        { key: 'avg', label: '평균 단가 · 기간 평균', color: 'rgba(96,165,250,0.45)' },
+        { key: 'min', label: '최저 단가 · 기간 평균', color: 'rgba(74,222,128,0.45)' }
+      ].map(({ key, label, color }) => {
+        const mean = avg(data.map(item => item[key]).filter(Number.isFinite));
+        return { label, data: data.map(() => Number.isFinite(mean) ? mean : null),
+          borderColor: color, borderDash: [6, 5], borderWidth: 2,
+          pointRadius: 0, pointHoverRadius: 0, tension: 0, fill: false, order: 1 };
+      });
       state.chart = new Chart(ctx, {
         type: 'line',
         data: {
@@ -1083,7 +850,8 @@
               backgroundColor: 'rgba(74,222,128,0.12)',
               pointRadius: 3,
               tension: 0.2
-            }
+            },
+            ...averageLines
           ]
         },
         options: {
@@ -1111,8 +879,7 @@
     }
 
     function render() {
-      renderKpis();
-      renderReference();
+      $('chartCount').textContent = `분석 ${fmt(state.filteredRows.length)}건 / 전체 ${fmt(state.rawRows.length)}건`;
       renderTable();
       renderChart();
     }
@@ -1234,12 +1001,6 @@
       $(id).addEventListener('change', applyFilters);
     });
 
-    $('clearFilters').addEventListener('click', () => {
-      ['fDate', 'fOrigin', 'fGrade', 'fPack', 'fRegion', 'q'].forEach((id) => {
-        $(id).value = '';
-      });
-      applyFilters();
-    });
 
     $('downloadBtn').addEventListener('click', () => {
       const rows = state.filteredRows.map((row, index) => [index + 1, row.date, row.title, row.item, row.origin, row.grade, row.pack, row.region, row.qty, row.minPrice, row.avgPrice, row.maxPrice]);

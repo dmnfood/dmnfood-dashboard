@@ -1021,12 +1021,13 @@
       document.getElementById('ecountTestBtn').hidden = !canExportHaccpData;
       document.querySelectorAll('[data-manager-only]').forEach(card => card.classList.toggle('role-visible', canExportHaccpData));
       document.querySelectorAll('[data-haccp-management-count]').forEach(count => { count.textContent = canExportHaccpData ? '5' : '4'; });
-      const emailId = user.email.split('@')[0];
-      document.getElementById('userAvatar').textContent = emailId.charAt(0).toUpperCase();
-      document.getElementById('userIdDisplay').textContent = emailId;
+      const userName = [profile.displayName, profile.employeeName, user.displayName]
+        .find(name => typeof name === 'string' && name.trim())?.trim() || '사용자';
+      document.getElementById('userAvatar').textContent = userName.charAt(0).toUpperCase();
+      document.getElementById('userIdDisplay').textContent = userName;
       const hour = new Date().getHours();
       const greeting = hour < 12 ? '좋은 아침입니다' : hour < 18 ? '안녕하세요' : '수고하셨습니다';
-      document.getElementById('greetingText').textContent = `${greeting}, ${emailId}님 👋`;
+      document.getElementById('greetingText').textContent = `${greeting}, ${userName}님 👋`;
       document.getElementById('loadingScreen').classList.add('hidden');
       document.getElementById('mainContent').classList.remove('auth-hidden');
     });

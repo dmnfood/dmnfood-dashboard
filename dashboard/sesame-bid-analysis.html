@@ -319,6 +319,31 @@
       color: var(--t0);
     }
 
+    .return-options {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      min-height: 38px;
+    }
+
+    .return-options label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin: 0;
+      font-size: 13px;
+      color: var(--t0);
+      cursor: pointer;
+    }
+
+    .return-options input {
+      width: 16px;
+      height: 16px;
+      margin: 0;
+      padding: 0;
+      accent-color: #4ade80;
+    }
+
     .field select:focus,
     .field input:focus {
       outline: 1px solid rgba(34,211,238,.3);
@@ -525,8 +550,11 @@
               <select id="fRegion"></select>
             </div>
             <div class="field full">
-              <label for="q">검색</label>
-              <input id="q" type="text" placeholder="입찰명 또는 항목 검색" />
+              <label id="returnedGoodsLabel">반송품 포함 여부</label>
+              <div class="return-options" role="radiogroup" aria-labelledby="returnedGoodsLabel">
+                <label for="includeReturned"><input id="includeReturned" name="returnedGoods" type="radio" value="yes" />여 (포함)</label>
+                <label for="excludeReturned"><input id="excludeReturned" name="returnedGoods" type="radio" value="no" checked />부 (제외)</label>
+              </div>
             </div>
           </div>
         </section>
@@ -782,7 +810,7 @@
       const hasRows = state.filteredRows.length > 0;
       $('tableInfo').textContent = hasRows ? `${fmt(state.filteredRows.length)}건 표시` : '0건 표시';
       if (!hasRows) {
-        tbody.innerHTML = '<tr><td colspan="11" class="empty-state">HAR 파일을 업로드하면 입찰 결과가 여기 표시됩니다.</td></tr>';
+        tbody.innerHTML = `<tr><td colspan="11" class="empty-state">${state.rawRows.length ? '선택한 조건에 해당하는 입찰 결과가 없습니다.' : '자동 가져오기 또는 HAR 파일 업로드로 입찰 결과를 불러오세요.'}</td></tr>`;
         return;
       }
       tbody.innerHTML = state.filteredRows.map((row) => `
@@ -888,7 +916,7 @@
     }
 
     function applyFilters() {
-      const query = $('q').value.trim().toLowerCase();
+      const includeReturned = $('includeReturned').checked;
       const selectedDate = $('fDate').value;
       const selectedOrigin = $('fOrigin').value;
       const selectedGrade = $('fGrade').value;
@@ -901,8 +929,8 @@
         const matchesGrade = !selectedGrade || row.grade === selectedGrade;
         const matchesPack = !selectedPack || row.pack === selectedPack;
         const matchesRegion = !selectedRegion || row.region === selectedRegion;
-        const matchesQuery = !query || [row.title, row.item, row.origin, row.grade, row.pack, row.region].join(' ').toLowerCase().includes(query);
-        return matchesDate && matchesOrigin && matchesGrade && matchesPack && matchesRegion && matchesQuery;
+        const matchesReturned = includeReturned || !/반\s*송\s*품/.test(row.title || '');
+        return matchesDate && matchesOrigin && matchesGrade && matchesPack && matchesRegion && matchesReturned;
       });
 
       render();
@@ -939,7 +967,7 @@
         if (!rows.length) throw new Error('분석 가능한 결과가 없습니다. 기존 분석을 유지합니다.');
         state.rawRows = rows;
         state.filteredRows = rows;
-        ['fDate', 'fOrigin', 'fGrade', 'fPack', 'fRegion', 'q'].forEach(id => { $(id).value = ''; });
+        ['fDate', 'fOrigin', 'fGrade', 'fPack', 'fRegion'].forEach(id => { $(id).value = ''; });
         initFilters();
         applyFilters();
         setStatus('');
@@ -995,8 +1023,12 @@
     });
     dropZone.addEventListener('drop', (event) => handleFile(event.dataTransfer.files[0]));
 
-    ['fDate', 'fOrigin', 'fGrade', 'fPack', 'fRegion', 'q'].forEach((id) => {
+    ['fDate', 'fOrigin', 'fGrade', 'fPack', 'fRegion'].forEach((id) => {
       $(id).addEventListener('input', applyFilters);
+      $(id).addEventListener('change', applyFilters);
+    });
+
+    ['includeReturned', 'excludeReturned'].forEach((id) => {
       $(id).addEventListener('change', applyFilters);
     });
 

@@ -1,4 +1,5 @@
 import { CCP_GROUPS, HYGIENE_GROUPS } from '/dashboard/js/haccp-management-definitions.js';
+import { productionSizeLabel } from '/dashboard/js/haccp-production-options.js';
 
 const column = (key, label) => Object.freeze({ key, label });
 
@@ -88,12 +89,6 @@ const failureReasonLabel = reasons => {
 
 const PRODUCT_LABELS = Object.freeze({ sesame_oil: '참기름', roasted_sesame: '볶음통깨' });
 const SOURCE_LABELS = Object.freeze({ china: '중국산', imported: '수입산', korea: '국산', imported_sesame_powder: '수입깨분' });
-const sizeLabel = (value, unit) => {
-  const numeric = Number(value);
-  if (numeric === 1000) return unit === 'ml' ? '1L' : unit === 'g' ? '1kg' : `${value}${safeText(unit)}`;
-  if (numeric === 1800 && unit === 'ml') return '1.8L';
-  return value === '' || value == null ? '' : `${value}${safeText(unit)}`;
-};
 
 const incomingColumns = Object.freeze([
   column('recordDate', '작성일'), column('itemName', '품명'), column('supplierName', '매입처'),
@@ -208,7 +203,7 @@ export const EXPORT_DEFINITIONS = Object.freeze({
     anomalies: data => Array.isArray(data.items) ? [] : ['items 배열 형식 확인 필요'],
     flattenRecord: (data, documentId) => (Array.isArray(data.items) ? data.items : []).map(item => ({
       recordDate: safeText(data.recordDate), productType: PRODUCT_LABELS[item.productType] || safeText(item.productType),
-      sourceCategory: SOURCE_LABELS[item.sourceCategory] || safeText(item.sourceCategory), size: sizeLabel(item.sizeValue, item.sizeUnit),
+      sourceCategory: SOURCE_LABELS[item.sourceCategory] || safeText(item.sourceCategory), size: productionSizeLabel(item),
       quantity: numberOrBlank(item.quantity), ...metadata(data, documentId),
     })),
   }),

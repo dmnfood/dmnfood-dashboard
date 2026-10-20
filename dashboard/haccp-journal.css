@@ -16,6 +16,8 @@
 .page-card h1 { margin-bottom:4px; color:var(--t0); font-size:20px; font-weight:700; letter-spacing:-.3px; }
 .page-card p { color:var(--t2); font-size:12px; line-height:1.6; }
 .haccp-form-sections { display:grid; gap:16px; }
+.production-page .haccp-form-sections > * { min-width:0; }
+.production-page [hidden] { display:none !important; }
 .panel, .table-card { padding:12px; border:1px solid var(--border); border-radius:12px; background:rgba(255,255,255,.04); }
 .panel-title { margin-bottom:10px; color:var(--t0); font-size:12px; font-weight:700; }
 .field-grid { --form-control-height:42px; display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; }
@@ -29,6 +31,7 @@
 .unit-label { min-width:14px; color:var(--t2); font-size:10px; }
 .choice-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:5px; }
 .choice-grid.two { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.choice-grid.production-size-grid { grid-template-columns:repeat(var(--size-columns),minmax(0,1fr)); }
 .choice-btn { min-height:42px; min-width:0; padding:6px 8px; border:1px solid var(--border); border-radius:6px; background:rgba(255,255,255,.03); color:var(--t1); cursor:pointer; font:inherit; font-size:12px; font-weight:700; }
 .choice-btn:hover { background:rgba(255,255,255,.06); color:var(--t0); }
 .choice-btn.active { border-color:rgba(34,211,238,.28); background:rgba(34,211,238,.18); color:#22d3ee; }

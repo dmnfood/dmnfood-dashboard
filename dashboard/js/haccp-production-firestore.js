@@ -1,65 +1,12 @@
-import { collection, deleteDoc, doc, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { collection, deleteDoc, doc, getDoc, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { db } from '/dashboard/js/firebase-client.js';
+
+import { normalizeProductionItems } from '/dashboard/js/haccp-production-options.js';
+export { PRODUCTION_OPTIONS, productionItemKey, isAllowedProductionItem, normalizeProductionItems, upsertProductionItem } from '/dashboard/js/haccp-production-options.js';
 
 export const PRODUCTION_COLLECTION = 'haccpProductionRecords';
 
-export const PRODUCTION_OPTIONS = Object.freeze({
-  sesame_oil: Object.freeze({
-    label: '참기름',
-    sizeUnit: 'ml',
-    categories: Object.freeze({
-      china: Object.freeze({ label: '중국산', sizes: Object.freeze([250, 350, 1000, 1800]) }),
-      imported: Object.freeze({ label: '수입산', sizes: Object.freeze([180, 270, 350, 1000, 1800]) }),
-      korea: Object.freeze({ label: '국산', sizes: Object.freeze([150, 180, 250, 300, 500, 1000, 1800]) }),
-      imported_sesame_powder: Object.freeze({ label: '수입깨분', sizes: Object.freeze([180, 270, 1000, 1800]) }),
-    }),
-  }),
-  roasted_sesame: Object.freeze({
-    label: '볶음통깨',
-    sizeUnit: 'g',
-    categories: Object.freeze({
-      china: Object.freeze({ label: '중국산', sizes: Object.freeze([120, 1000]) }),
-      imported: Object.freeze({ label: '수입산', sizes: Object.freeze([120, 140, 1000]) }),
-      korea: Object.freeze({ label: '국산', sizes: Object.freeze([80, 130, 1000]) }),
-    }),
-  }),
-});
-
 const timestampToIso = timestamp => timestamp?.toDate ? timestamp.toDate().toISOString() : '';
-
-export const productionItemKey = item => `${item.productType}:${item.sourceCategory}:${item.sizeUnit}:${Number(item.sizeValue)}`;
-
-export function isAllowedProductionItem(item) {
-  const product = PRODUCTION_OPTIONS[item.productType];
-  const category = product?.categories[item.sourceCategory];
-  return Boolean(product && category
-    && item.sizeUnit === product.sizeUnit
-    && category.sizes.includes(Number(item.sizeValue))
-    && Number.isFinite(Number(item.quantity))
-    && Number(item.quantity) >= 0);
-}
-
-export function normalizeProductionItems(items) {
-  return items.map(item => ({
-    productType: item.productType,
-    sourceCategory: item.sourceCategory,
-    sizeValue: Number(item.sizeValue),
-    sizeUnit: item.sizeUnit,
-    quantity: Number(item.quantity),
-  }));
-}
-
-export function upsertProductionItem(currentItems, nextItem, editingKey = '') {
-  const normalized = normalizeProductionItems([nextItem])[0];
-  const nextKey = productionItemKey(normalized);
-  const items = editingKey
-    ? currentItems.filter(item => productionItemKey(item) !== editingKey).map(item => ({ ...item }))
-    : currentItems.map(item => ({ ...item }));
-  const duplicateIndex = items.findIndex(item => productionItemKey(item) === nextKey);
-  if (duplicateIndex >= 0) items[duplicateIndex] = normalized;
-  else items.push(normalized);
-  return { items, replacedExisting: duplicateIndex >= 0 };
-}
 
 export function mapProductionRecord(snapshot) {
   const data = snapshot.data();
@@ -78,6 +25,11 @@ export function subscribeToProductionRecords(onRecords, onError) {
     snapshot => onRecords(snapshot.docs.map(mapProductionRecord)),
     onError,
   );
+}
+
+export async function getProductionRecordByDate(date) {
+  const snapshot = await getDoc(doc(db, PRODUCTION_COLLECTION, date));
+  return snapshot.exists() ? mapProductionRecord(snapshot) : null;
 }
 
 export async function saveProductionRecord(values, user, existingRecord = null) {

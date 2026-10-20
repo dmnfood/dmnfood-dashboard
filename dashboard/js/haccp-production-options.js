@@ -3,7 +3,7 @@ export const PRODUCTION_OPTIONS = Object.freeze({
     label: '참기름',
     sizeUnit: 'ml',
     categories: Object.freeze({
-      korea: Object.freeze({ label: '국산', sizes: Object.freeze([150, 180, 250, 300, 500, 1000, 1800]) }),
+      korea: Object.freeze({ label: '국산', sizes: Object.freeze([150, 180, 250, 300, 350, 500, 1000, 1800]) }),
       china: Object.freeze({ label: '중국산', sizes: Object.freeze([180, 250, 350, 1000, 1800]), sizeColumns: 5 }),
       imported: Object.freeze({
         label: '수입산', sizes: Object.freeze([180, 250, 350, 1000, 1800]), sizeColumns: 3,
@@ -18,7 +18,7 @@ export const PRODUCTION_OPTIONS = Object.freeze({
     categories: Object.freeze({
       korea: Object.freeze({ label: '국산', sizes: Object.freeze([65, 80, 130, 1000]) }),
       china: Object.freeze({ label: '중국산', sizes: Object.freeze([120, 1000]) }),
-      imported: Object.freeze({ label: '수입산', sizes: Object.freeze([120, 140, 1000]) }),
+      imported: Object.freeze({ label: '수입산', sizes: Object.freeze([75, 120, 140, 1000]) }),
     }),
   }),
 });

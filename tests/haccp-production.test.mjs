@@ -15,9 +15,9 @@ test('both products present origins in the requested order', () => {
   assert.deepEqual(Object.keys(api.PRODUCTION_OPTIONS.roasted_sesame.categories), ['korea', 'china', 'imported']);
 });
 
-test('new sesame oil choices and grid columns match each origin, keeping Korean sizes', () => {
+test('sesame oil choices and grid columns match each origin, including Korean 350ml', () => {
   const expected = {
-    korea: ['150ml', '180ml', '250ml', '300ml', '500ml', '1L', '1.8L'],
+    korea: ['150ml', '180ml', '250ml', '300ml', '350ml', '500ml', '1L', '1.8L'],
     china: ['180ml', '250ml', '350ml', '1L', '1.8L'],
     imported: ['180ml', '250ml(사각병)', '250ml(원형병)', '350ml', '1L', '1.8L'],
     imported_sesame_powder: ['180ml', '250ml', '1L', '1.8L'],
@@ -32,10 +32,15 @@ test('new sesame oil choices and grid columns match each origin, keeping Korean 
   assert.equal(api.PRODUCTION_OPTIONS.sesame_oil.categories.imported_sesame_powder.sizeColumns, 4);
 });
 
-test('Korean roasted sesame adds 65g and retains all previous sizes', () => {
-  const choices = api.productionSizeOptions('roasted_sesame', 'korea');
-  assert.deepEqual(plain(choices.map(api.productionSizeLabel)), ['65g', '80g', '130g', '1kg']);
-  assert.ok(choices.every(choice => api.isAllowedProductionItem({ ...choice, quantity: 0 })));
+test('roasted sesame includes Korean 65g and imported 75g while retaining previous sizes', () => {
+  for (const [category, labels] of [
+    ['korea', ['65g', '80g', '130g', '1kg']],
+    ['imported', ['75g', '120g', '140g', '1kg']],
+  ]) {
+    const choices = api.productionSizeOptions('roasted_sesame', category);
+    assert.deepEqual(plain(choices.map(api.productionSizeLabel)), labels);
+    assert.ok(choices.every(choice => api.isAllowedProductionItem({ ...choice, quantity: 0 })));
+  }
 });
 
 test('square and round 250ml bottles remain distinct through add, replace and normalize', () => {

@@ -1,6 +1,6 @@
 .mail-workbook { min-width: 0; color: var(--t0, #e5e7eb); font-size: 12px; }
-.mail-workbook-title { margin: 0 0 8px; font-size: 14px; line-height: 1.6; }
 .mail-workbook-note, .mail-workbook-cell-detail { margin: 7px 0 12px; color: var(--t1, #b4bdcc); line-height: 1.7; overflow-wrap: anywhere; white-space: pre-wrap; }
+.mail-workbook-cell-detail:empty { display: none; }
 .mail-workbook-warning { padding: 10px 12px; margin: 8px 0; border: 1px solid rgba(251, 191, 36, .25); border-radius: 8px; background: rgba(251, 191, 36, .07); color: var(--ac, #fbbf24); line-height: 1.7; overflow-wrap: anywhere; }
 .mail-workbook-controls { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px; padding: 12px 0; }
 .mail-workbook-field { display: grid; gap: 6px; min-width: 0; max-width: 100%; color: var(--t1, #b4bdcc); }
@@ -11,6 +11,7 @@
 .mail-workbook-button:hover:not(:disabled) { border-color: var(--brand-a, #22d3ee); }
 .mail-workbook-button:disabled, .mail-workbook-select:disabled { opacity: .45; cursor: default; }
 .mail-workbook-nav { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.mail-workbook-nav[hidden] { display: none; }
 .mail-workbook-page { color: var(--t1, #b4bdcc); white-space: nowrap; }
 .mail-workbook-status { margin: 2px 0 10px; color: var(--t1, #b4bdcc); line-height: 1.7; }
 .mail-workbook-status[data-error="true"] { color: var(--ac, #fbbf24); }

@@ -25,10 +25,10 @@ test('inline and expiring large-file sources cannot start archive downloads', ()
 });
 
 test('unsupported types, MIME mismatches, and unverified sizes have visible reasons', () => {
-    assert.match(getMailAttachmentPolicy({ ...ordinary, filename: '발주서.pdf', contentType: 'application/pdf' }).restriction, /Excel/);
+    assert.match(getMailAttachmentPolicy({ ...ordinary, filename: '발주서.pdf', contentType: 'application/pdf' }).restriction, /네이버웍스/);
     assert.match(getMailAttachmentPolicy({ ...ordinary, contentType: 'image/png' }).restriction, /형식이 달라/);
     for (const size of [0, -1, NaN, 1.5, undefined]) assert.match(getMailAttachmentPolicy({ ...ordinary, size }).restriction, /크기/);
-    assert.match(getMailAttachmentPolicy({ ...ordinary, size: 3 * 1024 * 1024 + 1 }).restriction, /3 MB/);
+    assert.match(getMailAttachmentPolicy({ ...ordinary, size: 3 * 1024 * 1024 + 1 }).restriction, /네이버웍스/);
     assert.match(getMailAttachmentPolicy({ ...ordinary, filename: '발주\u0000서.xls' }).restriction, /이름/);
 });
 
@@ -76,7 +76,6 @@ test('source viewer starts in school scope and clears its folder-bound cursor wh
     const app = viewerHarness(url => url.searchParams.get('folderId') === '106' ? scoped('106', [mailSummary('school-first')], 'school-cursor') : scoped(null, [mailSummary('other-history', '0')]));
     await settleUi();
     assert.equal(app.calls[0].path, '/api/naverworks/source?folderId=106');
-    assert.match(app.mount.textContent, /수집할 때 ‘학교급식 발주’ 메일함에서 확인한 자료/);
     app.select().value = 'all'; app.select().fire('change'); await settleUi();
     assert.equal(app.calls.at(-1).path, '/api/naverworks/source');
     assert.match(app.location.search, /mail_scope=all/);

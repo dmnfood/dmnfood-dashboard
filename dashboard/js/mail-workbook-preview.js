@@ -22,22 +22,20 @@ function ensureStyles() {
 
 export async function renderMailWorkbook({ mount, bytes, fileName = '', signal }) {
   if (!mount || typeof mount.replaceChildren !== 'function') throw new Error('Excel을 표시할 위치를 찾을 수 없습니다.');
-  if (!(bytes instanceof Uint8Array) || !bytes.byteLength || bytes.byteLength > MAX_BYTES) throw new Error('Excel 미리보기는 비어 있지 않은 3 MB 이하 파일을 지원합니다. 원본을 내려받아 확인해 주세요.');
+  if (!(bytes instanceof Uint8Array) || !bytes.byteLength || bytes.byteLength > MAX_BYTES) throw new Error('이 파일은 미리보기로 열 수 없습니다. 원본을 내려받아 확인해 주세요.');
   if (signal?.aborted) return () => {};
   ensureStyles();
   const id = `mail-workbook-${++nextInstance}`, root = element('section', 'mail-workbook');
   root.setAttribute('aria-label', 'Excel 읽기 전용 셀 미리보기');
-  const heading = element('h4', 'mail-workbook-title', 'Excel 셀 미리보기 · 원본 파일과 서식이 다를 수 있음');
-  const originalNote = element('p', 'mail-workbook-note', '읽기 전용입니다. 긴 글은 오른쪽 빈 셀 위로 이어 표시합니다. ‘…’ 표시가 있으면 셀을 눌러 원문 전체를 확인하세요. 수식은 저장된 계산값을 표시하며 매크로·외부 링크는 실행하지 않습니다.');
-  const status = element('p', 'mail-workbook-status', 'Excel 원본의 셀을 읽고 있습니다…'); status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
+  const status = element('p', 'mail-workbook-status', 'Excel을 여는 중…'); status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
   const notices = element('div', 'mail-workbook-notices'), controls = element('div', 'mail-workbook-controls');
   const sheetLabel = element('label', 'mail-workbook-field', '시트 선택'); sheetLabel.htmlFor = `${id}-sheet`;
   const sheetPicker = element('select', 'mail-workbook-select'); sheetPicker.id = sheetLabel.htmlFor; sheetPicker.disabled = true; sheetLabel.append(sheetPicker);
-  const nav = element('div', 'mail-workbook-nav'), columnNav = element('div', 'mail-workbook-nav');
+  const nav = element('div', 'mail-workbook-nav'), columnNav = element('div', 'mail-workbook-nav'); nav.hidden = true; columnNav.hidden = true;
   const pageLabel = element('span', 'mail-workbook-page'), columnLabel = element('span', 'mail-workbook-page');
   const region = element('div', 'mail-workbook-grid-region'); region.tabIndex = 0; region.setAttribute('aria-label', 'Excel 셀 표. 가로와 세로로 스크롤할 수 있습니다.');
-  const detail = element('p', 'mail-workbook-cell-detail', '셀을 누르면 주소와 수식·표시 형식을 확인할 수 있습니다.'); detail.setAttribute('role', 'status');
-  root.append(heading, originalNote, notices, controls, status, region, detail); controls.append(sheetLabel, nav, columnNav); mount.replaceChildren(root);
+  const detail = element('p', 'mail-workbook-cell-detail'); detail.setAttribute('role', 'status');
+  root.append(notices, controls, status, region, detail); controls.append(sheetLabel, nav, columnNav); mount.replaceChildren(root);
   let disposed = false, worker, layoutFrame = 0, requestId = 0, pageRevision = 0, sheetIndex = 0, rowPage = 0, columnPage = 0, currentPage, metadata;
   const pending = new Map();
   function cleanup() {
@@ -81,7 +79,7 @@ export async function renderMailWorkbook({ mount, bytes, fileName = '', signal }
     table.style.width = `${48 + page.columns.reduce((sum, col) => sum + col.width, 0)}px`;
     const colgroup = element('colgroup'), rowNumberCol = element('col'); rowNumberCol.style.width = '48px'; colgroup.append(rowNumberCol);
     for (const column of page.columns) { const col = element('col'); col.style.width = `${column.width}px`; colgroup.append(col); }
-    const caption = element('caption', 'mail-workbook-caption', `${page.info.name} · 원본 행·열 번호 기준`); table.append(caption);
+    const caption = element('caption', 'mail-workbook-caption', page.info.name); table.append(caption);
     table.append(colgroup);
     const head = element('thead'), header = element('tr'), corner = element('th', 'mail-workbook-corner', '행'); corner.scope = 'col'; header.append(corner);
     for (const col of page.columns) {
@@ -134,20 +132,21 @@ export async function renderMailWorkbook({ mount, bytes, fileName = '', signal }
   }
   async function loadPage() {
     const revision = ++pageRevision;
-    setBusy(true); status.textContent = '선택한 셀 구간을 읽고 있습니다…';
+    setBusy(true); status.textContent = 'Excel을 여는 중…';
     try {
       const page = await request('page', { sheetIndex, page: rowPage, columnPage });
       if (disposed || revision !== pageRevision) return;
       currentPage = page; rowPage = page.page; columnPage = page.columnPage;
       if (page.info.range) {
         fillTable(page);
-        status.textContent = `전체 ${page.info.rows.toLocaleString('ko-KR')}행 × ${page.info.columns.toLocaleString('ko-KR')}열 중 원본 ${page.startRow + 1}–${page.endRow + 1}행 · ${page.columns[0].label}–${page.columns.at(-1).label}열 표시. 나머지는 행·열 구간을 이동해 확인하세요.`;
+        const partial = page.pageCount > 1 || page.columnPageCount > 1;
+        status.textContent = `${page.startRow + 1}–${page.endRow + 1}행 · ${page.columns[0].label}–${page.columns.at(-1).label}열${partial ? ` · 전체 ${page.info.rows.toLocaleString('ko-KR')}행·${page.info.columns.toLocaleString('ko-KR')}열` : ''}`;
       } else { region.replaceChildren(element('p', 'mail-workbook-note', '이 시트에는 표시할 셀이 없습니다.')); status.textContent = '빈 시트입니다.'; }
       pageLabel.textContent = `행 ${page.page + 1} / ${page.pageCount}`; columnLabel.textContent = `열 ${page.columnPage + 1} / ${page.columnPageCount}`;
-      detail.textContent = '셀을 누르면 주소와 수식·표시 형식을 확인할 수 있습니다.';
+      detail.textContent = '';
       setBusy(false); previous.disabled = page.page === 0; next.disabled = page.page + 1 >= page.pageCount;
       previousColumns.disabled = page.columnPage === 0; nextColumns.disabled = page.columnPage + 1 >= page.columnPageCount;
-      columnNav.hidden = page.columnPageCount <= 1;
+      nav.hidden = page.pageCount <= 1; columnNav.hidden = page.columnPageCount <= 1;
     } catch (error) {
       if (disposed || revision !== pageRevision) return;
       status.textContent = error.message; status.dataset.error = 'true'; region.replaceChildren(); setBusy(true);
@@ -174,14 +173,11 @@ export async function renderMailWorkbook({ mount, bytes, fileName = '', signal }
     const copy = bytes.slice();
     metadata = await request('open', { bytes: copy, fileName }, [copy.buffer]);
     if (disposed) return cleanup;
-    if (metadata.format.warning) warn(metadata.format.warning);
     const hidden = metadata.sheets.filter(sheet => sheet.hidden);
-    if (hidden.length) warn(`원본에 숨김 시트 ${hidden.length}개가 있습니다. 시트 선택 목록에서 열어 확인할 수 있습니다.`);
+    if (hidden.length) warn(`숨김 시트 ${hidden.length}개 · 시트 목록에서 확인`);
     const hiddenRows = metadata.sheets.reduce((sum, sheet) => sum + sheet.hiddenRows, 0), hiddenCols = metadata.sheets.reduce((sum, sheet) => sum + sheet.hiddenColumns, 0);
-    if (hiddenRows || hiddenCols) warn(`원본 숨김 행 ${hiddenRows}개 · 숨김 열 ${hiddenCols}개도 미리보기에 표시하고 ‘원본 숨김’으로 구분합니다.`);
-    if (metadata.formulaCount) warn(`수식 셀 ${metadata.formulaCount}개: 저장된 계산값은 오래되었을 수 있습니다. 계산값이 없는 셀은 수량으로 확정하지 마세요.`);
-    if (metadata.hasMacros) warn('원본에 매크로가 포함되어 있습니다. 미리보기에서는 실행하지 않습니다.');
-    if (metadata.linkCount) warn(`원본에 링크 ${metadata.linkCount}개가 있습니다. 미리보기에서는 열지 않습니다.`);
+    if (hiddenRows || hiddenCols) warn(`숨김 행 ${hiddenRows}개 · 숨김 열 ${hiddenCols}개 포함`);
+    if (metadata.formulaCount) warn(`수식 ${metadata.formulaCount}개 · 계산값이 최신인지 확인해 주세요.`);
     for (const sheet of metadata.sheets) {
       const option = element('option', '', `${sheet.name}${sheet.hidden ? sheet.hidden === 2 ? ' · 매우 숨김' : ' · 숨김' : ''}`);
       option.value = String(sheet.index); sheetPicker.append(option);

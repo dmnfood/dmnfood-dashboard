@@ -30,7 +30,7 @@ function errorText(error) {
   if (error?.status === 401) return '로그인 시간이 만료되었습니다. 다시 로그인한 뒤 원문을 열어 주세요.';
   if (error?.status === 403) return '메일 원문은 승인된 관리자·매니저 계정으로 열 수 있습니다.';
   if (error?.status === 404) return '보관된 원문이나 첨부파일을 찾을 수 없습니다. 목록을 새로 불러와 주세요.';
-  if (error?.status === 413 || error?.code === 'mail_attachment_too_large') return '이 첨부파일은 웹 열람 크기 한도를 초과합니다. 네이버웍스에서 원본을 확인해 주세요.';
+  if (error?.status === 413 || error?.code === 'mail_attachment_too_large') return '이 파일은 네이버웍스에서 열어 주세요.';
   if (error?.status === 422) return '이 첨부파일은 현재 웹 열람을 지원하지 않거나 원문 정보를 확인할 수 없습니다. 네이버웍스에서 확인해 주세요.';
   if (['mail_attachment_changed', 'MAIL_ATTACHMENT_CHANGED'].includes(error?.code)) return '첨부파일의 원본 정보가 일치하지 않아 열람을 중단했습니다. 네이버웍스 원문에서 확인해 주세요.';
   if (['naverworks_reconnect_required', 'mail_connection_required'].includes(error?.code)) return '첨부파일을 가져오려면 관리자가 네이버웍스 연결을 다시 확인해야 합니다.';
@@ -51,10 +51,10 @@ function attachmentInfo(value, index) {
 function attachmentRestriction(info) {
   if (info.inline || info.bigFile || !/^[1-9][0-9]{0,18}$/.test(info.id)) return '본문 이미지·대용량 링크 첨부는 네이버웍스 원문에서 확인해 주세요.';
   const extension = info.fileName.toLowerCase().match(/\.(xlsx|xls|csv)$/)?.[1];
-  if (!extension) return '현재 Excel(.xlsx, .xls)과 CSV만 웹 열람·보관을 지원합니다.';
+  if (!extension) return '이 파일은 네이버웍스에서 열어 주세요.';
   if (!info.fileName || info.fileName.length > 250 || /[\u0000-\u001f\u007f]/.test(info.fileName)) return '첨부파일 이름을 확인할 수 없습니다. 네이버웍스 원문에서 확인해 주세요.';
   if (!Number.isSafeInteger(info.size) || info.size < 1) return '원문 첨부파일의 크기를 확인할 수 없습니다. 네이버웍스 원문에서 확인해 주세요.';
-  if (info.size > MAX_ATTACHMENT_BYTES) return '3 MB를 초과하는 파일은 네이버웍스 원문에서 확인해 주세요.';
+  if (info.size > MAX_ATTACHMENT_BYTES) return '이 파일은 네이버웍스에서 열어 주세요.';
   const mimeType = info.mimeType.split(';')[0].trim().toLowerCase();
   const expected = { xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', xls: 'application/vnd.ms-excel', csv: 'text/csv' };
   if (mimeType && !['application/octet-stream', 'binary/octet-stream', expected[extension], ...(extension === 'csv' ? ['text/plain', 'application/vnd.ms-excel'] : [])].includes(mimeType)) return '파일 확장자와 첨부 형식이 달라 별도 확인이 필요합니다.';
@@ -88,7 +88,7 @@ export function initMailSourceViewer(session, mount, options = {}) {
   const scopeSelect = element('select'); scopeSelect.setAttribute('aria-label', '메일 목록 범위');
   for (const [value, name] of [['school', '학교급식 발주'], ['all', '전체 수집 메일']]) { const option = element('option', name); option.value = value; scopeSelect.append(option); }
   scopeSelect.value = listScope; scopeLabel.append(scopeSelect);
-  const scopeNote = element('p', '', 'mail-source-muted'); scopeRow.append(scopeLabel, refresh, scopeNote);
+  scopeRow.append(scopeLabel, refresh);
   scopeSelect.addEventListener('change', () => {
     const scope = scopeSelect.value === 'all' ? 'all' : 'school';
     if (scope === listScope) return;
@@ -126,7 +126,7 @@ export function initMailSourceViewer(session, mount, options = {}) {
   }
   function renderList() {
     scopeSelect.value = listScope;
-    scopeNote.textContent = listScope === 'school' ? '수집할 때 ‘학교급식 발주’ 메일함에서 확인한 자료입니다. 목록 범위를 바꿔도 선택한 자료는 유지됩니다.' : '학교급식 외 자료를 포함한 전체 보관 메일입니다. 목록 범위를 바꿔도 선택한 자료는 유지됩니다.';
+    scopeSelect.title = listScope === 'school' ? '수집 당시 학교급식 발주 메일함에서 확인한 자료' : '전체 보관 메일';
     refresh.disabled = listBusy; more.disabled = listBusy; more.hidden = !nextCursor;
     listSection.setAttribute('aria-busy', String(listBusy)); list.replaceChildren();
     if (!mails.length) list.append(element('p', listBusy ? '수집한 메일을 불러오고 있습니다.' : listError ? '메일 목록 확인이 필요합니다.' : listScope === 'school' ? '아직 수집한 메일이 없습니다. 메일을 가져온 뒤 확인해 주세요.' : '아직 보관된 메일이 없습니다. 메일 수집 후 목록을 새로고침해 주세요.', 'mail-source-empty'));
@@ -172,13 +172,13 @@ export function initMailSourceViewer(session, mount, options = {}) {
       const download = button('원본 다운로드', () => void openAttachment(attachment, preview, true)); download.disabled = Boolean(restriction); actions.append(download);
       row.append(actions); attachmentSection.append(row);
     }
-    attachmentSection.append(element('p', '3 MB 이하의 Excel·CSV 원본을 열 수 있습니다. 품목 연결과 수량 계산은 아직 진행하지 않습니다.', 'mail-source-muted'), preview); detail.append(attachmentSection);
+    attachmentSection.append(preview); detail.append(attachmentSection);
   }
   async function openAttachment(info, preview, downloadOnly) {
     if (attachmentRestriction(info)) return;
     const sourceId = selectedId;
     cleanupAttachment(); const version = attachmentVersion, controller = new AbortController(); attachmentController = controller;
-    preview.replaceChildren(element('p', `${info.fileName} 파일을 가져오고 있습니다.`, 'mail-source-muted')); preview.setAttribute('aria-busy', 'true');
+    preview.replaceChildren(element('p', '파일을 여는 중…', 'mail-source-muted')); preview.setAttribute('aria-busy', 'true');
     try {
       const data = await request(ATTACHMENT_PATH, controller, { intakeId: sourceId, attachmentId: info.id });
       if (disposed || version !== attachmentVersion || sourceId !== selectedId) return;
@@ -189,10 +189,12 @@ export function initMailSourceViewer(session, mount, options = {}) {
       if (digest !== attachment.sha256) throw new Error('Attachment integrity mismatch');
       if (disposed || version !== attachmentVersion || sourceId !== selectedId) return;
       const fileName = String(attachment.fileName || info.fileName);
-      const url = URL.createObjectURL(new Blob([bytes], { type: 'application/octet-stream' })); blobUrls.add(url);
-      const download = element('a', '원본 파일 저장', 'order-button'); download.href = url; download.download = fileName.replace(/[\u0000-\u001f/\\]/g, '_');
-      preview.replaceChildren(element('p', `${fileName} · 원본 파일 확인 완료`, 'mail-source-muted'), download);
-      if (downloadOnly) { download.click(); return; }
+      preview.replaceChildren();
+      if (downloadOnly) {
+        const url = URL.createObjectURL(new Blob([bytes], { type: 'application/octet-stream' })); blobUrls.add(url);
+        const download = element('a'); download.href = url; download.download = fileName.replace(/[\u0000-\u001f/\\]/g, '_'); download.hidden = true;
+        preview.append(download); download.click(); download.remove(); return;
+      }
       const workbookMount = element('div'); preview.append(workbookMount);
       const { renderMailWorkbook } = await import('./mail-workbook-preview.js');
       if (disposed || version !== attachmentVersion || sourceId !== selectedId) return;

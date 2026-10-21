@@ -5,5 +5,10 @@ const profile = Object.freeze({ role: 'manager', approvalStatus: 'approved', isA
 export const auth = { currentUser: user };
 export const db = Object.freeze({ localVerificationOnly: true });
 export const isApprovedActiveProfile = value => value?.approvalStatus === 'approved' && value.isActive === true && ['worker', 'manager', 'admin'].includes(value.role);
-export async function requireApprovedActiveUser() { return { user, profile, role: profile.role }; }
+export async function requireApprovedActiveUser() {
+    const requestedDelay = Number(new URLSearchParams(location.search).get('authDelayMs') || 0);
+    const delayMs = Number.isFinite(requestedDelay) ? Math.min(5000, Math.max(0, requestedDelay)) : 0;
+    if (delayMs) await new Promise(resolve => setTimeout(resolve, delayMs));
+    return { user, profile, role: profile.role };
+}
 export async function logoutToLogin() { location.assign('/home'); }

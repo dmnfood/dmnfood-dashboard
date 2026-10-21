@@ -1,4 +1,4 @@
-import { requireApprovedActiveUser } from './firebase-client.js';
+import { requireApprovedActiveUser, logoutToLogin } from './firebase-client.js';
 import { initOrderNotifications } from './order-notifications.js';
 import { ORDER_CUSTOMER_GROUPS, ORDER_SOURCE_CHANNELS, ORDER_STATUSES, ORDER_DELIVERY_METHODS, ORDER_LIMITS, getApprovalIssues } from './order-request-model.js';
 import { createOrderRequest, subscribeOrderRequests, subscribeOrderRequest, updateOrderRequest, reviewOrderRequest } from './order-request-store.js';
@@ -104,7 +104,7 @@ function updateActions() {
   $('saveOrderDraft').disabled = busy || !dirty || conflicting || !connected();
   $('reloadLatestOrder').hidden = !conflicting && connected();
   $('reloadLatestOrder').disabled = busy;
-  $('orderSaveHint').textContent = conflicting ? '다른 담당자의 변경을 다시 불러오세요.' : dirty ? '변경 내용을 저장하면 다시 확인·승인할 수 있습니다.' : !connected() ? '서버 연결 확인 전에는 저장·승인할 수 없습니다.' : '저장된 내용으로 검토합니다.';
+  $('orderSaveHint').textContent = conflicting ? '다른 담당자의 변경을 다시 불러오세요.' : dirty ? '저장한 뒤 원문과 다시 대조해 확정해 주세요.' : !connected() ? '서버 연결 확인 전에는 저장·확정할 수 없습니다.' : '원문과 저장된 내용을 대조해 확인합니다.';
   updateAddLine();
 }
 
@@ -135,9 +135,9 @@ function renderDetail(order) {
   form.addEventListener('input', markDirty); form.addEventListener('change', markDirty);
   body.append(source, form); detail.append(body);
   for (const line of draft.lines || []) appendLine(line, disabled);
-  const review = element('section', undefined, 'order-review'); review.setAttribute('aria-label', '발주 검토 결정');
+  const review = element('section', undefined, 'order-review'); review.setAttribute('aria-label', '발주 담당자 확인');
   const issues = getApprovalIssues(order);
-  if (issues.length) { const warning = element('div', undefined, 'order-issues'); warning.append(element('strong', '승인 전 확인이 필요합니다')); const list = element('ul'); issues.forEach(issue => list.append(element('li', issue))); warning.append(list); review.append(warning); }
+  if (issues.length) { const warning = element('div', undefined, 'order-issues'); warning.append(element('strong', '확정 전 확인이 필요합니다')); const list = element('ul'); issues.forEach(issue => list.append(element('li', issue))); warning.append(list); review.append(warning); }
   if (['approved', 'rejected'].includes(order.status)) review.append(element('p', `${labelFor(ORDER_STATUSES, order.status)} · ${order.reviewedByName || '담당자'} · ${formatTime(order.reviewedAtIso)}`, 'order-message'));
   if (order.reviewNotes) review.append(element('p', `검토 메모: ${order.reviewNotes}`, 'order-message'));
   const checks = element('div', undefined, 'order-checks');
@@ -145,12 +145,12 @@ function renderDetail(order) {
     const label = element('label', undefined, 'order-check'); const check = element('input'); check.type = 'checkbox'; check.dataset.reviewCheck = name; check.checked = order.status === 'approved' && order.reviewChecks?.[name] === true; check.disabled = !canReview(order) || !connected(order); check.addEventListener('change', updateActions); label.append(check, element('span', text)); checks.append(label);
   }
   review.append(checks);
-  const noteLabel = element('label', '확인 요청·반려 사유 또는 검토 메모', 'order-decision-note'); const note = element('textarea'); note.id = 'orderReviewNote'; note.rows = 2; note.maxLength = 2000; note.disabled = !canReview(order); noteLabel.append(note); review.append(noteLabel);
+  const noteLabel = element('label', '추가 확인·제외 사유 또는 담당자 메모', 'order-decision-note'); const note = element('textarea'); note.id = 'orderReviewNote'; note.rows = 2; note.maxLength = 2000; note.disabled = !canReview(order); noteLabel.append(note); review.append(noteLabel);
   const actions = element('div', undefined, 'order-actions');
-  for (const [id, text, status, className] of [['approveOrder', '확인한 발주 승인', 'approved', 'order-primary'], ['requestOrderInfo', '추가 확인 요청', 'needs_information', ''], ['rejectOrder', '반려', 'rejected', 'order-danger']]) {
+  for (const [id, text, status, className] of [['approveOrder', '원문 대조 완료 · 발주 확정', 'approved', 'order-primary'], ['requestOrderInfo', '추가 확인 필요', 'needs_information', ''], ['rejectOrder', '처리 제외', 'rejected', 'order-danger']]) {
     const button = element('button', text, `order-button ${className}`); button.type = 'button'; button.id = id; button.addEventListener('click', () => { void reviewOrder(status); }); actions.append(button);
   }
-  review.append(actions, element('p', '검토 승인 후에도 ERP 등록·출고는 자동 실행되지 않습니다. 내용을 수정해 저장하면 새 버전으로 다시 승인받습니다.', 'order-muted'));
+  review.append(actions, element('p', '이 확인은 수집·정리된 내용이 원문과 일치하는지 발주 담당자가 확정하는 단계입니다. ERP 등록·출고는 아직 자동 실행되지 않으며, 내용이 바뀌면 다시 대조해야 합니다.', 'order-muted'));
   const reload = element('button', '최신 내용 다시 불러오기', 'order-button'); reload.type = 'button'; reload.id = 'reloadLatestOrder';
   reload.addEventListener('click', () => { if (allowNavigation()) selectOrder(selectedId, { replace: true }); }); review.append(reload);
   detail.append(review); updateActions();
@@ -181,18 +181,18 @@ async function saveDraft() {
   if (busy || !dirty || conflicting || !connected()) return;
   const id = selectedId, revision = currentOrder.revision, expectedUpdatedAtIso = currentOrder.updatedAtIso, draft = collectDraft();
   busy = true; updateActions();
-  try { await updateOrderRequest(id, revision, { draft, expectedUpdatedAtIso }, session); dirty = false; conflicting = false; message('변경 내용을 저장했습니다. 새 버전의 내용을 확인한 뒤 승인해 주세요.'); selectOrder(id, { replace: true }); }
+  try { await updateOrderRequest(id, revision, { draft, expectedUpdatedAtIso }, session); dirty = false; conflicting = false; message('수정 내용을 저장했습니다. 원문과 다시 대조한 뒤 확정해 주세요.'); selectOrder(id, { replace: true }); }
   catch (error) { conflicting = /다른 담당자|최신 내용/.test(errorText(error)); message(errorText(error), true); }
   finally { busy = false; updateActions(); }
 }
 async function reviewOrder(status) {
   if (busy || dirty || conflicting || !connected() || !canReview()) return;
   const reviewNotes = $('orderReviewNote').value.trim();
-  if (status !== 'approved' && !reviewNotes) { message('추가 확인 요청이나 반려에는 사유를 입력해 주세요.', true); $('orderReviewNote').focus(); return; }
+  if (status !== 'approved' && !reviewNotes) { message('추가 확인 또는 처리 제외 사유를 입력해 주세요.', true); $('orderReviewNote').focus(); return; }
   const reviewChecks = Object.fromEntries([...$('orderDetail').querySelectorAll('[data-review-check]')].map(check => [check.dataset.reviewCheck, check.checked]));
   if (status === 'approved' && (getApprovalIssues(currentOrder).length || !Object.values(reviewChecks).every(Boolean))) return;
   busy = true; updateActions();
-  try { await reviewOrderRequest(selectedId, currentOrder.revision, { status, reviewNotes, reviewChecks, expectedStatus: currentOrder.status, expectedUpdatedAtIso: currentOrder.updatedAtIso }, session); message(status === 'approved' ? '이 버전의 발주 검토를 승인했습니다. ERP 등록·출고는 아직 연결되지 않았습니다.' : status === 'needs_information' ? '추가 확인이 필요한 발주로 표시했습니다.' : '발주를 반려했습니다.'); selectOrder(selectedId, { replace: true }); }
+  try { await reviewOrderRequest(selectedId, currentOrder.revision, { status, reviewNotes, reviewChecks, expectedStatus: currentOrder.status, expectedUpdatedAtIso: currentOrder.updatedAtIso }, session); message(status === 'approved' ? '담당자의 원문 대조를 완료하고 이 버전의 발주를 확정했습니다. ERP 등록·출고는 아직 연결되지 않았습니다.' : status === 'needs_information' ? '추가 확인이 필요한 발주로 표시했습니다.' : '처리 대상에서 제외했습니다. 원문과 사유는 보존됩니다.'); selectOrder(selectedId, { replace: true }); }
   catch (error) { conflicting = /다른 담당자|최신 내용/.test(errorText(error)); message(errorText(error), true); }
   finally { busy = false; updateActions(); }
 }
@@ -205,6 +205,8 @@ function testDeliveryDate() {
 function openCreate(isTest = false) {
   if (!allowNavigation()) return;
   const form = $('createOrderForm'); form.reset(); $('createOrderError').hidden = true; originalTestDraft = null;
+  $('createOrderTitle').textContent = isTest ? '가상 발주로 확인 흐름을 테스트하세요' : '수집 누락 건을 수동으로 보완하세요';
+  $('submitCreateOrder').textContent = isTest ? '테스트 발주 만들기' : '보완 등록하고 확인';
   if (isTest) {
     form.elements.customerName.value = '알림 확인용 예시 거래처'; form.elements.customerGroup.value = 'other'; form.elements.sourceChannel.value = 'manual'; form.elements.isTest.checked = true;
     form.elements.sourceText.value = '알림 테스트용 가상 발주입니다. 예시 참기름 180ml 2박스, 지정일에 직접 수령합니다. 실제 출고하지 않습니다.';
@@ -224,15 +226,22 @@ $('createOrderForm').addEventListener('submit', async event => {
   busy = true; $('submitCreateOrder').disabled = true; $('createOrderError').hidden = true;
   try {
     const created = await createOrderRequest({ customerName: data.get('customerName'), customerGroup: data.get('customerGroup'), sourceChannel: data.get('sourceChannel'), sourceReference: data.get('sourceReference'), sourceText: data.get('sourceText'), isTest, draft: originalTestDraft || {} }, session);
-    $('createOrderDialog').close(); $('orderStatusFilter').value = 'pending_review'; message('발주를 등록하고 확인 요청을 보냈습니다. 연결된 사무 관리자의 웹앱에 알림이 표시됩니다.'); selectOrder(created.id);
+    $('createOrderDialog').close(); $('orderStatusFilter').value = 'pending_review'; message(isTest ? '가상 발주를 만들었습니다. 발주 담당자의 원문 대조·확정 흐름을 테스트할 수 있습니다.' : '수동 보완 건을 등록했습니다. 발주 담당자가 원문과 대조해 확정해 주세요.'); selectOrder(created.id);
   } catch (error) { $('createOrderError').textContent = errorText(error); $('createOrderError').hidden = false; }
   finally { busy = false; $('submitCreateOrder').disabled = false; updateActions(); }
 });
 window.addEventListener('beforeunload', event => { if (dirty) { event.preventDefault(); event.returnValue = ''; } });
 window.addEventListener('popstate', () => { if (!allowNavigation()) { const url = new URL(window.location.href); url.searchParams.set('order', selectedId); window.history.pushState({}, '', url.pathname + url.search); return; } selectOrder(new URLSearchParams(location.search).get('order') || '', { replace: true }); });
-window.addEventListener('offline', () => { listConfirmed = false; renderList(); message('인터넷 연결이 끊겼습니다. 서버에 다시 연결된 뒤 저장·승인해 주세요.', true); updateActions(); });
+window.addEventListener('offline', () => { listConfirmed = false; renderList(); message('인터넷 연결이 끊겼습니다. 서버에 다시 연결된 뒤 저장·확정해 주세요.', true); updateActions(); });
 window.addEventListener('online', () => { message('다시 연결 중입니다. 최신 발주 내용을 확인해 주세요.'); if (selectedId && !dirty) selectOrder(selectedId, { replace: true }); });
 window.addEventListener('pagehide', event => { if (!event.persisted) { unsubscribeDetail?.(); unsubscribe.forEach(stop => stop?.()); } });
+$('orderLogoutButton')?.addEventListener('click', async () => {
+  if (busy || !window.confirm(dirty ? '저장하지 않은 변경 내용이 있습니다. 저장하지 않고 로그아웃할까요?' : '로그아웃 하시겠습니까?')) return;
+  const wasDirty = dirty;
+  dirty = false;
+  try { await logoutToLogin({ page: 'orders' }); }
+  catch (error) { dirty = wasDirty; message(errorText(error), true); }
+});
 
 requireApprovedActiveUser().then(approvedSession => {
   if (!approvedSession) return;

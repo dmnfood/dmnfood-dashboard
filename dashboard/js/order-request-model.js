@@ -1,6 +1,6 @@
 export const ORDER_CUSTOMER_GROUPS = Object.freeze({ wedding: '예식장', school: '학교급식', distributor: '유통사', hotel: '호텔', other: '기타' });
 export const ORDER_SOURCE_CHANNELS = Object.freeze({ kakao: '카카오톡', sms: '문자', email: '메일', hotel_erp: '호텔 ERP', manual: '직접 접수' });
-export const ORDER_STATUSES = Object.freeze({ pending_review: '승인 대기', needs_information: '추가 확인', approved: '검토 승인', rejected: '반려' });
+export const ORDER_STATUSES = Object.freeze({ pending_review: '확인 대기', needs_information: '추가 확인', approved: '확인 완료', rejected: '처리 제외' });
 export const ORDER_DELIVERY_METHODS = Object.freeze({ courier: '택배', direct: '직접 배송', pickup: '방문 수령', undetermined: '미확정' });
 export const ORDER_LIMITS = Object.freeze({ lines: 5, sourceText: 20000, sourceReference: 500, customerName: 120, name: 120, phone: 50, address: 500, product: 200, specification: 200, unit: 30, notes: 2000, quantity: 1000000 });
 
@@ -94,7 +94,7 @@ export function buildOrderReview(order, expectedRevision, decision, reviewer) {
     if (!['approved', 'needs_information', 'rejected'].includes(decision?.status)) throw new Error('처리 상태를 확인해 주세요.');
     const reviewNotes = text(decision.reviewNotes);
     if (!validText(reviewNotes, ORDER_LIMITS.notes)) throw new Error('검토 메모는 2,000자 이내로 입력해 주세요.');
-    if (decision.status !== 'approved' && !reviewNotes) throw new Error('보완 또는 반려 사유를 입력해 주세요.');
+    if (decision.status !== 'approved' && !reviewNotes) throw new Error('추가 확인 또는 처리 제외 사유를 입력해 주세요.');
     if (!reviewer?.uid || !reviewer?.name) throw new Error('검토자 계정을 확인해 주세요.');
     const reviewChecks = { identity: decision.reviewChecks?.identity === true, items: decision.reviewChecks?.items === true, delivery: decision.reviewChecks?.delivery === true };
     if (decision.status === 'approved') {

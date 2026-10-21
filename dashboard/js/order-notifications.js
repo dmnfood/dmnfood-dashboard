@@ -82,7 +82,7 @@ export function initOrderNotifications({ user, profile, mount } = {}) {
     inbox.href = '/orders';
     const nativeButton = element('button', 'order-notifications-browser');
     nativeButton.type = 'button';
-    const note = element('p', 'order-notifications-note', '알림을 열어도 발주는 승인되지 않습니다. 브라우저 알림은 웹앱이 열려 있을 때만 받을 수 있습니다.');
+    const note = element('p', 'order-notifications-note', '알림을 여는 것만으로는 확인이 완료되지 않습니다. 브라우저 알림은 웹앱이 열려 있을 때만 받을 수 있습니다.');
     const permissionStatus = element('p', 'order-notifications-permission');
     permissionStatus.setAttribute('role', 'status');
     const retry = element('button', 'order-notifications-retry', '다시 연결');
@@ -128,17 +128,17 @@ export function initOrderNotifications({ user, profile, mount } = {}) {
         trigger.classList.toggle('has-pending', orders.length > 0);
         trigger.classList.toggle('has-error', unknown);
         trigger.setAttribute('aria-label', unknown ? '발주 알림 · 연결 확인 필요 · 현재 대기 건수 미확정'
-            : `발주 알림 · 승인 대기 ${orders.length}건 · 새 알림 ${unseen}건`);
+            : `발주 알림 · 확인 대기 ${orders.length}건 · 새 알림 ${unseen}건`);
         connection.classList.toggle('is-warning', unknown);
         connection.textContent = failed ? '발주 알림 연결에 실패했습니다. 대기 건수는 최신 상태가 아닐 수 있습니다.'
             : !navigator.onLine ? '인터넷 연결이 끊겼습니다. 마지막 확인 내용을 표시합니다.'
                 : !loaded ? '발주를 확인하고 있습니다.'
-                    : fromCache ? '서버 연결 확인 중입니다. 저장된 발주를 표시합니다.' : '실시간 수신 중 · 승인 대기 발주를 표시합니다.';
+                    : fromCache ? '서버 연결 확인 중입니다. 저장된 발주를 표시합니다.' : '실시간 수신 중 · 확인 대기 발주를 표시합니다.';
         retry.hidden = !failed;
-        summary.textContent = unknown ? loaded && orders.length ? `마지막 확인: 승인 대기 ${orders.length}건 · 현재 연결 확인 필요` : '대기 발주 확인 중'
-            : `승인 대기 ${orders.length}건${unseen ? ` · 새 알림 ${unseen}건` : ''}`;
+        summary.textContent = unknown ? loaded && orders.length ? `마지막 확인: 확인 대기 ${orders.length}건 · 현재 연결 확인 필요` : '대기 발주 확인 중'
+            : `확인 대기 ${orders.length}건${unseen ? ` · 새 알림 ${unseen}건` : ''}`;
         const emptyMessage = !loaded ? '연결 후 대기 발주가 표시됩니다.'
-            : unknown ? '대기 발주가 확인되지 않았습니다. 연결 상태를 확인해 주세요.' : '확인·승인을 기다리는 발주가 없습니다.';
+            : unknown ? '대기 발주가 확인되지 않았습니다. 연결 상태를 확인해 주세요.' : '담당자 확인을 기다리는 발주가 없습니다.';
         const nextSignature = JSON.stringify([orders.slice(0, 30), orders.length, orders.length ? '' : emptyMessage]);
         // Metadata-only updates must preserve the keyboard focus inside the list.
         if (nextSignature !== listSignature) {
@@ -153,7 +153,7 @@ export function initOrderNotifications({ user, profile, mount } = {}) {
                 const date = order.receivedAt === null ? '수신 시각 확인 필요'
                     : new Intl.DateTimeFormat('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Seoul' }).format(order.receivedAt);
                 description.textContent = `${channelLabels[order.sourceChannel] || '수신 발주'} · ${date} · ${order.revision}차`;
-                const action = element('span', 'order-notifications-action', '확인·승인 →');
+                const action = element('span', 'order-notifications-action', '원문 대조·확인 →');
                 link.append(customer, description, action);
                 item.append(link);
                 return item;
@@ -189,7 +189,7 @@ export function initOrderNotifications({ user, profile, mount } = {}) {
         toast = element('div', 'order-notifications-toast');
         toast.setAttribute('role', 'status');
         toast.setAttribute('aria-live', 'polite');
-        const message = element('span', '', `새 발주 ${fresh.length}건이 도착했습니다. 확인·승인이 필요합니다.`);
+        const message = element('span', '', `새 발주 ${fresh.length}건이 도착했습니다. 발주 담당자의 원문 대조가 필요합니다.`);
         const action = element('a', '', '발주 확인');
         action.href = fresh.length === 1 ? orderNotificationHref(fresh[0].id) : '/orders';
         const dismiss = element('button', '', '닫기');
@@ -203,7 +203,7 @@ export function initOrderNotifications({ user, profile, mount } = {}) {
         if (nativeEnabled && nativeSupported() && Notification.permission === 'granted' && document.visibilityState === 'hidden') {
             try {
                 const notification = new Notification(`들메내식품 · 새 발주 ${fresh.length}건`, {
-                    body: '웹앱에서 발주 내용을 확인하고 승인해 주세요.',
+                    body: '웹앱에서 원문과 수집 내용을 대조하고 확정해 주세요.',
                     tag: `dmnfood-order:${user.uid}:${fresh[0].id}:${fresh[0].revision}`,
                 });
                 nativeNotices.add(notification);

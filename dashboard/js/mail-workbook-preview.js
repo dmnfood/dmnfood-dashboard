@@ -1,5 +1,5 @@
 /* Read-only, bounded cell preview. Archived original bytes are never changed. */
-import { cellAddress, parseCellAddress, intersects, selectWorkbookRange, selectionFromCorners, selectionSnapshot } from './mail-workbook-selection.js';
+import { cellAddress, parseCellAddress, intersects, selectWorkbookRange, selectionFromCorners, selectionSnapshot, workbookEvidence, evidencePage, evidenceCellState } from './mail-workbook-selection.js';
 const MAX_BYTES = 3 * 1024 * 1024;
 const WORKER_URL = new URL('./mail-workbook-worker.js', import.meta.url);
 const CSS_URL = new URL('../css/mail-workbook-preview.css', import.meta.url);
@@ -36,6 +36,7 @@ export async function renderMailWorkbook({ mount, bytes, fileName = '', signal, 
   const pageLabel = element('span', 'mail-workbook-page'), columnLabel = element('span', 'mail-workbook-page');
   const region = element('div', 'mail-workbook-grid-region'); region.tabIndex = 0; region.setAttribute('aria-label', 'Excel 셀 표. 가로와 세로로 스크롤할 수 있습니다.');
   const detail = element('p', 'mail-workbook-cell-detail'); detail.setAttribute('role', 'status');
+  const evidenceStatus = element('p', 'mail-workbook-evidence-status'); evidenceStatus.setAttribute('role', 'status'); evidenceStatus.setAttribute('aria-live', 'polite');
   const selectionControls = element('div', 'mail-workbook-selection-controls');
   selectionControls.hidden = !(typeof onSelectionChange === 'function' || initialSelection || selectionEnabled);
   const startLabel = element('label', 'mail-workbook-field', '시작 셀'), endLabel = element('label', 'mail-workbook-field', '끝 셀');
@@ -48,13 +49,14 @@ export async function renderMailWorkbook({ mount, bytes, fileName = '', signal, 
   const selectionError = element('p', 'mail-workbook-selection-error'); selectionError.setAttribute('role', 'alert');
   const selectRange = button('범위 표시', () => selectAddresses()), clearRange = button('선택 해제', () => { if (canSelect()) commitSelection(null); });
   selectionControls.append(startLabel, endLabel, selectRange, clearRange, selectionSummary, selectionError);
-  root.append(notices, controls, selectionControls, status, region, detail); controls.append(sheetLabel, nav, columnNav); mount.replaceChildren(root);
+  root.append(notices, controls, selectionControls, evidenceStatus, status, region, detail); controls.append(sheetLabel, nav, columnNav); mount.replaceChildren(root);
   let disposed = false, worker, layoutFrame = 0, requestId = 0, pageRevision = 0, sheetIndex = 0, rowPage = 0, columnPage = 0, currentPage, metadata;
   let selected = null, enabled = Boolean(selectionEnabled), busy = true, selectionRevision = 0, drag = null, touchAnchor = null, keyboardAnchor = null, keyboardFocus = null;
+  let evidence = null, evidenceRevision = 0;
   const selectionInfos = new Map();
   const pending = new Map();
   function cleanup() {
-    if (disposed) return; cancelDrag(); disposed = true; worker?.terminate();
+    if (disposed) return; cancelDrag(); disposed = true; ++evidenceRevision; evidence = null; worker?.terminate();
     if (layoutFrame) cancelAnimationFrame(layoutFrame);
     signal?.removeEventListener('abort', cleanup);
     for (const item of pending.values()) { clearTimeout(item.timeout); item.reject(new Error('Excel 미리보기가 닫혔습니다.')); }
@@ -117,8 +119,25 @@ export async function renderMailWorkbook({ mount, bytes, fileName = '', signal, 
     } else { startInput.value = ''; endInput.value = ''; selectionSummary.textContent = ''; }
     updateSelectionControls();
   }
+  function paintEvidence() {
+    const active = evidence?.sheetIndex === sheetIndex ? evidence : null;
+    for (const td of region.querySelectorAll('td[data-source-row]')) {
+      const state = evidenceCellState(active, {
+        startRow: Number(td.dataset.mergeStartRow ?? td.dataset.sourceRow), endRow: Number(td.dataset.sourceEndRow),
+        startColumn: Number(td.dataset.mergeStartColumn ?? td.dataset.sourceColumn), endColumn: Number(td.dataset.sourceEndColumn),
+      });
+      td.classList.toggle('mail-workbook-evidence-row', state.row);
+      td.classList.toggle('mail-workbook-evidence-quantity', state.quantity);
+      const label = td.dataset.originalLabel;
+      if (label) td.setAttribute('aria-label', `${label}${state.quantity ? ' · 확인할 수량 셀' : state.row ? ' · 분석 근거 행' : ''}`);
+    }
+    for (const tr of region.querySelectorAll('tr[data-source-row]')) tr.classList.toggle('mail-workbook-evidence-row', Boolean(active?.rowIndexes.includes(Number(tr.dataset.sourceRow))));
+    evidenceStatus.textContent = active ? `${active.sheetName} · ${active.rowIndexes.slice(0, 8).map(row => row + 1).join(', ')}행${active.rowIndexes.length > 8 ? ` 외 ${active.rowIndexes.length - 8}행` : ''}${active.quantityCells.length ? ` · 수량 ${active.quantityCells.slice(0, 8).map(cell => cell.address).join(', ')}${active.quantityCells.length > 8 ? '…' : ''}` : ''}` : '';
+  }
+  function clearEvidence() { ++evidenceRevision; evidence = null; paintEvidence(); }
   function selectionEqual(a, b) { return a === b || (Boolean(a) && Boolean(b) && a.sheetIndex === b.sheetIndex && a.range === b.range); }
   function commitSelection(value, previous = selected) {
+    clearEvidence();
     ++selectionRevision;
     if (!value) { keyboardAnchor = null; keyboardFocus = null; touchAnchor = null; }
     selected = value; selectionError.textContent = ''; paintSelection();
@@ -159,7 +178,7 @@ export async function renderMailWorkbook({ mount, bytes, fileName = '', signal, 
   function pointerDown(event) {
     const td = cellNode(event.target);
     if (!td || !canSelect() || event.button !== 0) return;
-    cancelDrag();
+    cancelDrag(); clearEvidence();
     const point = cellPoint(td), anchor = event.shiftKey && keyboardAnchor ? keyboardAnchor : point;
     drag = { pointerId: event.pointerId, pointerType: event.pointerType, anchor, focus: point, before: selected, moved: false };
     selected = selectionFromCorners(anchor, point, metadata.sheets[sheetIndex], { merges: selectionInfos.get(sheetIndex).merges });
@@ -211,6 +230,25 @@ export async function renderMailWorkbook({ mount, bytes, fileName = '', signal, 
   document.addEventListener('pointercancel', pointerCancel, true); window.addEventListener('blur', pointerCancel);
   cleanup.getSelection = () => selectionSnapshot(selected);
   cleanup.getMetadata = () => selectionSnapshot(metadata || null);
+  cleanup.getEvidence = () => selectionSnapshot(disposed ? null : evidence);
+  cleanup.focusEvidence = async value => {
+    if (disposed) return null;
+    clearEvidence();
+    if (value == null) return null;
+    const canonical = workbookEvidence(value, metadata), target = evidencePage(canonical, metadata), revision = evidenceRevision;
+    cancelDrag(); touchAnchor = null;
+    evidence = canonical; sheetIndex = target.sheetIndex; sheetPicker.value = String(sheetIndex);
+    rowPage = target.rowPage; columnPage = target.columnPage;
+    const loaded = await loadPage();
+    if (disposed || revision !== evidenceRevision) return null;
+    if (!loaded || !currentPage || currentPage.info?.index !== sheetIndex) { clearEvidence(); return null; }
+    paintEvidence();
+    const focus = region.querySelector('td.mail-workbook-evidence-quantity') || region.querySelector('td.mail-workbook-evidence-row');
+    focus?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+    return selectionSnapshot(evidence);
+  };
+  cleanup.setHighlightedRows = (rows, options = {}) => cleanup.focusEvidence(rows == null ? null : { sheetIndex: options.sheetIndex ?? sheetIndex, rowIndexes: rows, quantityCells: options.quantityCells ?? [],
+    ...(options.columnIndex === undefined ? {} : { columnIndex: options.columnIndex }) });
   cleanup.setSelectionEnabled = value => {
     cancelDrag(); enabled = Boolean(value); touchAnchor = null;
     if (enabled) {
@@ -220,6 +258,7 @@ export async function renderMailWorkbook({ mount, bytes, fileName = '', signal, 
     updateSelectionControls();
   };
   cleanup.setSelection = async value => {
+    clearEvidence();
     const revision = ++selectionRevision; cancelDrag(); touchAnchor = null; keyboardAnchor = null; keyboardFocus = null;
     if (value == null) { selected = null; paintSelection(); return null; }
     const index = value.sheetIndex ?? sheetIndex, info = metadata?.sheets[index];
@@ -251,7 +290,7 @@ export async function renderMailWorkbook({ mount, bytes, fileName = '', signal, 
     head.append(header); table.append(head);
     const body = element('tbody'), layoutCells = [];
     for (const row of page.rows) {
-      const tr = element('tr'); tr.style.height = `${row.height}px`; if (row.hidden) tr.classList.add('mail-workbook-hidden-source');
+      const tr = element('tr'); tr.dataset.sourceRow = String(row.index); tr.style.height = `${row.height}px`; if (row.hidden) tr.classList.add('mail-workbook-hidden-source');
       const label = element('th', 'mail-workbook-row-number', `${row.label}${row.hidden ? ' · 숨김' : ''}`); label.scope = 'row'; tr.append(label);
       for (let i = 0; i < row.cells.length; i++) {
         const col = page.columns[i], merge = page.merges.find(m => row.index >= m.startRow && row.index <= m.endRow && col.index >= m.startColumn && col.index <= m.endColumn);
@@ -280,6 +319,7 @@ export async function renderMailWorkbook({ mount, bytes, fileName = '', signal, 
         if (cell.formula) td.append(element('span', cell.cached ? 'mail-workbook-formula' : 'mail-workbook-formula mail-workbook-missing-cache', cell.cached ? '수식 저장값' : '계산값 없음'));
         if (merge?.clipped) td.append(element('span', 'mail-workbook-formula', '병합 구간 이어짐'));
         const cellText = `${cell.address}${merge ? ` · 병합 ${merge.address}` : ''}: ${cell.text || '(빈 셀)'}${cell.formula ? ' · 수식 저장값' : ''}`;
+        td.dataset.originalLabel = cellText;
         td.title = cellText; td.tabIndex = 0; td.setAttribute('aria-label', cellText); td.setAttribute('role', 'gridcell');
         td.addEventListener('click', () => showCell(cell, merge));
         td.addEventListener('focus', () => { if (canSelect()) { keyboardAnchor = cellPoint(td); keyboardFocus = cellPoint(td); } });
@@ -291,7 +331,7 @@ export async function renderMailWorkbook({ mount, bytes, fileName = '', signal, 
       }
       body.append(tr);
     }
-    table.append(body); region.replaceChildren(table); region.scrollTop = 0; region.scrollLeft = 0; paintSelection();
+    table.append(body); region.replaceChildren(table); region.scrollTop = 0; region.scrollLeft = 0; paintSelection(); paintEvidence();
     if (layoutFrame) cancelAnimationFrame(layoutFrame);
     layoutFrame = requestAnimationFrame(() => {
       layoutFrame = 0; if (disposed || !table.isConnected) return;
@@ -308,10 +348,11 @@ export async function renderMailWorkbook({ mount, bytes, fileName = '', signal, 
     setBusy(true); status.textContent = 'Excel을 여는 중…';
     try {
       if (!selectionControls.hidden || selected) await getSelectionInfo(sheetIndex);
-      if (disposed || revision !== pageRevision) return;
+      if (disposed || revision !== pageRevision) return false;
       const page = await request('page', { sheetIndex, page: rowPage, columnPage });
-      if (disposed || revision !== pageRevision) return;
+      if (disposed || revision !== pageRevision) return false;
       currentPage = page; rowPage = page.page; columnPage = page.columnPage;
+      delete status.dataset.error;
       if (page.info.range) {
         fillTable(page);
         const partial = page.pageCount > 1 || page.columnPageCount > 1;
@@ -322,9 +363,11 @@ export async function renderMailWorkbook({ mount, bytes, fileName = '', signal, 
       setBusy(false); previous.disabled = page.page === 0; next.disabled = page.page + 1 >= page.pageCount;
       previousColumns.disabled = page.columnPage === 0; nextColumns.disabled = page.columnPage + 1 >= page.columnPageCount;
       nav.hidden = page.pageCount <= 1; columnNav.hidden = page.columnPageCount <= 1;
+      return true;
     } catch (error) {
-      if (disposed || revision !== pageRevision) return;
+      if (disposed || revision !== pageRevision) return false;
       status.textContent = error.message; status.dataset.error = 'true'; region.replaceChildren(); setBusy(true);
+      return false;
     }
   }
   const previous = button('이전 행', () => { rowPage--; void loadPage(); });
@@ -333,6 +376,7 @@ export async function renderMailWorkbook({ mount, bytes, fileName = '', signal, 
   const nextColumns = button('다음 열', () => { columnPage++; void loadPage(); });
   nav.append(previous, pageLabel, next); columnNav.append(previousColumns, columnLabel, nextColumns);
   sheetPicker.addEventListener('change', () => {
+    clearEvidence();
     ++selectionRevision; cancelDrag(); touchAnchor = null; keyboardAnchor = null; keyboardFocus = null;
     commitSelection(null); sheetIndex = Number(sheetPicker.value); rowPage = 0; columnPage = 0; void loadPage();
   });

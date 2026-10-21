@@ -1,6 +1,7 @@
 {
     "functions": {
-        "api/naverworks/*.js": { "maxDuration": 180 }
+        "api/naverworks/*.js": { "maxDuration": 180 },
+        "api/order-ai/*.js": { "maxDuration": 180 }
     },
     "rewrites": [
         { "source": "/orders", "destination": "/dashboard/orders.html" },

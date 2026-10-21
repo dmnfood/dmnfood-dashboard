@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="/dashboard/css/mail-connection.css">
   <link rel="stylesheet" href="/dashboard/css/mail-source-viewer.css">
   <link rel="stylesheet" href="/dashboard/css/mail-workbook-preview.css">
-  <link rel="stylesheet" href="/dashboard/css/mail-preparation.css">
+  <link rel="stylesheet" href="/dashboard/css/order-ai-chat.css">
 </head>
 <body>
   <div class="blobs" aria-hidden="true"><div class="b1"></div><div class="b2"></div></div>
@@ -31,7 +31,7 @@
     </header>
     <main class="order-main">
       <div class="order-page-heading">
-        <div><p class="order-eyebrow">일반 사무</p><h1>발주 확인·승인</h1><p class="order-muted">원본에서 발주 범위를 지정하고, 순서대로 확인합니다.</p></div>
+        <div><p class="order-eyebrow">일반 사무</p><h1>발주 확인·승인</h1><p class="order-muted">도우미가 발주를 분석하면 원본과 대조해 확정하세요.</p></div>
         <div class="order-heading-actions"><div id="erpCustomerSettingsMount"></div><button id="openExistingOrders" class="order-button order-text-button" type="button">등록된 발주</button></div>
       </div>
       <div id="orderAccessDenied" class="order-message order-warning" hidden>발주함은 발주 확인 권한이 있는 관리자·매니저 계정으로 이용할 수 있습니다.</div>
@@ -43,8 +43,8 @@
           <div class="order-workbench-layout">
             <aside class="order-mail-queue" aria-label="메일 목록"><div id="mailQueueMount"><p class="mail-loading">메일 목록을 불러오고 있습니다.</p></div></aside>
             <div class="order-workbench-content">
-              <div id="mailPreparationMount"></div>
-              <section id="mailOriginalPanel" class="order-workbench-panel mail-source-detail" aria-label="선택한 메일의 첨부 원본"><p class="mail-source-empty">왼쪽에서 메일을 선택하세요.</p></section>
+              <section id="mailOriginalPanel" class="order-chat-summary mail-source-detail" aria-label="선택한 메일 정보"><p class="mail-source-empty">왼쪽에서 메일을 선택하세요.</p></section>
+              <section id="orderChatMount" class="order-ai-chat" aria-label="발주 분석 도우미"></section>
 
             </div>
           </div>

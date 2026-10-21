@@ -4,14 +4,18 @@
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { createHash, randomUUID } from 'node:crypto';
+import { createRequire } from 'node:module';
+import { normalizeOrderAiAnalysis, assertOrderAiConfirmation } from '../dashboard/js/order-ai-model.js';
 import {
     assertOrderRevision, buildOrderReview, emptyReviewChecks, normalizeOrderDraft,
     validateOrderDraft, validateOrderInput,
 } from '../dashboard/js/order-request-model.js';
 
 const HOST = '127.0.0.1', PORT = 4175;
+const require = createRequire(import.meta.url);
+const { extractWorkbook } = require('../lib/server/order-ai-extraction.cjs');
 const base = new URL('../', import.meta.url);
-const orders = new Map(), streams = new Set();
+const orders = new Map(), streams = new Set(), orderAiAnalyses = new Map();
 const actor = { uid: 'fictional-local-manager', name: '가상 검증 담당자' };
 const uiFiles = new Set([
     '/dashboard/home.html', '/dashboard/orders.html', '/dashboard/js/orders.js',
@@ -23,6 +27,8 @@ const uiFiles = new Set([
     '/dashboard/js/mail-workbook-model.js', '/dashboard/css/mail-workbook-preview.css',
     '/dashboard/js/mail-workbook-selection.js',
     '/dashboard/js/mail-preparation-ui.js', '/dashboard/js/mail-preparation-model.js', '/dashboard/css/mail-preparation.css',
+    '/dashboard/js/order-ai-client.js', '/dashboard/js/order-ai-chat.js', '/dashboard/js/order-ai-evidence.js',
+    '/dashboard/js/order-ai-model.js', '/dashboard/css/order-ai-chat.css',
     '/dashboard/js/erp-customer-model.js', '/dashboard/js/erp-customer-import.js',
     '/dashboard/js/erp-customer-settings.js', '/dashboard/css/erp-customer-settings.css',
     '/dashboard/vendor/sheetjs/xlsx.full.min.js',
@@ -57,6 +63,44 @@ const mailFixtures = [
 for (const mail of mailFixtures) {
     mail.schemaVersion = 1; mail.account = 'official@dmnfood.co.kr';
     mail.rawStorage = { sha256: createHash('sha256').update(JSON.stringify(mail.raw)).digest('hex') };
+}
+// An intentionally fictional company catalog used only by this loopback server.
+// Register the same 0007 / 가상 급식 거래처 in the local browser settings to review.
+const orderAiCustomers = [{ code: '0007', name: '가상 급식 거래처', revision: 1 }];
+const orderAiBytes = await readFile(new URL('fixtures/mail-workbooks/sample-school-order.xls', import.meta.url));
+const orderAiParsed = await extractWorkbook(orderAiBytes, '가상 학교급식 발주서.xls');
+const orderAiSources = [{ attachmentId: '101', sha256: createHash('sha256').update(orderAiBytes).digest('hex'),
+    fileName: '가상 학교급식 발주서.xls', kind: 'workbook', complete: true, sheets: orderAiParsed.sheets }];
+function orderAiProposal(blocked) {
+    const included = [2, 3, 4, 5, 6], lineIds = new Map();
+    const lines = [...included, ...(blocked ? [7] : [])].map(rowIndex => {
+        const id = `fictional-line-${rowIndex + 1}`; lineIds.set(rowIndex, id);
+        return { id, productId: rowIndex === 7 ? null : [2, 3, 5].includes(rowIndex) ? 'oil-cn-1_8l' : 'oil-kr-1_8l',
+            unit: '병', imageQuantity: null, issues: rowIndex === 7 ? ['들기름은 회사 상품 목록에 없습니다. 처리 여부를 확인해 주세요.'] : [],
+            source: { attachmentId: '101', sheetIndex: 0, rowIndex, productCells: [`C${rowIndex + 1}`],
+                quantityCell: `D${rowIndex + 1}`, unitCell: `E${rowIndex + 1}`, bbox: null } };
+    });
+    return { assistantMessage: blocked
+        ? '가상 검증: 중국산 참기름 1.8L 6병과 국산 참기름 1.8L 5병을 찾았습니다. 들기름 2병은 회사 상품 목록에 없어 확인이 필요합니다. 실제 AI 호출이나 ERP 등록은 실행하지 않습니다.'
+        : '가상 검증: 중국산 참기름 1.8L 6병과 국산 참기름 1.8L 5병입니다. 회사 상품 목록에 없는 들기름 2병은 제외했습니다. 실제 AI 호출이나 ERP 등록은 실행하지 않습니다.',
+        questions: blocked ? [{ id: 'fictional-question-1', text: '회사 상품 목록에 없는 들기름 2병을 제외할까요?', lineId: 'fictional-line-8' }] : [],
+        customerCode: '0007', lines,
+        coverage: orderAiSources[0].sheets[0].rows.map(({ rowIndex }) => ({ attachmentId: '101', sheetIndex: 0, rowIndex,
+            disposition: lineIds.has(rowIndex) ? rowIndex === 7 ? 'unresolved' : 'included' : 'excluded',
+            lineIds: lineIds.has(rowIndex) ? [lineIds.get(rowIndex)] : [], reason: rowIndex < 2 ? '제목과 열 제목'
+                : rowIndex === 8 ? '원본 합계이며 중복 합산하지 않음' : rowIndex === 7 ? '회사 상품 목록에 없는 가상 들기름'
+                    : '발주 행의 원본 수량 합산' })) };
+}
+function createOrderAiFixture(input, scenario, old) {
+    if (input.intakeId !== SCHOOL_MAIL_ID) throw new Error('이 가상 메일에는 분석할 발주 첨부가 없습니다.');
+    if (input.expectedRevision !== (old?.revision || 0) || old?.status === 'confirmed') throw new Error('가상 분석의 최신 버전을 다시 불러와 주세요.');
+    if (input.customerCode && input.customerCode !== '0007') throw new Error('가상 검증에서는 거래처 0007만 사용합니다.');
+    const blocked = scenario === 'blocked' && !/제외/.test(input.message || '');
+    const normalized = normalizeOrderAiAnalysis({ id: 'fictional-analysis', intakeId: input.intakeId, revision: (old?.revision || 0) + 1,
+        sourceHash: mailFixtures[0].rawStorage.sha256, sources: orderAiSources, customers: orderAiCustomers, output: orderAiProposal(blocked) });
+    const conversation = [...(old?.conversation || []), ...(input.message ? [{ role: 'user', content: String(input.message) }] : []),
+        { role: 'assistant', content: normalized.assistantMessage }];
+    return { ...normalized, conversation, mode: 'fictional_local_only', updatedAt: new Date().toISOString() };
 }
 const state = () => [...orders.values()].sort((a, b) => b.createdAt.seconds - a.createdAt.seconds);
 const snapshot = () => `data: ${JSON.stringify(state())}\n\n`;
@@ -113,6 +157,33 @@ const server = createServer(async (req, res) => {
         || (req.headers.origin && req.headers.origin !== localOrigin)) return reply(res, 403, { error: 'Loopback verification only.' });
     const url = new URL(req.url, localOrigin);
     try {
+        if (url.pathname.startsWith('/api/order-ai/')) {
+            if (req.headers.authorization !== 'Bearer fictional-local-token-not-a-firebase-credential') return reply(res, 401, { ok: false });
+            const referer = new URL(req.headers.referer || localOrigin), scenario = referer.searchParams.get('orderAiScenario') || 'valid';
+            if (referer.origin !== localOrigin) return reply(res, 403, { ok: false });
+            if (url.pathname.endsWith('/status') && req.method === 'GET') return reply(res, 200, { ok: true,
+                configured: scenario !== 'unconfigured', mode: 'fictional_local_only', message: '로컬 가상 검증이며 실제 OpenAI에 연결하지 않습니다.' });
+            const key = `${scenario}:${url.searchParams.get('intakeId')}`;
+            if (url.pathname.endsWith('/analysis') && req.method === 'GET') return reply(res, 200, { ok: true, analysis: orderAiAnalyses.get(key) || null, mode: 'fictional_local_only' });
+            if (req.method !== 'POST' || req.headers.origin !== localOrigin || !req.headers['content-type']?.startsWith('application/json')) return reply(res, 405, { ok: false });
+            if (scenario === 'unconfigured') return reply(res, 503, { ok: false, message: '가상 AI 연결이 꺼져 있습니다.', mode: 'fictional_local_only' });
+            const input = await readAction(req), writeKey = `${scenario}:${input.intakeId}`, previous = orderAiAnalyses.get(writeKey);
+            if (url.pathname.endsWith('/analysis')) {
+                const analysis = createOrderAiFixture(input, scenario, previous); orderAiAnalyses.set(writeKey, analysis);
+                return reply(res, 200, { ok: true, analysis, mode: 'fictional_local_only' });
+            }
+            if (url.pathname.endsWith('/confirm')) {
+                if (!previous || previous.updatedAt !== input.expectedUpdatedAt) throw new Error('가상 분석의 최신 버전을 다시 대조해 주세요.');
+                assertOrderAiConfirmation(previous, { revision: input.expectedRevision, sourceHash: mailFixtures[0].rawStorage.sha256,
+                    sources: orderAiSources, customers: orderAiCustomers, reviewedGroupIds: input.reviewedGroupIds,
+                    reviewedExclusions: input.reviewedExclusions });
+                const analysis = { ...previous, status: 'confirmed', confirmedRevision: previous.revision,
+                    reviewedGroupIds: [...input.reviewedGroupIds], reviewedExclusions: input.reviewedExclusions === true,
+                    confirmedByUid: actor.uid, confirmedAt: new Date().toISOString() };
+                orderAiAnalyses.set(writeKey, analysis); return reply(res, 200, { ok: true, analysis, mode: 'fictional_local_only' });
+            }
+            return reply(res, 404, { ok: false, message: '가상 분석 경로가 없습니다.' });
+        }
         if (url.pathname === '/api/ecount/login' && req.method === 'POST') {
             if (req.headers.authorization !== 'Bearer fictional-local-token-not-a-firebase-credential') return reply(res, 401, { ok: false });
             return reply(res, 503, { ok: false, hasSession: false, code: 'fictional_local_only', mode: 'fictional_local_only', message: '로컬 가상 검증에서는 실제 Ecount에 연결하지 않습니다.' });

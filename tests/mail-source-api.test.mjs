@@ -96,6 +96,39 @@ test('inline, expiring, unsupported, ambiguous or overlimit attachments never re
     assert.equal(duplicate.calls.length, 0);
 });
 
+test('ordinary PNG and JPEG screenshots keep exact bytes and archive binding with canonical image MIME', async () => {
+    const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a1ioAAAAASUVORK5CYII=', 'base64');
+    // Header/size fixture: the archive gate verifies format; a browser decodes full image data separately.
+    const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 4, 0, 0, 0xff, 0xc0, 0, 11, 8, 0, 1, 0, 1, 1, 1, 0x11, 0, 0xff, 0xda, 0, 2, 0xff, 0xd9]);
+    for (const [fileName, mimeType, bytes] of [['발주 캡처.PNG', 'image/png', png], ['발주 캡처.jpeg', 'image/jpeg', jpeg], ['발주 캡처.jpg', 'application/octet-stream', jpeg]]) {
+        const f = fixture({ bytes, attachment: { filename: fileName, contentType: mimeType } });
+        const result = await f.service.attachment(input());
+        assert.equal(result.attachment.mimeType, fileName.endsWith('PNG') ? 'image/png' : 'image/jpeg');
+        assert.deepEqual(Buffer.from(result.attachment.contentBase64, 'base64'), bytes);
+        assert.equal(result.attachment.sha256, crypto.createHash('sha256').update(bytes).digest('hex'));
+        assert.deepEqual(await f.service.attachment(input()), result); assert.equal(f.calls.length, 1);
+    }
+});
+
+test('image MIME, byte signatures and pixel limits cannot be bypassed by a screenshot filename or cached archive', async () => {
+    const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a1ioAAAAASUVORK5CYII=', 'base64');
+    const huge = Buffer.from(png); huge.writeUInt32BE(10000, 16); huge.writeUInt32BE(10000, 20);
+    const animationControl = Buffer.alloc(20); animationControl.writeUInt32BE(8, 0); animationControl.write('acTL', 4);
+    const animatedPng = Buffer.concat([png.subarray(0, 33), animationControl, png.subarray(33)]);
+    for (const bytes of [Buffer.from('<svg><script>alert(1)</script></svg>'), huge, png.subarray(0, -1), animatedPng]) {
+        const f = fixture({ bytes, attachment: { filename: '발주.png', contentType: 'image/png' } });
+        await assert.rejects(f.service.attachment(input()), { code: 'mail_attachment_format_invalid' }); assert.equal(f.writes.length, 0);
+    }
+    for (const patch of [{ filename: '발주.png', contentType: 'image/jpeg' }, { filename: '발주.svg', contentType: 'image/svg+xml' }, { filename: '발주.gif', contentType: 'image/gif' }, { filename: '발주.jpg', contentType: 'image/jpeg' }]) {
+        const f = fixture({ bytes: png, attachment: patch });
+        await assert.rejects(f.service.attachment(input())); assert.equal(f.writes.length, 0);
+    }
+    const cached = fixture({ bytes: png, attachment: { filename: '발주.png', contentType: 'image/png' } });
+    await cached.service.attachment(input());
+    const archive = cached.archives.get(`${intakeId}/2`); archive.contentBase64 = Buffer.alloc(png.length, 0x61).toString('base64');
+    await assert.rejects(cached.service.attachment(input()), { code: 'mail_attachment_changed' }); assert.equal(cached.calls.length, 1);
+});
+
 test('maximum 3 MiB original fits response budget exactly; one extra byte is refused before download', async () => {
     const bytes = Buffer.alloc(MAX_ATTACHMENT_BYTES, 0x5a), f = fixture({ bytes });
     const result = await f.service.attachment(input());

@@ -50,13 +50,13 @@ function attachmentInfo(value, index) {
 }
 function attachmentRestriction(info) {
   if (info.inline || info.bigFile || !/^[1-9][0-9]{0,18}$/.test(info.id)) return '본문 이미지·대용량 링크 첨부는 네이버웍스 원문에서 확인해 주세요.';
-  const extension = info.fileName.toLowerCase().match(/\.(xlsx|xls|csv)$/)?.[1];
+  const extension = info.fileName.toLowerCase().match(/\.(xlsx|xls|csv|png|jpe?g)$/)?.[1];
   if (!extension) return '이 파일은 네이버웍스에서 열어 주세요.';
   if (!info.fileName || info.fileName.length > 250 || /[\u0000-\u001f\u007f]/.test(info.fileName)) return '첨부파일 이름을 확인할 수 없습니다. 네이버웍스 원문에서 확인해 주세요.';
   if (!Number.isSafeInteger(info.size) || info.size < 1) return '원문 첨부파일의 크기를 확인할 수 없습니다. 네이버웍스 원문에서 확인해 주세요.';
   if (info.size > MAX_ATTACHMENT_BYTES) return '이 파일은 네이버웍스에서 열어 주세요.';
   const mimeType = info.mimeType.split(';')[0].trim().toLowerCase();
-  const expected = { xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', xls: 'application/vnd.ms-excel', csv: 'text/csv' };
+  const expected = { xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', xls: 'application/vnd.ms-excel', csv: 'text/csv', png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg' };
   if (mimeType && !['application/octet-stream', 'binary/octet-stream', expected[extension], ...(extension === 'csv' ? ['text/plain', 'application/vnd.ms-excel'] : [])].includes(mimeType)) return '파일 확장자와 첨부 형식이 달라 별도 확인이 필요합니다.';
   return '';
 }
@@ -133,7 +133,7 @@ export function initMailSourceViewer(session, mount, options = {}) {
     if (!mails.length) list.append(element('p', listBusy ? '수집한 메일을 불러오고 있습니다.' : listError ? '메일 목록 확인이 필요합니다.' : listScope === 'school' ? '아직 수집한 메일이 없습니다. 메일을 가져온 뒤 확인해 주세요.' : '아직 보관된 메일이 없습니다. 메일 수집 후 목록을 새로고침해 주세요.', 'mail-source-empty'));
     for (const mail of mails) {
       const item = element('button', undefined, 'mail-source-item'); item.type = 'button'; item.setAttribute('aria-current', String(mail.id === selectedId));
-      item.append(element('strong', mail.subject || '(제목 없음)'), element('span', sender(mail.from) || '발신자 확인 필요', 'mail-source-sender'), element('span', formatTime(mail.receivedAt), 'mail-source-time'), element('span', '해석 대기', 'mail-source-badge'));
+      item.append(element('strong', mail.subject || '(제목 없음)'), element('span', sender(mail.from) || '발신자 확인 필요', 'mail-source-sender'), element('span', formatTime(mail.receivedAt), 'mail-source-time'), element('span', options.summaryOnly ? '원본 보관' : '해석 대기', 'mail-source-badge'));
       item.addEventListener('click', () => void selectMail(mail.id)); list.append(item);
     }
     feedback.textContent = listError; feedback.hidden = !listError;
@@ -159,8 +159,14 @@ export function initMailSourceViewer(session, mount, options = {}) {
       catch { feedback.textContent = `첨부 원본 확인 주소: ${url.href}`; }
       feedback.hidden = false;
     }); headerActions.append(copy); header.append(headerActions); detail.append(header);
-    const attachmentSection = element('section', undefined, 'mail-source-attachments'); attachmentSection.setAttribute('aria-label', '메일 첨부파일'); attachmentSection.append(element('h4', '첨부 원본'));
     const attachments = (Array.isArray(mail.raw?.attachments) ? mail.raw.attachments : []).map(getMailAttachmentPolicy);
+    if (options.summaryOnly) {
+      const files = element('div', undefined, 'order-chat-files'); files.setAttribute('aria-label', '첨부 원본 목록');
+      for (const attachment of attachments) { const open = button(attachment.fileName, () => options.onPreviewAttachment?.(attachment)); open.disabled = Boolean(attachment.restriction); files.append(open); }
+      if (!attachments.length) files.append(element('span', '첨부파일 없음 · 네이버웍스에서 내용을 확인해 주세요.', 'mail-source-muted'));
+      detail.append(files); return;
+    }
+    const attachmentSection = element('section', undefined, 'mail-source-attachments'); attachmentSection.setAttribute('aria-label', '메일 첨부파일'); attachmentSection.append(element('h4', '첨부 원본'));
     const preview = element('div', undefined, 'mail-source-attachment-preview'); preview.setAttribute('aria-live', 'polite');
     if (!attachments.length) attachmentSection.append(element('p', '첨부파일이 없는 메일입니다. 발주 내용은 네이버웍스에서 확인해 주세요.', 'mail-source-muted'));
     for (const attachment of attachments) {

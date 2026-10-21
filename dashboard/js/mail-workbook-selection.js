@@ -80,3 +80,44 @@ export function selectionFromCorners(anchor, focus, info, selectionInfo) {
   return selectWorkbookRange({ startRow: Math.min(anchor.row, focus.row), endRow: Math.max(anchor.row, focus.row), startColumn: Math.min(anchor.column, focus.column), endColumn: Math.max(anchor.column, focus.column) }, info, selectionInfo);
 }
 export function selectionSnapshot(value) { return copy(value); }
+
+/* AI references remain separate from a user's accepted rectangular selection. */
+export function workbookEvidence(value, metadata) {
+  const info = metadata?.sheets?.[value?.sheetIndex];
+  if (!Number.isInteger(value?.sheetIndex) || !info || info.index !== value.sheetIndex) fail();
+  const source = sourceBounds(info);
+  if (!Array.isArray(value.rowIndexes) || !value.rowIndexes.length || value.rowIndexes.length > 5000) fail();
+  const rows = new Set();
+  for (const row of value.rowIndexes) {
+    if (!integer(row, MAX_ROWS) || row < source.startRow || row > source.endRow || rows.has(row)) fail();
+    rows.add(row);
+  }
+  if (value.columnIndex !== undefined && (!integer(value.columnIndex, MAX_COLUMNS)
+    || value.columnIndex < source.startColumn || value.columnIndex > source.endColumn)) fail();
+  const cells = value.quantityCells ?? [];
+  if (!Array.isArray(cells) || cells.length > 5000) fail();
+  const addresses = new Set(), quantityCells = [];
+  for (const cell of cells) {
+    if (!cell || !rows.has(cell.row) || !integer(cell.column, MAX_COLUMNS)
+      || cell.column < source.startColumn || cell.column > source.endColumn) fail();
+    const address = cellAddress(cell.row, cell.column);
+    if (addresses.has(address)) fail();
+    addresses.add(address); quantityCells.push({ row: cell.row, column: cell.column, address });
+  }
+  quantityCells.sort((a, b) => a.row - b.row || a.column - b.column);
+  return { sheetIndex: info.index, sheetName: info.name, rowIndexes: [...rows].sort((a, b) => a - b), quantityCells,
+    ...(value.columnIndex === undefined ? {} : { columnIndex: value.columnIndex }) };
+}
+export function evidencePage(value, metadata, pageRows = 100, pageColumns = 20) {
+  const evidence = workbookEvidence(value, metadata), source = sourceBounds(metadata.sheets[evidence.sheetIndex]);
+  const row = evidence.quantityCells[0]?.row ?? evidence.rowIndexes[0];
+  const column = evidence.columnIndex ?? evidence.quantityCells[0]?.column ?? source.startColumn;
+  return { sheetIndex: evidence.sheetIndex, rowPage: Math.floor((row - source.startRow) / pageRows), columnPage: Math.floor((column - source.startColumn) / pageColumns) };
+}
+export function evidenceCellState(evidence, cell) {
+  if (!evidence) return { row: false, quantity: false };
+  const row = evidence.rowIndexes.some(index => index >= cell.startRow && index <= cell.endRow);
+  const quantity = evidence.quantityCells.some(item => item.row >= cell.startRow && item.row <= cell.endRow
+    && item.column >= cell.startColumn && item.column <= cell.endColumn);
+  return { row, quantity };
+}

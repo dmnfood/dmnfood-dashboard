@@ -47,6 +47,11 @@
 /* Text may overflow over blank source cells; hit-test the actual underlying cell. */
 .mail-workbook-selecting .mail-workbook-cell-content, .mail-workbook-selecting .mail-workbook-formula, .mail-workbook-selecting .mail-workbook-clipped-note { pointer-events: none; }
 .mail-workbook-grid td.mail-workbook-selected-cell { background-image: linear-gradient(rgba(34, 211, 238, .2), rgba(34, 211, 238, .2)); box-shadow: inset 0 0 0 1px #22d3ee; }
+.mail-workbook-evidence-status { margin: 0 0 9px; color: #c4b5fd; line-height: 1.6; overflow-wrap: anywhere; }
+.mail-workbook-evidence-status:empty { display: none; }
+.mail-workbook-grid td.mail-workbook-evidence-row { background-image: linear-gradient(rgba(139, 92, 246, .2), rgba(139, 92, 246, .2)); }
+.mail-workbook-grid tr.mail-workbook-evidence-row > th { color: #ddd6fe; background: #353050; }
+.mail-workbook-grid td.mail-workbook-evidence-quantity { background-image: linear-gradient(rgba(251, 191, 36, .24), rgba(251, 191, 36, .24)); box-shadow: inset 0 0 0 2px #fbbf24; }
 @media (max-width: 600px) {
   .mail-workbook-controls { align-items: stretch; }
   .mail-workbook-field { flex-basis: 100%; }

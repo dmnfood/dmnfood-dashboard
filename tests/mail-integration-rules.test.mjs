@@ -107,6 +107,20 @@ test('mail rules isolate the collector from employee data, secrets from staff an
     assert.equal((await put(`${path}/attachments/-1`, { ...attachmentRecord, attachmentId: '-1' }, collector)).status, 403);
     assert.equal((await put(`${path}/attachments/3`, { ...attachmentRecord, attachmentId: '3', byteLength: 3145729, sourceSize: 3145729 }, collector)).status, 403);
     assert.equal((await put(`${path}/attachments/3`, { ...attachmentRecord, attachmentId: '3' }, 'manager')).status, 403);
+    // Screenshot archives use the same immutable collector-only path and reader roles.
+    const pngBytes = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a1ioAAAAASUVORK5CYII=', 'base64');
+    const jpegBytes = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 4, 0, 0, 0xff, 0xc0, 0, 11, 8, 0, 1, 0, 1, 1, 1, 0x11, 0, 0xff, 0xda, 0, 2, 0xff, 0xd9]);
+    for (const [attachmentId, mimeType, fileName, bytes] of [['10', 'image/png', '가상 캡처.png', pngBytes], ['11', 'image/jpeg', '가상 캡처.jpg', jpegBytes]]) {
+        const saved = await store.createAttachment(id, attachmentId, { fileName, mimeType, sourceSize: bytes.length }, bytes);
+        assert.equal(saved.contentBase64, bytes.toString('base64')); assert.equal(saved.mimeType, mimeType);
+        const imagePath = `${path}/attachments/${attachmentId}`, imageChunkPath = `${imagePath}/chunks/0000`;
+        for (const uid of ['admin', 'manager', collector]) assert.equal((await get(imagePath, uid)).status, 200);
+        for (const uid of ['', 'worker', 'pending-manager']) assert.equal((await get(imagePath, uid)).status, 403);
+        assert.equal((await put(imagePath, { ...saved, fileName: '변조 이미지.png' }, collector)).status, 403);
+        assert.equal((await put(imageChunkPath, { index: 0, contentBase64: 'dGFtcGVy' }, collector)).status, 403);
+        assert.equal((await remove(imagePath, collector)).status, 403);
+    }
+    for (const mimeType of ['image/svg+xml', 'image/gif', 'text/html']) assert.equal((await put(`${path}/attachments/12`, { ...attachmentRecord, attachmentId: '12', mimeType }, collector)).status, 403);
     const listed = await store.listRawMails();
     assert.ok(listed.mails.some(mail => mail.id === id));
     assert.ok(listed.mails.every(mail => !('raw' in mail)));

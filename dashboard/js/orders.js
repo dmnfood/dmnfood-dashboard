@@ -2,7 +2,8 @@ import { requireApprovedActiveUser, logoutToLogin } from './firebase-client.js';
 import { initOrderNotifications } from './order-notifications.js';
 import { initMailConnection } from './mail-connection.js';
 import { initMailSourceViewer } from './mail-source-viewer.js';
-import { initMailPreparation } from './mail-preparation-ui.js';
+import { initOrderAiChat } from './order-ai-chat.js';
+import { initOrderAiEvidence } from './order-ai-evidence.js';
 import { initErpCustomerSettings } from './erp-customer-settings.js';
 import { ORDER_CUSTOMER_GROUPS, ORDER_SOURCE_CHANNELS, ORDER_STATUSES, ORDER_DELIVERY_METHODS, ORDER_LIMITS, getApprovalIssues } from './order-request-model.js';
 import { createOrderRequest, subscribeOrderRequests, subscribeOrderRequest, updateOrderRequest, reviewOrderRequest } from './order-request-store.js';
@@ -274,16 +275,17 @@ requireApprovedActiveUser().then(approvedSession => {
   $('authLoading').hidden = true; $('ordersApp').hidden = false;
   $('orderUserName').textContent = session.profile.displayName || session.profile.employeeName || '사용자';
   if (!['manager', 'admin'].includes(session.profile.role)) { $('orderAccessDenied').hidden = false; $('orderWorkspace').hidden = true; $('openExistingOrders').hidden = true; $('newOrderButton').hidden = true; $('testOrderButton').hidden = true; return; }
-  preparation = initMailPreparation(session, $('mailPreparationMount'));
+  const evidence = initOrderAiEvidence(session);
+  preparation = initOrderAiChat(session, $('orderChatMount'), { openEvidence: value => evidence.review(value), previewAttachment: value => evidence.preview(value) });
   unsubscribe.push(() => preparation.destroy());
+  unsubscribe.push(() => evidence.destroy());
   unsubscribe.push(initErpCustomerSettings(session, $('erpCustomerSettingsMount')));
   unsubscribe.push(initMailConnection(session, $('mailConnectionMount')));
   unsubscribe.push(initMailSourceViewer(session, $('mailSourceMount'), {
     toolbarMount: $('mailSourceToolbar'), listMount: $('mailQueueMount'), detailMount: $('mailOriginalPanel'),
-    onBeforeSelectMail: () => preparation.canLeave(), onBeforeOpenAttachment: () => preparation.canLeave(),
-    onSelectMail: () => preparation.setMail(null), onMailLoaded: mail => preparation.setMail(mail),
-    onWorkbookClosed: () => preparation.closeWorkbook(), onWorkbookOpened: value => preparation.openWorkbook(value),
-    onSelectionChange: value => preparation.selectionChanged(value),
+    summaryOnly: true, onBeforeSelectMail: () => preparation.canLeave(),
+    onSelectMail: () => { evidence.close(); preparation.setMail(null); }, onMailLoaded: mail => preparation.setMail(mail),
+    onPreviewAttachment: attachment => preparation.previewAttachment(attachment),
   }));
   const notifications = initOrderNotifications({ ...session, mount: $('orderNotificationMount') }); unsubscribe.push(() => notifications?.destroy());
   const requestedId = new URLSearchParams(window.location.search).get('order');

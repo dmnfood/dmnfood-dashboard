@@ -356,6 +356,77 @@
           && data.createdByUid is string && data.createdByName is string
           && data.updatedByUid == request.auth.uid && data.updatedByName is string;
       }
+      // AI is a proposal. These records use the signed-in human's existing authority;
+      // the mail collector and model have no write/approval identity of their own.
+      function validOrderAiRecord(data, intakeId) {
+        return data.keys().hasOnly(['schemaVersion', 'intakeId', 'sourceHash', 'revision', 'status', 'analysis', 'modelOutput', 'groupIds', 'conversation', 'createdByUid', 'updatedByUid', 'createdAt', 'updatedAt', 'reviewedGroupIds', 'reviewedExclusions', 'confirmedRevision', 'confirmedAt', 'confirmedByUid'])
+          && intakeId.matches('^[a-f0-9]{64}$') && data.schemaVersion == 1 && data.intakeId == intakeId
+          && data.sourceHash is string && data.sourceHash.matches('^[a-f0-9]{64}$')
+          && data.sourceHash == get(/databases/$(database)/documents/mailIntakes/$(intakeId)).data.rawStorage.sha256
+          && get(/databases/$(database)/documents/mailIntakes/$(intakeId)).data.account == 'official@dmnfood.co.kr'
+          && data.revision is int && data.revision >= 1 && data.revision <= 10000
+          && data.analysis is map && data.analysis.schemaVersion == 1
+          && data.analysis.id == intakeId && data.analysis.intakeId == intakeId && data.analysis.sourceHash == data.sourceHash
+          && data.analysis.status == 'needs_review' && data.analysis.canConfirm == false
+          && data.analysis.readyForReview is bool && data.analysis.blockers is list && data.analysis.exclusions is list
+          && data.analysis.groups is list && data.analysis.groups.size() <= 1000
+          && data.modelOutput is map && data.groupIds is list && data.groupIds.size() == data.analysis.groups.size()
+          && data.conversation is list && data.conversation.size() >= 2 && data.conversation.size() <= 24
+          && data.reviewedGroupIds is list && data.reviewedExclusions is bool && data.createdByUid is string && data.updatedByUid == request.auth.uid
+          && data.createdAt is timestamp && data.updatedAt == request.time;
+      }
+      function orderAiDraft(data) {
+        return data.status == 'needs_review' && data.analysis.revision == data.revision
+          && data.reviewedGroupIds.size() == 0 && data.reviewedExclusions == false && data.confirmedRevision == null && data.confirmedAt == null && data.confirmedByUid == null;
+      }
+      function orderAiCustomerCurrent(customer) {
+        let master = get(/databases/$(database)/documents/erpCustomers/$(customer.code)).data;
+        return customer is map && customer.code is string && customer.name == master.name && customer.revision == master.revision;
+      }
+      match /orderAiAnalyses/{intakeId} {
+        allow read: if approvedManagerOrAdmin();
+        allow create: if approvedManagerOrAdmin() && validOrderAiRecord(request.resource.data, intakeId)
+          && orderAiDraft(request.resource.data) && request.resource.data.revision == 1
+          && request.resource.data.createdByUid == request.auth.uid && request.resource.data.createdAt == request.time;
+        allow update: if approvedManagerOrAdmin() && resource.data.status == 'needs_review'
+          && validOrderAiRecord(request.resource.data, intakeId)
+          && request.resource.data.revision == resource.data.revision + 1
+          && request.resource.data.sourceHash == resource.data.sourceHash
+          && request.resource.data.createdAt == resource.data.createdAt && request.resource.data.createdByUid == resource.data.createdByUid
+          && getAfter(/databases/$(database)/documents/orderAiAnalyses/$(intakeId)/versions/$(string(resource.data.revision))).data.record == resource.data
+          && getAfter(/databases/$(database)/documents/orderAiAnalyses/$(intakeId)/versions/$(string(resource.data.revision))).data.archivedAt == request.time
+          && getAfter(/databases/$(database)/documents/orderAiAnalyses/$(intakeId)/versions/$(string(resource.data.revision))).data.archivedByUid == request.auth.uid
+          && (orderAiDraft(request.resource.data)
+            || (request.resource.data.status == 'confirmed'
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['revision', 'status', 'reviewedGroupIds', 'reviewedExclusions', 'confirmedRevision', 'confirmedAt', 'confirmedByUid', 'updatedAt', 'updatedByUid'])
+              && resource.data.analysis.readyForReview == true && resource.data.analysis.blockers.size() == 0
+              && resource.data.groupIds.size() > 0 && request.resource.data.reviewedGroupIds == resource.data.groupIds
+              && (resource.data.analysis.exclusions.size() == 0 || request.resource.data.reviewedExclusions == true)
+              && request.resource.data.confirmedRevision == resource.data.revision && request.resource.data.confirmedByUid == request.auth.uid
+              && request.resource.data.confirmedAt == request.time && orderAiCustomerCurrent(resource.data.analysis.customer)));
+        match /versions/{revisionId} {
+          allow read: if approvedManagerOrAdmin();
+          allow create: if approvedManagerOrAdmin()
+            && request.resource.data.keys().hasOnly(['record', 'archivedAt', 'archivedByUid'])
+            && request.resource.data.archivedByUid == request.auth.uid && request.resource.data.archivedAt == request.time
+            && request.resource.data.record == get(/databases/$(database)/documents/orderAiAnalyses/$(intakeId)).data
+            && revisionId == string(request.resource.data.record.revision)
+            && getAfter(/databases/$(database)/documents/orderAiAnalyses/$(intakeId)).data.revision == request.resource.data.record.revision + 1;
+        }
+      }
+      match /orderAiLocks/{intakeId} {
+        function validLock() {
+          return intakeId.matches('^[a-f0-9]{64}$') && request.resource.data.keys().hasOnly(['intakeId', 'owner', 'uid', 'expiresAt'])
+            && request.resource.data.intakeId == intakeId && request.resource.data.uid == request.auth.uid
+            && request.resource.data.owner is string && request.resource.data.owner.size() <= 100
+            && request.resource.data.expiresAt is int && request.resource.data.expiresAt > request.time.toMillis()
+            && request.resource.data.expiresAt <= request.time.toMillis() + 300000;
+        }
+        allow get: if approvedManagerOrAdmin();
+        allow create: if approvedManagerOrAdmin() && validLock();
+        allow update: if approvedManagerOrAdmin() && validLock() && resource.data.expiresAt <= request.time.toMillis();
+        allow delete: if approvedManagerOrAdmin() && resource.data.uid == request.auth.uid;
+      }
       match /erpCustomers/{customerCode} {
         allow read: if approvedManagerOrAdmin();
         allow create: if approvedManagerOrAdmin() && validErpCustomer(request.resource.data, customerCode)
@@ -723,7 +794,7 @@
             && request.resource.data.index is int && request.resource.data.index >= 0 && request.resource.data.index < 33
             && request.resource.data.text is string && request.resource.data.text.size() <= 131072;
         }
-        // Immutable ordinary Excel/CSV bytes archived separately from the original mail snapshot.
+        // Immutable ordinary workbook/screenshot bytes archived separately from the original mail snapshot.
         match /attachments/{attachmentId} {
           allow read: if mailCollector() || approvedManagerOrAdmin();
           allow create: if mailCollector() && attachmentId.matches('^[1-9][0-9]{0,18}$')
@@ -733,7 +804,7 @@
             && request.resource.data.intakeId == intakeId && request.resource.data.attachmentId == attachmentId
             && request.resource.data.collectedByUid == request.auth.uid
             && request.resource.data.fileName is string && request.resource.data.fileName.size() > 0 && request.resource.data.fileName.size() <= 1000
-            && request.resource.data.mimeType in ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel', 'text/csv']
+            && request.resource.data.mimeType in ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel', 'text/csv', 'image/png', 'image/jpeg']
             && request.resource.data.byteLength is int && request.resource.data.byteLength > 0 && request.resource.data.byteLength <= 3145728
             && request.resource.data.sourceSize == request.resource.data.byteLength
             && request.resource.data.sha256 is string && request.resource.data.sha256.matches('^[a-f0-9]{64}$')

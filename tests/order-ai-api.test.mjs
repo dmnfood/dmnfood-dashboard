@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { createHash } from 'node:crypto';
-import { createHandler, createOrderAiService } from '../lib/server/order-ai-service.cjs';
+import { createHandler, createOrderAiService, publicRecord } from '../lib/server/order-ai-service.cjs';
 import { extractWorkbook, extractMailSources, imageDimensions, LIMITS } from '../lib/server/order-ai-extraction.cjs';
 import { createOrderAiStore } from '../lib/server/order-ai-store.cjs';
 import { encodeFields } from '../lib/server/mail-integration-store.cjs';
@@ -43,6 +43,14 @@ test('status and loading analysis never invoke AI or expose a secret', async () 
     const f = fixture(); assert.deepEqual(f.service.configuration(), { configured: true, model: 'test-model' });
     assert.deepEqual(await f.service.read(intakeId), { ok: true, analysis: null }); assert.equal(f.calls.length, 0);
     assert.equal(JSON.stringify(f.service.configuration()).includes('test-key-never-return'), false);
+});
+test('response identifies legacy ERP versus school-roster analyses without changing stored evidence or requiring a selected company', () => {
+    for (const [modelOutput, expected] of [[{ customerCode: null }, 'erp'], [{ customerCode: '0007' }, 'erp'], [{ customerId: null }, 'school_meal'], [{ customerId: companyId }, 'school_meal']]) {
+        const record = { data: { analysis: { revision: 1, customer: null, questions: [{ id: 'question-1', text: '원래 질문', lineId: null }], groups: [{ id: 'group-1', quantity: '5' }] }, modelOutput, revision: 1, status: 'needs_review' } };
+        const before = structuredClone(record), dto = publicRecord(record);
+        assert.equal(dto.customerCatalogSource, expected); assert.deepEqual(dto.questions, before.data.analysis.questions); assert.deepEqual(dto.groups, before.data.analysis.groups);
+        assert.equal(dto.customer, null); assert.deepEqual(record, before); assert.equal('customerCatalogSource' in record.data.analysis, false);
+    }
 });
 test('provider receives strict schema, complete sources, no store or tools and a bounded request', async () => {
     const f = fixture(), result = await f.service.analyze(start, actor), payload = JSON.parse(f.calls[0].init.body);

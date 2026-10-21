@@ -200,3 +200,31 @@ test('loading a confirmed record opens a read-only final summary without another
     const app = harness({ respond: path => path.startsWith('analysis?') ? { ok: true, analysis: { ...draft(), status: 'confirmed' } } : undefined }); await settle(); app.app.setMail(mail('mail-A')); await settle();
     assert.equal(app.stage(), 'final'); assert.equal(app.final().disabled, true); assert.equal(app.button('답변 보내기'), undefined); assert.equal(app.calls.filter(call => call.options.body).length, 0); assert.match(app.mount.textContent, /원본 대조와 확정 기록을 저장/); app.app.destroy();
 });
+
+test('an old ERP-based draft replaces obsolete setup requests with an explicit uncharged migration action', async () => {
+    const old = { ...draft('mail-A', 7), customerCatalogSource: 'erp', assistantMessage: 'ERP 거래처 코드를 먼저 등록해 주세요.',
+        questions: [{ text: 'ERP 거래처 코드와 거래처명을 알려주세요.' }], blockers: [], readyForReview: true };
+    const app = harness({ respond: (path, options) => path.startsWith('analysis?') ? { ok: true, analysis: old }
+        : path === 'analysis' ? { ok: true, analysis: { ...draft(options.body.intakeId, 8), customerCatalogSource: 'school_meal' } } : undefined });
+    await settle(); app.app.setMail(mail('mail-A')); await settle();
+    assert.equal(app.stage(), 'analysis'); assert.ok(app.button('업체 목록으로 다시 분석'));
+    assert.equal(app.calls.filter(call => call.path === 'analysis').length, 0, 'loading an old draft must never create an automatic paid analysis');
+    assert.equal(app.nodes(node => node.className === 'order-ai-current-summary' && /ERP 거래처 코드/.test(node.textContent)).length, 0);
+    assert.equal(app.nodes(node => node.className === 'order-ai-pending' && /ERP 거래처 코드/.test(node.textContent)).length, 0);
+    for (const label of ['원본 대조', '최종 확인']) {
+        const step = app.nodes(node => node.tagName === 'BUTTON' && node.className.includes('order-ai-step') && node.textContent.endsWith(label))[0];
+        assert.equal(step.disabled, true); step.fire('click'); assert.equal(app.stage(), 'analysis');
+    }
+    app.button('업체 목록으로 다시 분석').click(); await settle();
+    const requests = app.calls.filter(call => call.path === 'analysis'); assert.equal(requests.length, 1); assert.equal(requests[0].options.body.expectedRevision, 7);
+    assert.equal(Object.hasOwn(requests[0].options.body, 'customerCode'), false);
+    assert.equal(app.stage(), 'analysis'); assert.equal(app.button('업체 목록으로 다시 분석'), undefined); assert.equal(app.button('원본 대조 시작').disabled, false);
+    assert.match(app.mount.textContent, /mail-A 분석 8/); app.app.destroy();
+});
+
+test('confirmed legacy records remain read-only summaries without migration or regeneration', async () => {
+    const app = harness({ respond: path => path.startsWith('analysis?') ? { ok: true, analysis: { ...draft(), customerCatalogSource: 'erp', status: 'confirmed' } } : undefined });
+    await settle(); app.app.setMail(mail('mail-A')); await settle();
+    assert.equal(app.stage(), 'final'); assert.equal(app.final().disabled, true); assert.equal(app.button('업체 목록으로 다시 분석'), undefined);
+    assert.equal(app.calls.filter(call => call.options.body).length, 0); assert.match(app.mount.textContent, /6 병/); app.app.destroy();
+});

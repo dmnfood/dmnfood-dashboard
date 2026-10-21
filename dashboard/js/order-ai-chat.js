@@ -20,7 +20,7 @@ export function initOrderAiChat(session, mount, { openEvidence, previewAttachmen
   mount.replaceChildren(progress, feedback, panel);
   function clearReviews() { reviewEpoch++; reviewed.clear(); if (!confirmed(analysis)) step = 'analysis'; }
   function customerCurrent(value = analysis) { const latest = customers.find(item => customerId(item) === customerId(value?.customer)); return catalogConfirmed && latest && latest.name === value?.customer?.name && latest.revision === value?.customer?.revision; }
-  function reviewReady() { return !!analysis?.readyForReview && !!analysis.groups?.length && !!customerCurrent(); }
+  function reviewReady() { return analysis?.customerCatalogSource !== 'erp' && !!analysis?.readyForReview && !!analysis.groups?.length && !!customerCurrent(); }
   function allReviewed() { return !!analysis?.groups?.length && analysis.groups.every(group => reviewed.has(group.id || group.productId)) && (!analysis.exclusions?.length || reviewed.has('__excluded__')); }
   function changeStep(next) {
     if (busy || loading || !analysis) return;
@@ -77,12 +77,13 @@ export function initOrderAiChat(session, mount, { openEvidence, previewAttachmen
     const groups = analysis.groups || [], exclusions = analysis.exclusions || [];
     if (step === 'analysis') {
       const heading = el('div', null, 'order-ai-stage-heading'); heading.append(el('span', 'STEP 1', 'order-ai-kicker'), el('h2', '분석 내용을 확인하세요'), el('p', `${groups.length}개 상품 · 발주 항목 ${analysis.lines?.length || 0}개`)); panel.append(heading);
-      if (analysis.assistantMessage) panel.append(el('p', analysis.assistantMessage, 'order-ai-current-summary'));
+      const legacy = analysis.customerCatalogSource === 'erp';
+      if (legacy || analysis.assistantMessage) panel.append(el('p', legacy ? '학교급식 주간현황표의 업체 목록으로 다시 분석해 주세요. 기존 상품·수량과 원본을 이어서 확인합니다.' : analysis.assistantMessage, 'order-ai-current-summary'));
       panel.append(renderCustomer(locked));
-      const messages = [...(analysis.questions || []).map(item => typeof item === 'string' ? item : item.text || item.message), ...(analysis.blockers || []).map(item => typeof item === 'string' ? item : item.message || item.reason)].filter(Boolean), pending = [...new Set(messages)];
+      const messages = legacy ? [] : [...(analysis.questions || []).map(item => typeof item === 'string' ? item : item.text || item.message), ...(analysis.blockers || []).map(item => typeof item === 'string' ? item : item.message || item.reason)].filter(Boolean), pending = [...new Set(messages)];
       if (pending.length) { const box = el('div', null, 'order-ai-pending'); box.append(el('strong', '확인할 내용')); const list = el('ul'); for (const text of pending) list.append(el('li', text)); box.append(list); panel.append(box, form); }
       else { const correction = el('details', null, 'order-ai-correction'); correction.append(el('summary', '분석 내용에 수정이 필요해요'), form); panel.append(correction); }
-      const footer = el('div', null, 'order-ai-stage-footer'), next = button('원본 대조 시작', () => changeStep('review'), 'order-primary'); next.disabled = locked || !reviewReady(); const reload = button('저장된 분석 불러오기', () => void loadAnalysis()); reload.disabled = busy || loading; footer.append(reload, next); panel.append(footer);
+      const footer = el('div', null, 'order-ai-stage-footer'), next = button(legacy ? '업체 목록으로 다시 분석' : '원본 대조 시작', () => legacy ? void analyze() : changeStep('review'), 'order-primary'); next.disabled = locked || (legacy ? !catalogConfirmed : !reviewReady()); const reload = button('저장된 분석 불러오기', () => void loadAnalysis()); reload.disabled = busy || loading; footer.append(reload, next); panel.append(footer);
       const records = history(); if (records) panel.append(records);
     } else if (step === 'review') {
       const total = groups.length + (exclusions.length ? 1 : 0), checked = groups.filter(group => reviewed.has(group.id || group.productId)).length + (exclusions.length && reviewed.has('__excluded__') ? 1 : 0);

@@ -1,0 +1,21 @@
+.mail-preparation-steps { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); list-style: none; margin: 0; padding: 18px 22px; border-bottom: 1px solid var(--border); gap: 12px; }
+.mail-preparation-steps li { display: flex; gap: 8px; align-items: center; color: var(--t2); font-size: 12px; position: relative; }
+.mail-preparation-steps li > span { display: grid; place-items: center; width: 24px; height: 24px; flex: 0 0 auto; border: 1px solid var(--border); border-radius: 50%; background: var(--card-w); }
+.mail-preparation-steps li[data-state="current"] { color: var(--brand-a); }
+.mail-preparation-steps li[data-state="current"] > span { background: rgba(34,211,238,.12); border-color: var(--brand-a); }
+.mail-preparation-steps li[data-state="done"] { color: #7dd3ae; }
+.mail-preparation-controls { display: grid; grid-template-columns: minmax(120px,1fr) minmax(180px,1.5fr) auto; gap: 12px; padding: 16px 22px 0; align-items: end; }
+.mail-preparation-controls label { display: grid; gap: 6px; color: var(--t1); font-size: 11px; }
+.mail-preparation-controls input, .mail-preparation-controls select { width: 100%; min-width: 0; background: var(--in-bg); color: var(--t0); border: 1px solid var(--in-br); border-radius: 9px; padding: 9px 10px; font: inherit; font-size: 13px; }
+.mail-preparation-controls option { background: #111b2b; }
+.mail-preparation-controls :focus-visible { outline: 2px solid var(--brand-a); outline-offset: 2px; }
+.mail-preparation-summary { margin: 12px 22px 0; color: var(--t1); font-size: 12px; }
+.mail-preparation-status { margin: 6px 22px 14px; min-height: 16px; color: #7dd3ae; font-size: 12px; }
+.mail-preparation-status[data-error="true"] { color: var(--rv); }
+#mailPreparationMount { flex-shrink: 0; border-bottom: 1px solid var(--border); }
+#mailPreparationMount > button { margin: 0 22px 14px; }
+.order-heading-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.order-existing-dialog { width: min(1100px,calc(100% - 30px)); }
+.order-existing-dialog .order-processing-panel { padding: 0; }
+@media(max-width:900px) { .mail-preparation-controls { grid-template-columns: minmax(0,1fr) minmax(0,1.3fr); } .mail-preparation-controls > button { grid-column: 2; justify-self: end; } }
+@media(max-width:720px) { .mail-preparation-steps { padding: 16px; gap: 8px; } .mail-preparation-steps li { flex-direction: column; align-items: start; font-size: 10px; } .mail-preparation-controls { padding: 14px 16px 0; grid-template-columns: minmax(0,1fr); } .mail-preparation-controls > button { grid-column: auto; } .mail-preparation-controls input,.mail-preparation-controls select { font-size:16px; } .mail-preparation-summary { margin: 12px 16px 0; } .mail-preparation-status { margin: 6px 16px 14px; } }

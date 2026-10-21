@@ -54,7 +54,7 @@ class UiNode {
 }
 function uiNodes(node, predicate) { return [...(predicate(node) ? [node] : []), ...node.children.flatMap(child => uiNodes(child, predicate))]; }
 const settleUi = async () => { await new Promise(resolve => setImmediate(resolve)); await new Promise(resolve => setImmediate(resolve)); };
-function viewerHarness(respond, href = 'https://dashboard.dmnfood.co.kr/orders', { split = false, onSelectMail } = {}) {
+function viewerHarness(respond, href = 'https://dashboard.dmnfood.co.kr/orders', { split = false, onSelectMail, onBeforeSelectMail, onWorkbookClosed, onMailLoaded } = {}) {
     const calls = [], listeners = new Map(), mount = new UiNode('section'), location = { href, get search() { return new URL(this.href).search; } };
     const history = { state: {}, pushState(state, title, path) { location.href = new URL(path, location.href).href; }, replaceState(state, title, path) { location.href = new URL(path, location.href).href; } };
     const context = vm.createContext({ document: { createElement: tag => new UiNode(tag), createTextNode: value => { const node = new UiNode('#text'); node.nodeType = 3; node.textContent = value; return node; } }, Node: UiNode,
@@ -66,7 +66,7 @@ function viewerHarness(respond, href = 'https://dashboard.dmnfood.co.kr/orders',
     const listMount = new UiNode('aside'), detailMount = new UiNode('section'), toolbarMount = new UiNode('div'), staticHeader = new UiNode('h2');
     staticHeader.textContent = '발주함'; detailMount.setAttribute('role', 'tabpanel'); detailMount.setAttribute('aria-labelledby', 'mailOriginalTab');
     if (split) mount.append(staticHeader, toolbarMount, listMount, detailMount);
-    const cleanup = context.startViewer({ user: { getIdToken: async () => 'fictional-ui-token' } }, mount, { ...(split ? { listMount, detailMount, toolbarMount } : {}), onSelectMail });
+    const cleanup = context.startViewer({ user: { getIdToken: async () => 'fictional-ui-token' } }, mount, { ...(split ? { listMount, detailMount, toolbarMount } : {}), onSelectMail, onBeforeSelectMail, onWorkbookClosed, onMailLoaded });
     return { calls, mount, listMount, detailMount, toolbarMount, staticHeader, cleanup, location, listeners, select: () => uiNodes(mount, node => node.tagName === 'SELECT')[0] };
 }
 const scoped = (folderId, mails, nextCursor = null) => ({ ok: true, scope: { folderId }, mails, nextCursor });
@@ -180,5 +180,55 @@ test('deep links and browser history notify selection intent once while invalid 
     assert.equal(selected.length, 2); assert.equal(selected[1].id, 'second-original'); assert.equal(selected[1].history, false);
     app.listeners.get('popstate')(); await settleUi();
     assert.equal(selected.length, 2, 'unchanged selection does not notify again');
+    app.cleanup();
+});
+
+test('cancelled mail history navigation restores the active source URL without fetching or closing its work', async () => {
+    let allowNavigation = true, prompts = 0, closed = 0, loaded = 0;
+    const selected = [];
+    const app = viewerHarness(url => url.searchParams.has('intakeId') ? { ok: true, mail: {
+        ...mailSummary(url.searchParams.get('intakeId')), subject: '현재 범위가 저장된 원본', raw: { mail: {}, attachments: [ordinary] },
+    } } : scoped('106', [mailSummary('active-source'), mailSummary('other-source')]),
+    'https://dashboard.dmnfood.co.kr/orders?order=retained-order&mail=active-source', {
+        split: true, onBeforeSelectMail: () => { prompts++; return allowNavigation; },
+        onSelectMail: value => selected.push(value), onWorkbookClosed: () => closed++, onMailLoaded: () => loaded++,
+    });
+    await settleUi();
+    const before = { requests: app.calls.length, closed, loaded, selected: selected.length, prompts, detail: app.detailMount.children[0], content: app.detailMount.textContent };
+    allowNavigation = false;
+    for (const next of [
+        'https://dashboard.dmnfood.co.kr/orders?order=retained-order&mail=other-source#review',
+        'https://dashboard.dmnfood.co.kr/orders?order=retained-order#review',
+    ]) {
+        app.location.href = next; app.listeners.get('popstate')(); await settleUi();
+        const restored = new URL(app.location.href);
+        assert.equal(restored.searchParams.get('mail'), 'active-source'); assert.equal(restored.searchParams.get('order'), 'retained-order'); assert.equal(restored.hash, '#review');
+        assert.equal(app.calls.length, before.requests); assert.equal(closed, before.closed); assert.equal(loaded, before.loaded); assert.equal(selected.length, before.selected);
+        assert.equal(app.detailMount.children[0], before.detail); assert.equal(app.detailMount.textContent, before.content);
+    }
+    assert.equal(prompts, before.prompts + 2, 'each cancelled attempt asks only once');
+    app.cleanup();
+});
+
+test('allowed history switches ask once and carry the active source lifecycle through other and empty mail IDs', async () => {
+    let prompts = 0, closed = 0;
+    const selected = [], loaded = [];
+    const app = viewerHarness(url => url.searchParams.has('intakeId') ? { ok: true, mail: {
+        ...mailSummary(url.searchParams.get('intakeId')), raw: { mail: {}, attachments: [ordinary] },
+    } } : scoped('106', [mailSummary('first-source'), mailSummary('second-source')]),
+    'https://dashboard.dmnfood.co.kr/orders?mail=first-source', {
+        onBeforeSelectMail: () => { prompts++; return true; }, onSelectMail: value => selected.push(value.id),
+        onWorkbookClosed: () => closed++, onMailLoaded: value => loaded.push(value.id),
+    });
+    await settleUi();
+    const before = { requests: app.calls.length, prompts, closed };
+    app.location.href = 'https://dashboard.dmnfood.co.kr/orders?mail=second-source'; app.listeners.get('popstate')(); await settleUi();
+    assert.equal(prompts, before.prompts + 1, 'selectMail must not prompt again after history guard already allowed it');
+    assert.equal(closed, before.closed + 1); assert.equal(app.calls.length, before.requests + 1); assert.equal(app.calls.at(-1).path, '/api/naverworks/source?intakeId=second-source');
+    assert.deepEqual(selected, ['first-source', 'second-source']); assert.deepEqual(loaded, ['first-source', 'second-source']);
+    app.location.href = 'https://dashboard.dmnfood.co.kr/orders'; app.listeners.get('popstate')(); await settleUi();
+    assert.equal(prompts, before.prompts + 2); assert.equal(closed, before.closed + 2); assert.equal(app.calls.length, before.requests + 1, 'clearing the mail does not fetch another source');
+    assert.deepEqual(selected, ['first-source', 'second-source', '']); assert.match(app.mount.textContent, /왼쪽에서 메일을 선택/);
+    app.listeners.get('popstate')(); await settleUi(); assert.equal(prompts, before.prompts + 2, 'unchanged history does not prompt');
     app.cleanup();
 });

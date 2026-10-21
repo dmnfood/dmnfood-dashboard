@@ -1,0 +1,16 @@
+.erp-customer-dialog{width:min(820px,calc(100vw - 32px));max-height:calc(100dvh - 48px);margin:auto;padding:0;border:1px solid var(--border);border-radius:18px;color:var(--t0);background:var(--bg,#0b1220);box-shadow:0 24px 80px #0006;overflow:auto}
+.erp-customer-dialog::backdrop{background:#030712b3;backdrop-filter:blur(5px)}
+.erp-customer-shell{padding:22px;background:var(--card)}
+.erp-customer-header,.erp-customer-actions{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px}
+.erp-customer-header h2{margin:0;font-size:18px}.erp-customer-shell h3{margin:0 0 12px;font-size:14px}
+.erp-customer-section{padding:20px 0;border-bottom:1px solid var(--border)}.erp-customer-section:last-child{border-bottom:0;padding-bottom:0}
+.erp-customer-form{display:grid;grid-template-columns:minmax(100px,1fr) minmax(160px,2fr) auto;align-items:end;gap:10px}
+.erp-customer-field{display:grid;gap:7px;min-width:0;font-size:12px;color:var(--t1)}
+.erp-customer-input{box-sizing:border-box;width:100%;min-width:0;border:1px solid var(--in-br);border-radius:9px;padding:10px 12px;background:var(--in-bg);color:var(--t0);font:inherit;font-size:13px}
+.erp-customer-note,.erp-customer-feedback{margin:10px 0;color:var(--t1);font-size:12px;line-height:1.7;white-space:pre-line;overflow-wrap:anywhere}
+.erp-customer-feedback[data-error=true]{color:var(--ac)}.erp-customer-feedback:empty{display:none}
+.erp-customer-table-wrap{max-height:260px;overflow:auto;margin-top:12px;border:1px solid var(--border);border-radius:10px}
+.erp-customer-table{width:100%;border-collapse:collapse;font-size:12px;line-height:1.6}.erp-customer-table th,.erp-customer-table td{text-align:left;padding:9px 11px;border-bottom:1px solid var(--border);overflow-wrap:anywhere;max-width:300px}.erp-customer-table th{position:sticky;top:0;background:var(--bg,#0b1220);color:var(--t1)}.erp-customer-table tr:last-child td{border-bottom:0}
+.erp-customer-checkbox{display:flex;align-items:center;gap:8px;margin:12px 0;font-size:12px;color:var(--t0)}.erp-customer-checkbox input{width:18px;height:18px;accent-color:var(--brand-a)}
+.erp-customer-search{max-width:340px;margin:10px 0}.erp-customer-input:focus-visible{outline:2px solid var(--brand-a);outline-offset:2px}
+@media(max-width:640px){.erp-customer-shell{padding:16px}.erp-customer-form{grid-template-columns:1fr}.erp-customer-form .order-button{min-height:44px}.erp-customer-dialog{width:calc(100vw - 24px);max-height:calc(100dvh - 24px)}.erp-customer-input{font-size:16px;min-height:44px}}

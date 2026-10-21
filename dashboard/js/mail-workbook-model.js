@@ -250,7 +250,23 @@
     return { info, rows, columns, merges, page, columnPage, pageCount, columnPageCount,
       startRow, endRow, startColumn, endColumn, displayedCells: rows.length * columns.length };
   }
-  const api = { LIMITS, inputBytes, sniffFormat, inspectZip, verifyInflatedSize, describeWorkbook, sheetPage, displayCell };
+  function selectionInfo(workbook, meta, request, XLSX) {
+    const index = Number(request.sheetIndex), info = meta.sheets[index];
+    if (!Number.isInteger(index) || !info) fail('시트를 찾을 수 없습니다.');
+    const sheet = workbook.Sheets[info.name];
+    if (!sheet || !info.range) return { sheetIndex: index, merges: [], hiddenRows: [], hiddenColumns: [], formulaCells: [] };
+    const merges = (sheet['!merges'] || []).map(merge => ({ startRow: merge.s.r, endRow: merge.e.r, startColumn: merge.s.c, endColumn: merge.e.c }));
+    const hiddenRows = [], hiddenColumns = [], formulaCells = [];
+    for (let row = info.range.s.r; row <= info.range.e.r; row++) if (sheet['!rows']?.[row]?.hidden) hiddenRows.push(row);
+    for (let column = info.range.s.c; column <= info.range.e.c; column++) if (sheet['!cols']?.[column]?.hidden) hiddenColumns.push(column);
+    for (const address of Object.keys(sheet)) {
+      if (address[0] === '!' || !sheet[address]?.f) continue;
+      const cell = sheet[address], position = XLSX.utils.decode_cell(address);
+      formulaCells.push({ row: position.r, column: position.c, cached: cell.v !== undefined && cell.v !== null });
+    }
+    return { sheetIndex: index, merges, hiddenRows, hiddenColumns, formulaCells };
+  }
+  const api = { LIMITS, inputBytes, sniffFormat, inspectZip, verifyInflatedSize, describeWorkbook, sheetPage, displayCell, selectionInfo };
   scope.MailWorkbookModel = api;
   if (typeof module === 'object' && module.exports) module.exports = api;
 })(globalThis);

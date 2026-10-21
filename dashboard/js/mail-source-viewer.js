@@ -113,6 +113,7 @@ export function initMailSourceViewer(session, mount, options = {}) {
   function cleanupAttachment() {
     attachmentVersion += 1; attachmentController?.abort(); attachmentController = null;
     workbookCleanup?.(); workbookCleanup = undefined;
+    options.onWorkbookClosed?.();
     for (const url of blobUrls) URL.revokeObjectURL(url); blobUrls.clear();
   }
   async function request(path, controller, body) {
@@ -176,6 +177,7 @@ export function initMailSourceViewer(session, mount, options = {}) {
   }
   async function openAttachment(info, preview, downloadOnly) {
     if (attachmentRestriction(info)) return;
+    if (options.onBeforeOpenAttachment?.() === false) return;
     const sourceId = selectedId;
     cleanupAttachment(); const version = attachmentVersion, controller = new AbortController(); attachmentController = controller;
     preview.replaceChildren(element('p', '파일을 여는 중…', 'mail-source-muted')); preview.setAttribute('aria-busy', 'true');
@@ -198,14 +200,21 @@ export function initMailSourceViewer(session, mount, options = {}) {
       const workbookMount = element('div'); preview.append(workbookMount);
       const { renderMailWorkbook } = await import('./mail-workbook-preview.js');
       if (disposed || version !== attachmentVersion || sourceId !== selectedId) return;
-      const cleanup = await renderMailWorkbook({ mount: workbookMount, bytes, fileName, signal: controller.signal });
-      if (disposed || version !== attachmentVersion || sourceId !== selectedId) cleanup?.(); else workbookCleanup = cleanup;
+      const cleanup = await renderMailWorkbook({ mount: workbookMount, bytes, fileName, signal: controller.signal,
+        ...(options.onSelectionChange ? { selectionEnabled: false, onSelectionChange: value => {
+          if (!disposed && version === attachmentVersion && sourceId === selectedId) options.onSelectionChange(value);
+        } } : {}) });
+      if (disposed || version !== attachmentVersion || sourceId !== selectedId) cleanup?.(); else {
+        workbookCleanup = cleanup;
+        options.onWorkbookOpened?.({ mail: currentMail, attachment, workbook: cleanup });
+      }
     } catch (error) {
       if (!disposed && version === attachmentVersion && error.name !== 'AbortError') { const warning = element('p', errorText(error), 'mail-source-error'); warning.setAttribute('role', 'alert'); preview.replaceChildren(warning); }
     } finally { if (!disposed && version === attachmentVersion) preview.setAttribute('aria-busy', 'false'); }
   }
-  async function selectMail(id, { history = 'push', scroll = true } = {}) {
-    if (!SOURCE_ID.test(id)) { detailController?.abort(); detailVersion += 1; cleanupAttachment(); selectedId = ''; detailError = '메일 열람 링크가 올바르지 않습니다.'; currentMail = null; detailBusy = false; renderList(); renderDetail(); return; }
+  async function selectMail(id, { history = 'push', scroll = true, checkedNavigation = false } = {}) {
+    if (!checkedNavigation && options.onBeforeSelectMail?.() === false) return;
+    if (!SOURCE_ID.test(id)) { detailController?.abort(); detailVersion += 1; cleanupAttachment(); selectedId = ''; detailError = '메일 열람 링크가 올바르지 않습니다.'; currentMail = null; detailBusy = false; options.onSelectMail?.({ id: '', mail: null, history }); renderList(); renderDetail(); return; }
     detailController?.abort(); cleanupAttachment(); const version = ++detailVersion, controller = new AbortController(); detailController = controller;
     selectedId = id; currentMail = null; detailBusy = true; detailError = '';
     if (history) { const url = new URL(location.href); url.searchParams.set('mail', id); window.history[history === 'replace' ? 'replaceState' : 'pushState'](window.history.state, '', `${url.pathname}${url.search}${url.hash}`); }
@@ -216,6 +225,7 @@ export function initMailSourceViewer(session, mount, options = {}) {
       if (disposed || version !== detailVersion) return;
       if (!data.mail || data.mail.id !== id || !data.mail.raw) throw new Error('Invalid mail source');
       currentMail = data.mail;
+      options.onMailLoaded?.(currentMail);
     } catch (error) { if (!disposed && version === detailVersion && error.name !== 'AbortError') detailError = errorText(error); }
     finally { if (!disposed && version === detailVersion) { detailBusy = false; renderDetail(); if (scroll && (!splitMode || window.matchMedia?.('(max-width: 720px)')?.matches)) detail.scrollIntoView({ block: 'start', behavior: 'auto' }); } }
   }
@@ -235,12 +245,18 @@ export function initMailSourceViewer(session, mount, options = {}) {
     finally { if (!disposed && version === listVersion) { listBusy = false; renderList(); } }
   }
   function onPopState() {
+    const requestedId = new URLSearchParams(location.search).get('mail') || '';
+    if (requestedId !== selectedId && options.onBeforeSelectMail?.() === false) {
+      const url = new URL(location.href); if (selectedId) url.searchParams.set('mail', selectedId); else url.searchParams.delete('mail');
+      if (listScope === 'all') url.searchParams.set('mail_scope', 'all'); else url.searchParams.delete('mail_scope');
+      window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`); return;
+    }
     const scope = new URLSearchParams(location.search).get('mail_scope') === 'all' ? 'all' : 'school';
     if (scope !== listScope) { listScope = scope; mails = []; nextCursor = null; void loadList(); }
     const id = new URLSearchParams(location.search).get('mail') || '';
     if (id === selectedId) return;
-    if (id) void selectMail(id, { history: false });
-    else { detailController?.abort(); detailVersion += 1; cleanupAttachment(); selectedId = ''; currentMail = null; detailBusy = false; detailError = ''; renderList(); renderDetail(); }
+    if (id) void selectMail(id, { history: false, checkedNavigation: true });
+    else { detailController?.abort(); detailVersion += 1; cleanupAttachment(); selectedId = ''; currentMail = null; detailBusy = false; detailError = ''; options.onSelectMail?.({ id: '', mail: null, history: false }); renderList(); renderDetail(); }
   }
   const onMailCollected = () => { if (!disposed) void loadList(); };
   window.addEventListener('popstate', onPopState);

@@ -343,6 +343,99 @@
           && archive.archivedByUid == request.auth.uid;
       }
 
+      function validErpCustomer(data, customerCode) {
+        return data.keys().hasOnly(['schemaVersion', 'code', 'name', 'revision', 'createdAt', 'createdByUid', 'createdByName', 'updatedAt', 'updatedByUid', 'updatedByName'])
+          && data.schemaVersion == 1
+          && data.code == customerCode && data.code is string && data.code.size() > 0 && data.code.size() <= 100
+          && !data.code.matches('.*[\\s/\\x00-\\x1f\\x7f].*')
+          && !(data.code in ['.', '..']) && !data.code.matches('^__.*__$')
+          && data.name is string && data.name.size() > 0 && data.name.size() <= 200
+          && !data.name.matches('^\\s.*|.*\\s$|.*[\\x00-\\x1f\\x7f].*')
+          && data.revision is int && data.revision >= 1
+          && data.createdAt is timestamp && data.updatedAt is timestamp
+          && data.createdByUid is string && data.createdByName is string
+          && data.updatedByUid == request.auth.uid && data.updatedByName is string;
+      }
+      match /erpCustomers/{customerCode} {
+        allow read: if approvedManagerOrAdmin();
+        allow create: if approvedManagerOrAdmin() && validErpCustomer(request.resource.data, customerCode)
+          && request.resource.data.revision == 1
+          && request.resource.data.createdByUid == request.auth.uid
+          && request.resource.data.createdAt == request.time && request.resource.data.updatedAt == request.time;
+        allow update: if approvedManagerOrAdmin() && validErpCustomer(request.resource.data, customerCode)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'revision', 'updatedAt', 'updatedByUid', 'updatedByName'])
+          && request.resource.data.revision == resource.data.revision + 1
+          && request.resource.data.updatedAt == request.time;
+        allow delete: if false;
+      }
+
+      function preparationColumn(index) {
+        let letters = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z'];
+        let number = index + 1;
+        return number <= 26 ? letters[index]
+          : number <= 702 ? letters[int((number - 1) / 26) - 1] + letters[(number - 1) % 26]
+          : letters[int((number - 703) / 676)] + letters[int(((number - 703) % 676) / 26)] + letters[(number - 703) % 26];
+      }
+      function validPreparationSelection(selection) {
+        return selection is map
+          && selection.keys().hasOnly(['sheetIndex','sheetName','range','startRow','endRow','startColumn','endColumn'])
+          && selection.sheetIndex is int && selection.sheetIndex >= 0 && selection.sheetIndex < 32
+          && selection.sheetName is string && selection.sheetName.size() >= 1 && selection.sheetName.size() <= 255
+          && !selection.sheetName.matches('^\\s*$|.*[\\x00-\\x1f\\x7f].*')
+          && selection.startRow is int && selection.startRow >= 0 && selection.startRow < 100000
+          && selection.endRow is int && selection.endRow >= selection.startRow && selection.endRow < 100000
+          && selection.startColumn is int && selection.startColumn >= 0 && selection.startColumn < 1024
+          && selection.endColumn is int && selection.endColumn >= selection.startColumn && selection.endColumn < 1024
+          && selection.range == preparationColumn(selection.startColumn) + string(selection.startRow + 1) + ':' + preparationColumn(selection.endColumn) + string(selection.endRow + 1);
+      }
+      function validPreparationCustomer(customer) {
+        let master = getAfter(/databases/$(database)/documents/erpCustomers/$(customer.id)).data;
+        return customer is map && customer.keys().hasOnly(['id','code','name','revision'])
+          && customer.id is string && customer.id == customer.code && customer.id.size() >= 1 && customer.id.size() <= 100
+          && !customer.id.matches('.*[\\s/\\x00-\\x1f\\x7f].*') && !(customer.id in ['.', '..']) && !customer.id.matches('^__.*__$')
+          && customer.name is string && customer.name.size() >= 1 && customer.name.size() <= 200
+          && !customer.name.matches('^\\s.*|.*\\s$|.*[\\x00-\\x1f\\x7f].*')
+          && customer.revision is int && customer.revision >= 1 && customer.revision <= 9007199254740991
+          && master.schemaVersion == 1 && customer.code == master.code && customer.name == master.name && customer.revision == master.revision;
+      }
+      function validMailPreparation(data, intakeId, attachmentId) {
+        let parent = get(/databases/$(database)/documents/mailIntakes/$(intakeId)).data;
+        let attachment = get(/databases/$(database)/documents/mailIntakes/$(intakeId)/attachments/$(attachmentId)).data;
+        return data.keys().hasOnly(['schemaVersion','intakeId','attachmentId','account','sourceHash','attachmentSha256','customer','selection','revision','status','createdAt','createdByUid','updatedAt','updatedByUid'])
+          && intakeId.matches('^[a-f0-9]{64}$') && attachmentId.matches('^[1-9][0-9]{0,18}$')
+          && data.schemaVersion == 1 && data.intakeId == intakeId && data.attachmentId == attachmentId
+          && data.account == 'official@dmnfood.co.kr' && parent.schemaVersion == 1 && parent.account == data.account
+          && data.sourceHash.matches('^[a-f0-9]{64}$') && data.sourceHash == parent.rawStorage.sha256
+          && data.attachmentSha256.matches('^[a-f0-9]{64}$') && attachment.schemaVersion == 1
+          && attachment.intakeId == intakeId && attachment.attachmentId == attachmentId && data.attachmentSha256 == attachment.sha256
+          && validPreparationCustomer(data.customer) && validPreparationSelection(data.selection)
+          && data.revision is int && data.revision >= 1 && data.revision <= 9007199254740991
+          && data.status == 'range_selected' && data.createdAt is timestamp && data.createdByUid is string
+          && data.updatedAt == request.time && data.updatedByUid == request.auth.uid;
+      }
+      match /mailPreparations/{intakeId}/attachments/{attachmentId} {
+        allow read: if approvedManagerOrAdmin();
+        allow create: if approvedManagerOrAdmin() && validMailPreparation(request.resource.data, intakeId, attachmentId)
+          && request.resource.data.revision == 1 && request.resource.data.createdAt == request.time && request.resource.data.createdByUid == request.auth.uid;
+        allow update: if approvedManagerOrAdmin() && validMailPreparation(request.resource.data, intakeId, attachmentId)
+          && request.resource.data.revision == resource.data.revision + 1
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['customer','selection','revision','updatedAt','updatedByUid'])
+          && getAfter(/databases/$(database)/documents/mailPreparations/$(intakeId)/attachments/$(attachmentId)/versions/$(string(resource.data.revision))).data.record == resource.data
+          && getAfter(/databases/$(database)/documents/mailPreparations/$(intakeId)/attachments/$(attachmentId)/versions/$(string(resource.data.revision))).data.archivedAt == request.time
+          && getAfter(/databases/$(database)/documents/mailPreparations/$(intakeId)/attachments/$(attachmentId)/versions/$(string(resource.data.revision))).data.archivedByUid == request.auth.uid;
+        allow delete: if false;
+        match /versions/{revisionKey} {
+          allow read: if approvedManagerOrAdmin();
+          allow create: if approvedManagerOrAdmin()
+            && request.resource.data.keys().hasOnly(['record','archivedAt','archivedByUid'])
+            && request.resource.data.archivedAt == request.time && request.resource.data.archivedByUid == request.auth.uid
+            && request.resource.data.record == get(/databases/$(database)/documents/mailPreparations/$(intakeId)/attachments/$(attachmentId)).data
+            && revisionKey == string(request.resource.data.record.revision)
+            && getAfter(/databases/$(database)/documents/mailPreparations/$(intakeId)/attachments/$(attachmentId)).data.revision == request.resource.data.record.revision + 1;
+          allow update, delete: if false;
+        }
+      }
+
       match /orderRequests/{orderId} {
         allow read: if orderManager();
         allow create: if orderManager() && request.resource.data.revision == 1

@@ -2,44 +2,25 @@ import { requireApprovedActiveUser, logoutToLogin } from './firebase-client.js';
 import { initOrderNotifications } from './order-notifications.js';
 import { initMailConnection } from './mail-connection.js';
 import { initMailSourceViewer } from './mail-source-viewer.js';
+import { initMailPreparation } from './mail-preparation-ui.js';
+import { initErpCustomerSettings } from './erp-customer-settings.js';
 import { ORDER_CUSTOMER_GROUPS, ORDER_SOURCE_CHANNELS, ORDER_STATUSES, ORDER_DELIVERY_METHODS, ORDER_LIMITS, getApprovalIssues } from './order-request-model.js';
 import { createOrderRequest, subscribeOrderRequests, subscribeOrderRequest, updateOrderRequest, reviewOrderRequest } from './order-request-store.js';
 
 const $ = id => document.getElementById(id);
 let session, orders = [], currentOrder = null, selectedId = '', unsubscribeDetail, dirty = false, busy = false, conflicting = false, originalTestDraft = null, listConfirmed = false, listFailed = false;
 const unsubscribe = [];
-const workTabs = [['original', 'mailOriginalTab', 'mailOriginalPanel'], ['processing', 'orderProcessingTab', 'orderProcessingPanel']];
-
-function tabFromUrl() {
-  const params = new URLSearchParams(location.search);
-  return params.get('tab') === 'processing' || (!params.has('tab') && params.has('order') && !params.has('mail')) ? 'processing' : 'original';
+let preparation;
+function openExistingOrders() { if (!$('existingOrdersDialog').open) $('existingOrdersDialog').showModal(); }
+function closeExistingOrders() {
+  if (!allowNavigation()) return;
+  $('existingOrdersDialog').close();
+  const url = new URL(location.href); url.searchParams.delete('order'); url.searchParams.delete('tab');
+  window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
 }
-function setWorkspaceTab(value, { history = false, focus = false } = {}) {
-  const selected = value === 'processing' ? 'processing' : 'original';
-  for (const [name, tabId, panelId] of workTabs) {
-    const active = name === selected;
-    $(tabId).setAttribute('aria-selected', String(active)); $(tabId).tabIndex = active ? 0 : -1; $(panelId).hidden = !active;
-  }
-  if (history) {
-    const url = new URL(location.href);
-    url.searchParams.set('tab', selected);
-    if (url.href !== location.href) window.history[history === 'replace' ? 'replaceState' : 'pushState'](window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
-  }
-  if (focus) $(selected === 'processing' ? 'orderProcessingTab' : 'mailOriginalTab').focus();
-}
-for (const [index, [name, tabId]] of workTabs.entries()) {
-  $(tabId).addEventListener('click', () => setWorkspaceTab(name, { history: 'push' }));
-  $(tabId).addEventListener('keydown', event => {
-    let next;
-    if (event.key === 'ArrowRight') next = (index + 1) % workTabs.length;
-    else if (event.key === 'ArrowLeft') next = (index + workTabs.length - 1) % workTabs.length;
-    else if (event.key === 'Home') next = 0;
-    else if (event.key === 'End') next = workTabs.length - 1;
-    if (next === undefined) return;
-    event.preventDefault(); setWorkspaceTab(workTabs[next][0], { history: 'push', focus: true });
-  });
-}
-setWorkspaceTab(tabFromUrl());
+$('openExistingOrders').addEventListener('click', openExistingOrders);
+$('closeExistingOrders').addEventListener('click', closeExistingOrders);
+$('existingOrdersDialog').addEventListener('cancel', event => { event.preventDefault(); closeExistingOrders(); });
 
 function element(tag, text, className) {
   const node = document.createElement(tag);
@@ -194,7 +175,7 @@ function selectOrder(id, { replace = false, activate = true } = {}) {
   unsubscribeDetail?.(); selectedId = id; currentOrder = null; dirty = false; conflicting = false;
   let firstResult = true;
   const url = new URL(window.location.href); if (id) url.searchParams.set('order', id); else url.searchParams.delete('order');
-  if (activate && id) { url.searchParams.set('tab', 'processing'); setWorkspaceTab('processing'); }
+  if (activate && id) { url.searchParams.set('tab', 'processing'); openExistingOrders(); }
   window.history[replace ? 'replaceState' : 'pushState']({}, '', url.pathname + url.search);
   renderList();
   if (!/^[A-Za-z0-9_-]{1,128}$/.test(id)) { renderDetail(null); return; }
@@ -272,12 +253,14 @@ window.addEventListener('popstate', () => {
     if (!allowNavigation()) { const url = new URL(location.href); if (selectedId) url.searchParams.set('order', selectedId); else url.searchParams.delete('order'); window.history.pushState({}, '', url.pathname + url.search); return; }
     selectOrder(id, { replace: true, activate: false });
   }
-  setWorkspaceTab(tabFromUrl());
+  if (id && new URLSearchParams(location.search).get('tab') !== 'original') openExistingOrders();
+  else if (!dirty) $('existingOrdersDialog').close();
 });
 window.addEventListener('offline', () => { listConfirmed = false; renderList(); message('인터넷 연결이 끊겼습니다. 서버에 다시 연결된 뒤 저장·확정해 주세요.', true); updateActions(); });
 window.addEventListener('online', () => { message('다시 연결 중입니다. 최신 발주 내용을 확인해 주세요.'); if (selectedId && !dirty) selectOrder(selectedId, { replace: true, activate: false }); });
 window.addEventListener('pagehide', event => { if (!event.persisted) { unsubscribeDetail?.(); unsubscribe.forEach(stop => stop?.()); } });
 $('orderLogoutButton')?.addEventListener('click', async () => {
+  if (preparation && !preparation.canLeave()) return;
   if (busy || !window.confirm(dirty ? '저장하지 않은 변경 내용이 있습니다. 저장하지 않고 로그아웃할까요?' : '로그아웃 하시겠습니까?')) return;
   const wasDirty = dirty;
   dirty = false;
@@ -290,15 +273,21 @@ requireApprovedActiveUser().then(approvedSession => {
   session = approvedSession;
   $('authLoading').hidden = true; $('ordersApp').hidden = false;
   $('orderUserName').textContent = session.profile.displayName || session.profile.employeeName || '사용자';
-  if (!['manager', 'admin'].includes(session.profile.role)) { $('orderAccessDenied').hidden = false; $('orderWorkspace').hidden = true; $('newOrderButton').hidden = true; $('testOrderButton').hidden = true; return; }
+  if (!['manager', 'admin'].includes(session.profile.role)) { $('orderAccessDenied').hidden = false; $('orderWorkspace').hidden = true; $('openExistingOrders').hidden = true; $('newOrderButton').hidden = true; $('testOrderButton').hidden = true; return; }
+  preparation = initMailPreparation(session, $('mailPreparationMount'));
+  unsubscribe.push(() => preparation.destroy());
+  unsubscribe.push(initErpCustomerSettings(session, $('erpCustomerSettingsMount')));
   unsubscribe.push(initMailConnection(session, $('mailConnectionMount')));
   unsubscribe.push(initMailSourceViewer(session, $('mailSourceMount'), {
     toolbarMount: $('mailSourceToolbar'), listMount: $('mailQueueMount'), detailMount: $('mailOriginalPanel'),
-    onSelectMail: ({ history }) => setWorkspaceTab(history === false ? tabFromUrl() : 'original', { history: history === false ? false : 'replace' }),
+    onBeforeSelectMail: () => preparation.canLeave(), onBeforeOpenAttachment: () => preparation.canLeave(),
+    onSelectMail: () => preparation.setMail(null), onMailLoaded: mail => preparation.setMail(mail),
+    onWorkbookClosed: () => preparation.closeWorkbook(), onWorkbookOpened: value => preparation.openWorkbook(value),
+    onSelectionChange: value => preparation.selectionChanged(value),
   }));
   const notifications = initOrderNotifications({ ...session, mount: $('orderNotificationMount') }); unsubscribe.push(() => notifications?.destroy());
   const requestedId = new URLSearchParams(window.location.search).get('order');
-  if (requestedId) selectOrder(requestedId, { replace: true, activate: false });
+  if (requestedId) selectOrder(requestedId, { replace: true, activate: true });
   unsubscribe.push(subscribeOrderRequests((records, metadata = { fromCache: false, hasPendingWrites: false }) => {
     listConfirmed = !metadata.fromCache && !metadata.hasPendingWrites && navigator.onLine !== false; listFailed = false;
     orders = records; renderList();

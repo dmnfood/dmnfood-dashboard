@@ -28,6 +28,9 @@ self.onmessage = async event => {
     } else if (type === 'page') {
       if (!workbook || !metadata) throw new Error('Excel을 먼저 열어 주세요.');
       self.postMessage({ id, result: MailWorkbookModel.sheetPage(workbook, metadata, event.data, XLSX) });
+    } else if (type === 'selectionInfo') {
+      if (!workbook || !metadata) throw new Error('Excel을 먼저 열어 주세요.');
+      self.postMessage({ id, result: MailWorkbookModel.selectionInfo(workbook, metadata, event.data, XLSX) });
     } else throw new Error('지원하지 않는 미리보기 요청입니다.');
   } catch (error) {
     self.postMessage({ id, error: String(error?.message || 'Excel 파일을 읽을 수 없습니다.').slice(0, 500) });

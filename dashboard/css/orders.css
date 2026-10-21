@@ -104,7 +104,7 @@ body { color-scheme: dark; }
 .order-dialog .order-muted { margin-bottom: 16px; }
 .order-dialog-footer { display: flex; justify-content: end; gap: 9px; margin-top: 20px; }
 .order-field-error { color: var(--rv); background: var(--rv-bg); border: 1px solid rgba(248, 113, 113, .25); border-radius: 10px; padding: 10px; margin-top: 12px; font-size: 12px; line-height: 1.6; }
-/* One work card keeps the mail queue in view while switching tasks. */
+/* The source stays visible through the sequential preparation flow. */
 .order-workbench.mail-source { padding: 0; overflow: hidden; margin-bottom: 0; }
 .order-workbench-heading { display: flex; justify-content: space-between; align-items: start; gap: 24px; padding: 20px 22px 16px; border-bottom: 1px solid var(--border); }
 .order-workbench-heading h2 { margin: 0 0 4px; font-size: 17px; }
@@ -114,11 +114,7 @@ body { color-scheme: dark; }
 .order-workbench-layout { display: grid; grid-template-columns: 290px minmax(0, 1fr); min-height: 570px; height: min(76dvh, 900px); }
 .order-mail-queue { min-width: 0; min-height: 0; overflow: auto; background: var(--card-w); border-right: 1px solid var(--border); }
 .order-workbench-content { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
-.order-workbench-tabs { display: flex; flex-shrink: 0; gap: 24px; padding: 0 22px; border-bottom: 1px solid var(--border); }
-.order-workbench-tab { position: relative; min-height: 54px; padding: 14px 0; border: 0; background: transparent; color: var(--t1); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
-.order-workbench-tab[aria-selected="true"] { color: var(--brand-a); }
-.order-workbench-tab[aria-selected="true"]::after { content: ''; position: absolute; inset: auto 0 -1px; height: 3px; border-radius: 3px 3px 0 0; background: var(--brand-a); }
-.order-workbench-tab:focus-visible, .order-workbench-panel:focus-visible { outline: 2px solid var(--brand-a); outline-offset: -3px; }
+.order-workbench-panel:focus-visible { outline: 2px solid var(--brand-a); outline-offset: -3px; }
 .order-workbench-panel { min-width: 0; min-height: 0; flex: 1; overflow: auto; overscroll-behavior: contain; scroll-margin-top: 72px; }
 .order-processing-panel { padding: 20px; }
 .order-processing-intro { display: flex; flex-wrap: wrap; align-items: start; gap: 12px 20px; margin-bottom: 18px; }
@@ -154,7 +150,6 @@ body { color-scheme: dark; }
   .mail-source-toolbar { width: 100%; max-width: none; }
   .order-workbench-layout { grid-template-columns: 1fr; height: auto; min-height: 0; }
   .order-mail-queue { max-height: 260px; border-right: 0; border-bottom: 1px solid var(--border); }
-  .order-workbench-tabs { gap: 22px; padding: 0 16px; }
   .order-workbench-panel { overflow: visible; }
   .order-processing-panel { padding: 14px; }
   .order-processing-list-header { flex-wrap: wrap; }

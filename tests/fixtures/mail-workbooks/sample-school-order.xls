@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html lang="ko"><head><meta charset="utf-8"><title>가상 학교급식 발주</title></head><body>
+<table>
+  <tr><th colspan="5">가상 학교급식 주간 발주서 · 시험 자료</th></tr>
+  <tr><th>납품일</th><th>학교</th><th>거래처 상품명</th><th>수량</th><th>단위</th></tr>
+  <tr><td>2026-10-26</td><td>가상 A학교</td><td>가상 중국산 참기름 1.8L</td><td>2</td><td>병</td></tr>
+  <tr><td>2026-10-27</td><td>가상 B학교</td><td>가상 중국산 참기름 1.8L</td><td>1</td><td>병</td></tr>
+  <tr><td>2026-10-28</td><td>가상 C학교</td><td>가상 국산 참기름 1.8L</td><td>4</td><td>병</td></tr>
+  <tr><td>2026-10-29</td><td>가상 D학교</td><td>가상 중국산 참기름 1.8L</td><td>3</td><td>병</td></tr>
+  <tr><td>2026-10-30</td><td>가상 E학교</td><td>가상 국산 참기름 1.8L</td><td>1</td><td>병</td></tr>
+  <tr><td>2026-10-30</td><td>가상 F학교</td><td>가상 들기름 1.8L</td><td>2</td><td>병</td></tr>
+  <tr><td colspan="3">원본 합계</td><td>13</td><td>병</td></tr>
+</table>
+</body></html>

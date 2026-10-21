@@ -102,7 +102,7 @@ test('verified connection still requires an explicit folder; partial sync stays 
   assert.deepEqual(JSON.parse(app.calls.at(-1).settings.body), { folderId: '1000', continuation: 'opaque-signed-continuation' });
   assert.match(app.mount.textContent, /목록·본문 수집 완료/);
   assert.match(app.mount.textContent, /해석 대기/);
-  assert.match(app.mount.textContent, /파일 다운로드·내용 해석은 대기 중/);
+  assert.match(app.mount.textContent, /지원하는 Excel 첨부는 열람할 때 원본을 보관/);
   assert.ok(app.calls.every(call => call.settings.headers.Authorization === 'Bearer firebase-user-token'));
   assert.ok(app.calls.every(call => !call.path.includes('firebase-user-token')));
   app.cleanup();

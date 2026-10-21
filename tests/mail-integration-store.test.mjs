@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
-const { createMailboxStore, buildIntakeId, encodeFields, decodeFields, MAX_RAW_BYTES } = require('../lib/server/mail-integration-store.cjs');
+const { createMailboxStore, buildIntakeId, encodeFields, decodeFields, MAX_RAW_BYTES, MAX_ATTACHMENT_BYTES } = require('../lib/server/mail-integration-store.cjs');
 
 const response = (body, status = 200) => ({ ok: status >= 200 && status < 300, status, json: async () => body });
 function fixture() {
@@ -13,6 +13,14 @@ function fixture() {
         if (url.includes('accounts:signInWithPassword')) return response({ idToken: 'collector-id-token', refreshToken: 'collector-refresh-token', localId: 'collector', expiresIn: '3600' });
         if (url.includes('securetoken.googleapis.com')) return response({ id_token: 'renewed-collector-id-token', refresh_token: 'renewed-refresh-token', user_id: 'collector', expires_in: '3600' });
         assert.match(settings.headers.Authorization, /^Bearer (collector-id-token|renewed-collector-id-token)$/);
+        if (url.endsWith(':runQuery')) {
+            const query = JSON.parse(settings.body).structuredQuery;
+            const rows = [...docs.values()].filter(doc => /\/mailIntakes\/[a-f0-9]{64}$/.test(doc.name))
+                .sort((a, b) => decodeFields(b.fields).receivedAt.localeCompare(decodeFields(a.fields).receivedAt) || b.name.localeCompare(a.name));
+            const after = query.startAt?.values;
+            const filtered = after ? rows.filter(doc => decodeFields(doc.fields).receivedAt < after[0].stringValue || (decodeFields(doc.fields).receivedAt === after[0].stringValue && doc.name < after[1].referenceValue)) : rows;
+            return response(filtered.slice(0, query.limit).map(doc => ({ document: { ...doc, fields: Object.fromEntries(query.select.fields.flatMap(({ fieldPath }) => doc.fields[fieldPath] ? [[fieldPath, doc.fields[fieldPath]]] : [])) } })));
+        }
         if (url.endsWith(':commit')) {
             if (failCommit) return response({ error: { status: 'PERMISSION_DENIED', message: 'private upstream detail' } }, 403);
             const writes = JSON.parse(settings.body).writes;
@@ -163,4 +171,46 @@ test('replayed continuation cannot reduce latest progress, remove completion or 
     assert.equal((await store.getSyncState()).data.summary.scanned, 20);
     await store.saveSyncRun(record({ scanned: 0, from: '2026-10-14T01:00:00.000Z', to: '2026-10-21T01:00:00.000Z' }));
     assert.equal((await store.getSyncState()).data.summary.scanned, 0, 'a genuinely newer window may start with a new count');
+});
+
+test('source list projects minimal summaries and stable cursor continues without duplicate IDs; malformed cursor fails before query', async () => {
+    const state = fixture();
+    for (let n = 0; n < 5; n++) await state.store.createIntake({ ...rawRecord(), mailId: String(n), receivedAt: new Date(Date.parse('2026-10-21T00:00:00Z') + n * 1000).toISOString() });
+    const first = await state.store.listRawMails({ limit: 2 });
+    assert.equal(first.mails.length, 2); assert.ok(first.nextCursor);
+    assert.ok(first.mails.every(mail => !('raw' in mail) && !('rawStorage' in mail) && !('collectedByUid' in mail)));
+    assert.ok(first.mails[0].receivedAt > first.mails[1].receivedAt);
+    const second = await state.store.listRawMails({ limit: 2, cursor: first.nextCursor });
+    const third = await state.store.listRawMails({ limit: 2, cursor: second.nextCursor });
+    assert.equal(third.nextCursor, null);
+    assert.equal(new Set([...first.mails, ...second.mails, ...third.mails].map(mail => mail.id)).size, 5);
+    const query = JSON.parse(state.calls.find(call => call.url.endsWith(':runQuery')).settings.body).structuredQuery;
+    assert.ok(query.select.fields.every(field => !field.fieldPath.startsWith('raw')));
+    const before = state.calls.length;
+    for (const cursor of ['', 'not-a-cursor', 'x'.repeat(513), Buffer.from(JSON.stringify({ id: '../outside', receivedAt: '2026-10-21' })).toString('base64url')]) await assert.rejects(state.store.listRawMails({ cursor }), { code: 'MAIL_LIST_INVALID' });
+    assert.equal(state.calls.length, before);
+});
+
+test('attachment archive is atomic, bounded and immutable; cached bytes are checksum checked and corruption never rewritten', async () => {
+    const state = fixture(), { id } = await state.store.createIntake(rawRecord());
+    const bytes = Buffer.alloc(MAX_ATTACHMENT_BYTES, 0x5a), metadata = { fileName: '실제 원문.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', sourceSize: bytes.length };
+    const archived = await state.store.createAttachment(id, '2', metadata, bytes);
+    assert.equal(archived.byteLength, MAX_ATTACHMENT_BYTES); assert.equal(archived.chunkCount, 32);
+    assert.deepEqual(Buffer.from(archived.contentBase64, 'base64'), bytes);
+    const sourceBefore = await state.store.getRawMail(id);
+    assert.equal(sourceBefore.attachmentStatus, 'metadata_only', 'original mail snapshot is not mutated when bytes are archived separately');
+    assert.deepEqual(await state.store.createAttachment(id, '2', metadata, bytes), archived);
+    await assert.rejects(state.store.createAttachment(id, '2', metadata, Buffer.alloc(bytes.length, 0x41)), { code: 'MAIL_ATTACHMENT_CHANGED' });
+    assert.deepEqual(await state.store.getAttachment(id, '2'), archived);
+    const before = state.docs.size;
+    await assert.rejects(state.store.createAttachment(id, '3', { ...metadata, sourceSize: MAX_ATTACHMENT_BYTES + 1 }, Buffer.alloc(MAX_ATTACHMENT_BYTES + 1)), { status: 413 });
+    assert.equal(state.docs.size, before);
+    const chunk = [...state.docs.values()].find(doc => doc.name.endsWith(`/attachments/2/chunks/0001`));
+    chunk.fields.contentBase64.stringValue = 'A' + chunk.fields.contentBase64.stringValue.slice(1);
+    await assert.rejects(state.store.getAttachment(id, '2'), { code: 'MAIL_ATTACHMENT_INCOMPLETE' });
+    await assert.rejects(state.store.createAttachment(id, '2', metadata, bytes), { code: 'MAIL_ATTACHMENT_INCOMPLETE' });
+    assert.equal(state.docs.size, before);
+    state.failCommit = true;
+    await assert.rejects(state.store.createAttachment(id, '4', { ...metadata, sourceSize: 1 }, Buffer.from('x')), { code: 'MAIL_STORE_UNAVAILABLE' });
+    assert.equal(state.docs.size, before, 'failed atomic commit leaves no attachment metadata or chunks');
 });

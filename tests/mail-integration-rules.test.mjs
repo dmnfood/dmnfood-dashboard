@@ -63,6 +63,31 @@ test('mail rules isolate the collector from employee data, secrets from staff an
     assert.equal((await remove(path, collector)).status, 403);
     assert.equal((await put(`mailIntakes/${'d'.repeat(64)}`, { ...immutable, processingStatus: 'approved' }, collector)).status, 403);
     assert.equal((await put(`mailIntakes/${'e'.repeat(64)}`, { ...immutable, account: 'other@example.invalid' }, collector)).status, 403);
+    const attachmentBytes = Buffer.alloc(3 * 1024 * 1024, 0x5a);
+    const attachment = await store.createAttachment(id, '2', { fileName: '가상 원본.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', sourceSize: attachmentBytes.length }, attachmentBytes);
+    assert.equal(attachment.chunkCount, 32, 'full-limit archive must fit rules access and batch limits');
+    const attachmentPath = `${path}/attachments/2`, chunkPath = `${attachmentPath}/chunks/0000`;
+    for (const uid of ['manager', 'admin', collector]) {
+        assert.equal((await get(attachmentPath, uid)).status, 200);
+        assert.equal((await get(chunkPath, uid)).status, 200);
+    }
+    for (const uid of ['', 'worker', 'pending-manager', 'unknown-collector']) {
+        assert.equal((await get(attachmentPath, uid)).status, 403);
+        assert.equal((await get(chunkPath, uid)).status, 403);
+    }
+    const { contentBase64, ...attachmentRecord } = attachment;
+    for (const uid of ['admin', 'manager', collector]) {
+        assert.equal((await put(attachmentPath, { ...attachmentRecord, fileName: '변조.xlsx' }, uid)).status, 403);
+        assert.equal((await put(chunkPath, { index: 0, contentBase64: 'dGFtcGVy' }, uid)).status, 403);
+        assert.equal((await remove(attachmentPath, uid)).status, 403);
+        assert.equal((await remove(chunkPath, uid)).status, 403);
+    }
+    assert.equal((await put(`${path}/attachments/-1`, { ...attachmentRecord, attachmentId: '-1' }, collector)).status, 403);
+    assert.equal((await put(`${path}/attachments/3`, { ...attachmentRecord, attachmentId: '3', byteLength: 3145729, sourceSize: 3145729 }, collector)).status, 403);
+    assert.equal((await put(`${path}/attachments/3`, { ...attachmentRecord, attachmentId: '3' }, 'manager')).status, 403);
+    const listed = await store.listRawMails();
+    assert.ok(listed.mails.some(mail => mail.id === id));
+    assert.ok(listed.mails.every(mail => !('raw' in mail)));
     for (const path of ['orderRequests/mail-collector-order', 'haccpProductionRecords/mail-collector-record']) assert.equal((await put(path, { status: 'approved' }, collector)).status, 403);
     assert.equal((await get('users/admin', collector)).status, 403);
     assert.equal((await put('integrationAccess/naverworksMail', { collectorUid: collector, enabled: false }, 'owner')).status, 200);

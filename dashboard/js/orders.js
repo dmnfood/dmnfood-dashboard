@@ -1,6 +1,7 @@
 import { requireApprovedActiveUser, logoutToLogin } from './firebase-client.js';
 import { initOrderNotifications } from './order-notifications.js';
 import { initMailConnection } from './mail-connection.js';
+import { initMailSourceViewer } from './mail-source-viewer.js';
 import { ORDER_CUSTOMER_GROUPS, ORDER_SOURCE_CHANNELS, ORDER_STATUSES, ORDER_DELIVERY_METHODS, ORDER_LIMITS, getApprovalIssues } from './order-request-model.js';
 import { createOrderRequest, subscribeOrderRequests, subscribeOrderRequest, updateOrderRequest, reviewOrderRequest } from './order-request-store.js';
 
@@ -251,12 +252,13 @@ requireApprovedActiveUser().then(approvedSession => {
   $('orderUserName').textContent = session.profile.displayName || session.profile.employeeName || '사용자';
   if (!['manager', 'admin'].includes(session.profile.role)) { $('orderAccessDenied').hidden = false; $('orderWorkspace').hidden = true; $('newOrderButton').hidden = true; $('testOrderButton').hidden = true; return; }
   unsubscribe.push(initMailConnection(session, $('mailConnectionMount')));
+  unsubscribe.push(initMailSourceViewer(session, $('mailSourceMount')));
   const notifications = initOrderNotifications({ ...session, mount: $('orderNotificationMount') }); unsubscribe.push(() => notifications?.destroy());
   const requestedId = new URLSearchParams(window.location.search).get('order');
   if (requestedId) selectOrder(requestedId, { replace: true });
   unsubscribe.push(subscribeOrderRequests((records, metadata = { fromCache: false, hasPendingWrites: false }) => {
     listConfirmed = !metadata.fromCache && !metadata.hasPendingWrites && navigator.onLine !== false; listFailed = false;
     orders = records; renderList();
-    if (!selectedId && orders.length) selectOrder(orders.find(order => order.status === 'pending_review')?.id || orders[0].id, { replace: true });
+    if (!selectedId && orders.length && !new URLSearchParams(location.search).has('mail')) selectOrder(orders.find(order => order.status === 'pending_review')?.id || orders[0].id, { replace: true });
   }, error => { listConfirmed = false; listFailed = true; renderList(); message(errorText(error), true); }));
 });

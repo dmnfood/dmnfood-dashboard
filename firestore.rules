@@ -612,6 +612,33 @@
             && request.resource.data.index is int && request.resource.data.index >= 0 && request.resource.data.index < 33
             && request.resource.data.text is string && request.resource.data.text.size() <= 131072;
         }
+        // Immutable ordinary Excel/CSV bytes archived separately from the original mail snapshot.
+        match /attachments/{attachmentId} {
+          allow read: if mailCollector() || approvedManagerOrAdmin();
+          allow create: if mailCollector() && attachmentId.matches('^[1-9][0-9]{0,18}$')
+            && get(/databases/$(database)/documents/mailIntakes/$(intakeId)).data.account == 'official@dmnfood.co.kr'
+            && request.resource.data.keys().hasOnly(['schemaVersion', 'intakeId', 'attachmentId', 'fileName', 'mimeType', 'sourceSize', 'byteLength', 'sha256', 'chunkCount', 'encoding', 'archivedAt', 'collectedByUid'])
+            && request.resource.data.schemaVersion == 1
+            && request.resource.data.intakeId == intakeId && request.resource.data.attachmentId == attachmentId
+            && request.resource.data.collectedByUid == request.auth.uid
+            && request.resource.data.fileName is string && request.resource.data.fileName.size() > 0 && request.resource.data.fileName.size() <= 1000
+            && request.resource.data.mimeType in ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel', 'text/csv']
+            && request.resource.data.byteLength is int && request.resource.data.byteLength > 0 && request.resource.data.byteLength <= 3145728
+            && request.resource.data.sourceSize == request.resource.data.byteLength
+            && request.resource.data.sha256 is string && request.resource.data.sha256.matches('^[a-f0-9]{64}$')
+            && request.resource.data.chunkCount is int && request.resource.data.chunkCount > 0 && request.resource.data.chunkCount <= 32
+            && request.resource.data.encoding == 'base64' && request.resource.data.archivedAt is string;
+          match /chunks/{chunkId} {
+            allow read: if mailCollector() || approvedManagerOrAdmin();
+            allow create: if mailCollector() && chunkId.matches('^[0-9]{4}$')
+              && getAfter(/databases/$(database)/documents/mailIntakes/$(intakeId)/attachments/$(attachmentId)).data.collectedByUid == request.auth.uid
+              && request.resource.data.keys().hasOnly(['index', 'contentBase64'])
+              && request.resource.data.index is int && request.resource.data.index >= 0
+              && request.resource.data.index < getAfter(/databases/$(database)/documents/mailIntakes/$(intakeId)/attachments/$(attachmentId)).data.chunkCount
+              && request.resource.data.contentBase64 is string && request.resource.data.contentBase64.size() > 0 && request.resource.data.contentBase64.size() <= 131072
+              && request.resource.data.contentBase64.matches('^[A-Za-z0-9+/]*={0,2}$');
+          }
+        }
       }
     }
   }

@@ -8,6 +8,8 @@
   <link rel="stylesheet" href="/dashboard/css/orders.css">
   <link rel="stylesheet" href="/dashboard/css/order-notifications.css">
   <link rel="stylesheet" href="/dashboard/css/mail-connection.css">
+  <link rel="stylesheet" href="/dashboard/css/mail-source-viewer.css">
+  <link rel="stylesheet" href="/dashboard/css/mail-workbook-preview.css">
 </head>
 <body>
   <div class="blobs" aria-hidden="true"><div class="b1"></div><div class="b2"></div></div>
@@ -34,6 +36,7 @@
       <div id="orderAccessDenied" class="order-message order-warning" hidden>발주함은 발주 확인 권한이 있는 관리자·매니저 계정으로 이용할 수 있습니다.</div>
       <section id="orderWorkspace" aria-label="발주 목록과 확인 화면">
         <section id="mailConnectionMount" class="mail-connection" aria-label="네이버웍스 메일 연결 설정"><p class="mail-loading" role="status">메일 연결 설정을 확인하고 있습니다.</p></section>
+        <section id="mailSourceMount" class="mail-source" aria-label="수집한 메일 원본 열람"><p class="mail-loading" role="status">수집한 메일 원문을 확인하고 있습니다.</p></section>
         <div class="order-service-note">메일 원문 수집과 발주 해석·상품 연결은 별도 단계입니다. 수집한 메일은 먼저 ‘해석 대기’로 보관하며, 거래처별 양식·상품명 규칙을 정한 뒤 담당자가 원문과 대조합니다. 아래 가상 발주 시험과 수동 보완 등록은 확인 화면의 동작을 점검하는 용도이며 ERP 등록·출고는 실행하지 않습니다.</div>
         <div id="orderMessage" class="order-message" role="status" aria-live="polite" hidden></div>
         <div class="order-layout">

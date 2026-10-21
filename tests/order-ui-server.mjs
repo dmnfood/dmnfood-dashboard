@@ -18,6 +18,10 @@ const uiFiles = new Set([
     '/dashboard/js/order-notifications.js', '/dashboard/js/order-notification-utils.js',
     '/dashboard/js/order-request-model.js', '/dashboard/js/haccp-navigation.js', '/dashboard/style.css',
     '/dashboard/js/mail-connection.js', '/dashboard/css/mail-connection.css',
+    '/dashboard/js/mail-source-viewer.js', '/dashboard/css/mail-source-viewer.css',
+    '/dashboard/js/mail-workbook-preview.js', '/dashboard/js/mail-workbook-worker.js',
+    '/dashboard/js/mail-workbook-model.js', '/dashboard/css/mail-workbook-preview.css',
+    '/dashboard/vendor/sheetjs/xlsx.full.min.js',
     '/dashboard/css/user-management.css',
     '/dashboard/css/orders.css', '/dashboard/css/order-notifications.css',
 ]);
@@ -33,6 +37,13 @@ const headers = {
     'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; font-src 'self'; img-src 'self' data:; base-uri 'none'; frame-ancestors 'none'",
 };
 const timestamp = () => ({ seconds: Date.now() / 1000 });
+const mailFixtures = [
+    { id: 'fictional-school-mail', subject: '[가상 자료] 학교급식 발주서 열람 시험', from: { name: '가상 급식 거래처', email: 'school@example.test' }, receivedAt: '2026-10-21T01:00:00.000Z', collectedAt: '2026-10-21T01:01:00.000Z', folderId: '42', processingStatus: 'pending_interpretation',
+        raw: { mail: { mailId: 'fixture-1', subject: '[가상 자료] 학교급식 발주서 열람 시험', body: '<p>가상 학교급식 발주서입니다.</p><p>첨부 Excel의 상품명·수량·일정을 원문으로 확인해 주세요.</p><table><tr><th>안내</th><th>상태</th></tr><tr><td>실제 발주가 아닙니다</td><td>해석 대기</td></tr></table>', from: { name: '가상 급식 거래처', email: 'school@example.test' } }, attachments: [{ attachmentId: '101', filename: '가상 학교급식 발주서.xls', contentType: 'application/vnd.ms-excel', size: (await readFile(new URL('fixtures/mail-workbooks/sample-school-order.xls', import.meta.url))).length }, { attachmentId: '102', filename: '가상 참고 이미지.png', contentType: 'image/png', size: 100 }, { attachmentId: '103', filename: '가상 대용량 발주서.xlsx', contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', size: 4 * 1024 * 1024 }] } },
+    { id: 'fictional-mail-safety', subject: '[가상 자료] 본문 안전 표시 시험', from: { email: 'safety@example.test' }, receivedAt: '2026-10-20T01:00:00.000Z', collectedAt: '2026-10-20T01:01:00.000Z', processingStatus: 'pending_interpretation',
+        raw: { mail: { mailId: 'fixture-2', body: '<div onclick="alert(1)" style="background:url(https://example.invalid/mail-css)">안전한 본문 텍스트</div><img src="https://example.invalid/mail-image" onerror="alert(1)" alt="외부 이미지 차단"><script>window.parent.__mailInjected=true</script><iframe src="https://example.invalid/mail-frame"></iframe><form action="https://example.invalid/mail-form"><input value="차단"></form><a href="javascript:alert(1)">외부 링크는 텍스트로 표시</a><svg><a href="https://example.invalid/mail-svg">SVG</a></svg><table><tr><td colspan="2" background="https://example.invalid/mail-bg">보존되는 표</td></tr></table>' }, attachments: [] } },
+    { id: 'fictional-mail-title-only', subject: '[가상 자료] 예시 참기름 1.8L 2병', from: 'title@example.test', receivedAt: '2026-10-19T01:00:00.000Z', collectedAt: '2026-10-19T01:01:00.000Z', processingStatus: 'pending_interpretation', raw: { mail: { mailId: 'fixture-3', body: '' }, attachments: [] } },
+];
 const state = () => [...orders.values()].sort((a, b) => b.createdAt.seconds - a.createdAt.seconds);
 const snapshot = () => `data: ${JSON.stringify(state())}\n\n`;
 function broadcast() { for (const stream of streams) stream.write(snapshot()); }
@@ -91,7 +102,28 @@ const server = createServer(async (req, res) => {
         if (url.pathname.startsWith('/api/naverworks/')) {
             if (req.headers.authorization !== 'Bearer fictional-local-token-not-a-firebase-credential') return reply(res, 401, { ok: false });
             const referer = new URL(req.headers.referer || localOrigin);
-            if (referer.origin !== localOrigin || referer.searchParams.get('verificationRole') !== 'admin') return reply(res, 403, { ok: false });
+            if (referer.origin !== localOrigin) return reply(res, 403, { ok: false });
+            if (url.pathname.endsWith('/source') && req.method === 'GET') {
+                if (referer.searchParams.get('mailSourceScenario') === 'failure') return reply(res, 503, { ok: false });
+                const intakeId = url.searchParams.get('intakeId');
+                if (intakeId) {
+                    const original = mailFixtures.find(record => record.id === intakeId);
+                    const mail = original ? structuredClone(original) : null;
+                    if (mail && referer.searchParams.get('mailBodyScenario') === 'deep') mail.raw.mail.body = `${'<div>'.repeat(100)}가상 복잡한 본문${'</div>'.repeat(100)}`;
+                    if (mail && referer.searchParams.get('mailBodyScenario') === 'large') mail.raw.mail.body = `<p>${'가상 본문 '.repeat(180000)}</p>`;
+                    return reply(res, mail ? 200 : 404, mail ? { ok: true, mail } : { ok: false });
+                }
+                const records = referer.searchParams.get('mailSourceScenario') === 'empty' ? [] : mailFixtures;
+                const offset = url.searchParams.get('cursor') === 'fictional-mail-page-2' ? 2 : 0;
+                return reply(res, 200, { ok: true, mails: records.slice(offset, offset + 2).map(({ raw, ...summary }) => summary), nextCursor: records.length > offset + 2 ? 'fictional-mail-page-2' : null });
+            }
+            if (url.pathname.endsWith('/attachment') && req.method === 'POST' && req.headers.origin === localOrigin && req.headers['content-type']?.startsWith('application/json')) {
+                const input = await readAction(req);
+                if (input.intakeId !== 'fictional-school-mail' || input.attachmentId !== '101') return reply(res, 404, { ok: false });
+                const bytes = await readFile(new URL('fixtures/mail-workbooks/sample-school-order.xls', import.meta.url));
+                return reply(res, 200, { ok: true, attachment: { id: '101', fileName: '가상 학교급식 발주서.xls', mimeType: 'application/vnd.ms-excel', byteLength: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex'), contentBase64: bytes.toString('base64') } });
+            }
+            if (referer.searchParams.get('verificationRole') !== 'admin') return reply(res, 403, { ok: false });
             const connected = referer.searchParams.get('mailScenario') === 'connected';
             if (url.pathname.endsWith('/status') && req.method === 'GET') return reply(res, 200, {
                 ok: true, configuration: { ready: connected, missing: connected ? [] : ['NAVERWORKS_CLIENT_SECRET', 'MAIL_TOKEN_ENCRYPTION_KEY', 'MAIL_COLLECTOR_EMAIL', 'MAIL_COLLECTOR_PASSWORD'] },

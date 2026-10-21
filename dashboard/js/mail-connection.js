@@ -91,7 +91,7 @@ export function initMailConnection(session, mount) {
     result.append(stats);
     const from = formatTime(syncResult.from), to = formatTime(syncResult.to);
     if (from && to) result.append(element('p', `${from} ~ ${to} · 한국 시간`, 'mail-description'));
-    result.append(element('p', '보관 상태: 해석 대기. 아직 발주로 확정하거나 상품을 연결하지 않았습니다. 첨부파일은 이름·형식 등 정보만 보관하며, 파일 다운로드·내용 해석은 대기 중입니다.', 'mail-description'));
+    result.append(element('p', '보관 상태: 해석 대기. 아직 발주로 확정하거나 상품을 연결하지 않았습니다. 아래 수집된 메일에서 원문을 열 수 있으며, 지원하는 Excel 첨부는 열람할 때 원본을 보관합니다.', 'mail-description'));
     if (partial) result.append(element('p', continuation ? '남은 메일이 있습니다. ‘이어서 수집’을 눌러 같은 기간의 다음 묶음을 가져오세요.' : '전체 범위 수집 완료가 확인되지 않았습니다. 연결 상태를 새로 확인해 주세요.', 'mail-description'));
     parent.append(result);
   }
@@ -148,7 +148,7 @@ export function initMailConnection(session, mount) {
     }
 
     const syncArea = element('div', undefined, 'mail-sync-area');
-    syncArea.append(element('h3', '최근 7일 메일 목록·본문 시험 수집'), element('p', '수집할 메일함을 직접 선택하세요. 거래처 지정과 발주서 해석은 아직 적용하지 않으므로 선택한 메일함의 해당 기간 메일이 모두 대상입니다. 첨부파일 다운로드는 대기 중이며, 수집이 발주 확인 완료를 뜻하지 않습니다.', 'mail-description'));
+    syncArea.append(element('h3', '최근 7일 메일 목록·본문 시험 수집'), element('p', '수집할 메일함을 직접 선택하세요. 거래처 지정과 발주서 해석은 아직 적용하지 않으므로 선택한 메일함의 해당 기간 메일이 모두 대상입니다. 수집된 메일에서 본문과 지원하는 Excel 첨부를 열람할 수 있습니다. 수집이 발주 확인 완료를 뜻하지 않습니다.', 'mail-description'));
     const label = element('label', '수집할 메일함', 'mail-folder');
     const select = element('select'); select.setAttribute('aria-label', '수집할 메일함');
     const placeholder = element('option', !connected() ? '계정 연결 후 선택할 수 있습니다' : folderError ? '메일함 확인 필요' : folders.length ? '메일함을 선택하세요' : '메일함을 확인하고 있습니다'); placeholder.value = ''; select.append(placeholder);
@@ -207,7 +207,8 @@ export function initMailConnection(session, mount) {
       if (!data.sync || !['complete', 'partial'].includes(data.sync.status)) throw new Error('Invalid collection response');
       syncResult = data.sync;
       continuation = data.sync.status === 'partial' && typeof data.sync.continuation === 'string' && data.sync.continuation ? data.sync.continuation : null;
-      actionMessage = data.sync.status === 'partial' ? '이번 묶음의 목록·본문을 보관했습니다. 남은 메일 수집이 필요합니다.' : '선택한 기간의 메일 목록·본문을 보관했습니다. 발주 해석 규칙을 정하는 다음 단계에서 활용합니다.';
+      actionMessage = data.sync.status === 'partial' ? '이번 묶음의 목록·본문을 보관했습니다. 남은 메일 수집이 필요합니다.' : '선택한 기간의 메일 목록·본문을 보관했습니다. 아래 수집된 메일에서 원문과 Excel 첨부를 확인하세요.';
+      window.dispatchEvent?.(new CustomEvent('mail-intakes-updated'));
     } catch (error) { actionMessage = safeError(error); actionFailed = true; }
     finally { busy = false; render(); }
   }

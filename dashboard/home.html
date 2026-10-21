@@ -7,6 +7,7 @@
   <title>들메내식품 · 대시보드</title>
   <link rel="stylesheet" href="/dashboard/style.css">
   <link rel="stylesheet" href="/dashboard/css/user-management.css">
+  <link rel="stylesheet" href="/dashboard/css/order-notifications.css">
   <style>
     /* ── home.html 전용 스타일 ── */
     .auth-hidden {
@@ -632,6 +633,7 @@
         <span class="header-title">들메내식품 대시보드</span>
       </div>
       <div class="header-right">
+        <div id="orderNotificationMount"></div>
         <button class="btn-ecount-test" type="button" id="userManagementLink" aria-haspopup="dialog" hidden>사용자 관리</button>
         <button class="btn-ecount-test" type="button" id="ecountTestBtn" hidden>Ecount 연결 테스트</button>
         <span class="current-time" id="clockDisplay">--:--:--</span>
@@ -678,9 +680,15 @@
         <div class="category-panel active" id="category-office" role="tabpanel">
           <div class="section-header">
             <span class="section-title">일반 사무</span>
-            <span class="section-count">2</span>
+            <span class="section-count" id="officeSectionCount">2</span>
           </div>
           <div class="card-grid">
+            <a href="/orders" class="dashboard-card card-active" data-manager-only>
+              <div class="card-icon">📥</div>
+              <div class="card-title">발주 확인·승인</div>
+              <div class="card-desc">받은 발주를 등록하고 원문과 품목·수량·납품 정보를 대조한 뒤 확인·승인합니다.</div>
+              <div class="card-meta"><span class="badge badge-live"><span class="badge-dot"></span> 발주함</span><span class="card-arrow">→</span></div>
+            </a>
             <a href="/school-meal-weekly" class="dashboard-card card-active">
               <div class="card-icon">🏫</div>
               <div class="card-title">학교급식 주간현황표</div>
@@ -906,9 +914,15 @@
             <div class="all-category-column">
               <div class="section-header">
                 <span class="section-title">일반 사무</span>
-                <span class="section-count">2</span>
+                <span class="section-count" id="officeAllSectionCount">2</span>
               </div>
               <div class="card-grid">
+                <a href="/orders" class="dashboard-card card-active" data-manager-only>
+                  <div class="card-icon">📥</div>
+                  <div class="card-title">발주 확인·승인</div>
+                  <div class="card-desc">받은 발주를 등록하고 원문과 품목·수량·납품 정보를 대조한 뒤 확인·승인합니다.</div>
+                  <div class="card-meta"><span class="badge badge-live"><span class="badge-dot"></span> 발주함</span><span class="card-arrow">→</span></div>
+                </a>
                 <a href="/school-meal-weekly" class="dashboard-card card-active">
                   <div class="card-icon">🏫</div>
                   <div class="card-title">학교급식 주간현황표</div>
@@ -1011,11 +1025,16 @@
     import { requireApprovedActiveUser, logoutToLogin, auth } from '/dashboard/js/firebase-client.js';
     import { setupUserManagement } from '/dashboard/js/users.js';
     import { rememberHaccpCategory } from '/dashboard/js/haccp-navigation.js';
+    import { initOrderNotifications } from '/dashboard/js/order-notifications.js';
 
     requireApprovedActiveUser({ page: 'home' }).then(session => {
       if (!session) return;
       const { user, profile } = session;
       const canExportHaccpData = ['manager', 'admin'].includes(profile.role);
+      document.getElementById('officeSectionCount').textContent = canExportHaccpData ? '3' : '2';
+      document.getElementById('officeAllSectionCount').textContent = canExportHaccpData ? '3' : '2';
+      const orderNotifications = initOrderNotifications({ user, profile, mount: document.getElementById('orderNotificationMount') });
+      window.addEventListener('pagehide', event => { if (!event.persisted) orderNotifications.destroy(); });
       document.getElementById('userManagementLink').hidden = !canExportHaccpData;
       setupUserManagement(session, document.getElementById('userManagementLink'));
       document.getElementById('ecountTestBtn').hidden = !canExportHaccpData;

@@ -1,7 +1,7 @@
 import { getApp, getApps, initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import { browserLocalPersistence, browserSessionPersistence, getAuth, onAuthStateChanged, setPersistence, signOut } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 import { doc, getDoc, getFirestore, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
-import { clearSession, LOGOUT_KEY, readSession, saveSession, validSession } from './auth-session.js';
+import { buildLoginUrl, clearSession, LOGOUT_KEY, readSession, saveSession, validSession } from './auth-session.js';
 
 export async function configureLoginPersistence(remember = false) {
     await setPersistence(auth, remember ? browserLocalPersistence : browserSessionPersistence);
@@ -54,6 +54,7 @@ export function requireApprovedActiveUser({ redirectTo = '/' } = {}) {
         let stopped = false, unsubscribeProfile, initialRole, initialUid, generation = 0;
         const block = async message => {
             if (stopped) return;
+            const loginUrl = buildLoginUrl(window.location.pathname + window.location.search + window.location.hash, redirectTo);
             stopped = true;
             unsubscribeProfile?.();
             clearInterval(timer);
@@ -66,12 +67,12 @@ export function requireApprovedActiveUser({ redirectTo = '/' } = {}) {
             note.style.cssText = 'line-height:1.6;margin:0 0 20px';
             const button = document.createElement('button'); button.textContent = '로그인 화면으로';
             button.style.cssText = 'padding:10px 16px;border:0;border-radius:8px;background:#237a55;color:#fff;cursor:pointer';
-            button.onclick = () => window.location.replace(redirectTo);
+            button.onclick = () => window.location.replace(loginUrl);
             dialog.append(note, button); document.body.append(dialog);
             dialog.addEventListener('cancel', event => event.preventDefault()); dialog.showModal();
             resolve(null);
             await signOut(auth).catch(() => {});
-            if (!initialRole) window.location.replace(redirectTo);
+            if (!initialRole) window.location.replace(loginUrl);
         };
         const check = () => {
             if (stopped || !auth.currentUser) return;

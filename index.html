@@ -1,12 +1,22 @@
 <!DOCTYPE html>
-<html>
+<html lang="ko">
 
 <head>
     <meta charset="UTF-8" />
-    <meta http-equiv="refresh" content="0; url=/dashboard/loginpage.html" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>DMNFOOD Dashboard</title>
 </head>
 
-<body></body>
+<body>
+    <p>로그인 화면으로 이동합니다. 자동으로 열리지 않으면 <a href="/dashboard/loginpage.html">로그인 화면 열기</a>를 눌러 주세요.</p>
+    <script type="module">
+        import { buildLoginUrl, getSafeReturnTo } from '/dashboard/js/auth-session.js';
+
+        const next = new URLSearchParams(window.location.search).get('next');
+        window.location.replace(next
+            ? buildLoginUrl(getSafeReturnTo(next), '/dashboard/loginpage.html')
+            : '/dashboard/loginpage.html');
+    </script>
+</body>
 
 </html>

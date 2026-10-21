@@ -1,0 +1,12 @@
+.git
+.postman
+.vercel
+node_modules
+tests
+docs
+postman
+firebase-debug.log
+firestore-debug.log
+firebase.json
+firestore.rules
+.firebaserc

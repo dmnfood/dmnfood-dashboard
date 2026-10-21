@@ -220,6 +220,9 @@
       from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
     import { doc, serverTimestamp, setDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
     import { auth, db, beginLoginSession, configureLoginPersistence, hasValidLoginSession, isApprovedActiveProfile, loadUserProfile, profileAccessMessage } from '/dashboard/js/firebase-client.js';
+    import { getSafeReturnTo } from '/dashboard/js/auth-session.js';
+
+    const returnTo = getSafeReturnTo(new URLSearchParams(window.location.search).get('next'));
 
     let loginInProgress = false;
     let registrationInProgress = false;
@@ -284,7 +287,7 @@
       if (!hasValidLoginSession(user)) { await denyAccess('로그인 유지 정책이 변경되었거나 시간이 만료되었습니다. 다시 로그인해 주세요.'); return; }
       const result = await accessResult(user);
       if (auth.currentUser?.uid !== user.uid) return;
-      if (result.allowed) navigateOnce('/home', 'approved-auth-state');
+      if (result.allowed) navigateOnce(returnTo, 'approved-auth-state');
       else await denyAccess(result.message);
     });
 
@@ -306,7 +309,7 @@
         const credential = await signInWithEmailAndPassword(auth, email, password);
         beginLoginSession(credential.user, remember);
         const result = await accessResult(credential.user, true);
-        if (result.allowed) navigateOnce('/home', 'approved-login');
+        if (result.allowed) navigateOnce(returnTo, 'approved-login');
         else await denyAccess(result.message);
       } catch (error) {
         showError(loginMessageFor(error));

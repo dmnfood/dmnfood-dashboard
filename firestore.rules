@@ -229,6 +229,141 @@
           && data.actionBy is string && data.confirmedBy is string;
       }
 
+      // Order approval is deliberately isolated from ERP, shipments and message sending.
+      function orderManager() {
+        let user = profile().data;
+        return signedIn() && user.isActive == true && user.get('approvalStatus', 'approved') == 'approved'
+          && user.role in ['manager', 'admin'];
+      }
+      function orderText(value, maxLength, required) {
+        return value is string && value.size() <= maxLength
+          && (!required || value.matches('(?s).*\\S.*'));
+      }
+      function orderDate(value) {
+        return value is string && (value == ''
+          || value.matches('^[0-9]{4}-((0[13578]|1[02])-(0[1-9]|[12][0-9]|3[01])|(0[469]|11)-(0[1-9]|[12][0-9]|30)|02-(0[1-9]|1[0-9]|2[0-8]))$')
+          || value.matches('^([0-9]{2}(0[48]|[2468][048]|[13579][26])|([02468][048]|[13579][26])00)-02-29$'));
+      }
+      function orderLine(position) {
+        let line = request.resource.data.draft.lines[position];
+        let product = line.productName;
+        let specification = line.specification;
+        let unit = line.unit;
+        let quantity = line.quantity;
+        // All four fields below are required, so an exact key count also excludes extras.
+        return line.keys().size() == 4
+          && (product + specification + unit).matches('(?s)^.{0,430}$')
+          && quantity >= 0 && quantity <= 1000000
+          && (request.resource.data.status != 'approved' || (product.matches('(?s).*\\S.*') && unit.matches('(?s).*\\S.*') && quantity > 0));
+      }
+      function orderLines(ready) {
+        let lines = request.resource.data.draft.lines;
+        let count = lines.size();
+        return lines is list && count <= 5 && (!ready || count > 0)
+          && (count < 1 || orderLine(0)) && (count < 2 || orderLine(1))
+          && (count < 3 || orderLine(2)) && (count < 4 || orderLine(3))
+          && (count < 5 || orderLine(4));
+      }
+      function orderDraft(draft, ready) {
+        return draft is map && draft.keys().size() == 6
+          && orderDate(draft.deliveryDate) && (!ready || draft.deliveryDate != '')
+          && draft.deliveryMethod in ['courier', 'direct', 'pickup', 'undetermined']
+          && (!ready || draft.deliveryMethod != 'undetermined')
+          && orderText(draft.recipientName, 120, ready) && orderText(draft.recipientPhone, 50, ready)
+          && orderText(draft.deliveryAddress, 500, ready && draft.deliveryMethod != 'pickup')
+          && orderLines(ready);
+      }
+      function orderChecks(checks, checked) {
+        return checks is map && checks.keys().size() == 3
+          && checks.identity == checked && checks.items == checked && checks.delivery == checked;
+      }
+      function validOrderRequest(data) {
+        let ready = data.status == 'approved';
+        return data.keys().size() == 21
+          && data.schemaVersion == 1 && orderText(data.customerName, 120, true)
+          && data.customerGroup in ['wedding', 'school', 'distributor', 'hotel', 'other']
+          && data.sourceChannel in ['kakao', 'sms', 'email', 'hotel_erp', 'manual']
+          && orderText(data.sourceText, 20000, true) && orderText(data.sourceReference, 500, false)
+          && data.receivedAt is timestamp && data.createdAt is timestamp && data.updatedAt == request.time
+          && orderText(data.createdByUid, 128, true) && orderText(data.createdByName, 200, true)
+          && data.revision is int && data.revision > 0
+          && data.status in ['pending_review', 'needs_information', 'approved', 'rejected']
+          && orderDraft(data.draft, ready)
+          && orderText(data.reviewNotes, 2000, false)
+          && orderText(data.reviewedByUid, 128, false) && orderText(data.reviewedByName, 200, false)
+          && (data.reviewedAt == null || data.reviewedAt is timestamp)
+          && data.approvedRevision is int && data.isTest is bool
+          && orderChecks(data.reviewChecks, ready);
+      }
+      function orderReviewReset(data) {
+        return data.status == 'pending_review' && data.reviewNotes == ''
+          && data.reviewedByUid == '' && data.reviewedByName == '' && data.reviewedAt == null
+          && data.approvedRevision == 0 && orderChecks(data.reviewChecks, false);
+      }
+      // A decision cannot change draft fields. Their schema was checked when saved;
+      // only the additional completeness conditions need checking again for approval.
+      function orderLineReady(position) {
+        let line = request.resource.data.draft.lines[position];
+        return line.productName.matches('(?s).*\\S.*') && line.unit.matches('(?s).*\\S.*') && line.quantity > 0;
+      }
+      function orderApprovalReady() {
+        let draft = request.resource.data.draft;
+        let count = draft.lines.size();
+        return draft.deliveryDate != '' && draft.deliveryMethod != 'undetermined'
+          && draft.recipientName.matches('(?s).*\\S.*') && draft.recipientPhone.matches('(?s).*\\S.*')
+          && (draft.deliveryMethod == 'pickup' || draft.deliveryAddress.matches('(?s).*\\S.*'))
+          && count > 0 && count <= 5
+          && orderLineReady(0) && (count < 2 || orderLineReady(1))
+          && (count < 3 || orderLineReady(2)) && (count < 4 || orderLineReady(3))
+          && (count < 5 || orderLineReady(4));
+      }
+      function orderDecision(data) {
+        let approved = data.status == 'approved';
+        return resource.data.status in ['pending_review', 'needs_information']
+          && data.status in ['approved', 'needs_information', 'rejected']
+          && data.revision == resource.data.revision
+          && data.reviewedByUid == request.auth.uid && orderText(data.reviewedByName, 200, true)
+          && data.reviewedAt == request.time && data.updatedAt == request.time
+          && orderText(data.reviewNotes, 2000, false) && orderChecks(data.reviewChecks, approved)
+          && data.approvedRevision is int
+          && data.approvedRevision == (approved ? data.revision : 0)
+          && (approved || data.reviewNotes.matches('(?s).*\\S.*'))
+          && (!approved || orderApprovalReady())
+          && data.diff(resource.data).affectedKeys().hasOnly(['status', 'reviewNotes', 'reviewChecks', 'reviewedByUid', 'reviewedByName', 'reviewedAt', 'approvedRevision', 'updatedAt']);
+      }
+      function orderRevisionArchived(orderId) {
+        let archive = getAfter(/databases/$(database)/documents/orderRequests/$(orderId)/versions/$(string(resource.data.revision))).data;
+        return archive.record == resource.data && archive.archivedAt == request.time
+          && archive.archivedByUid == request.auth.uid;
+      }
+
+      match /orderRequests/{orderId} {
+        allow read: if orderManager();
+        allow create: if orderManager() && request.resource.data.revision == 1
+          && orderReviewReset(request.resource.data)
+          && request.resource.data.createdByUid == request.auth.uid
+          && request.resource.data.createdAt == request.time && request.resource.data.receivedAt == request.time
+          && validOrderRequest(request.resource.data);
+        allow update: if orderManager()
+          && (orderDecision(request.resource.data)
+            || (request.resource.data.revision == resource.data.revision + 1
+              && orderReviewReset(request.resource.data)
+              && orderRevisionArchived(orderId)
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['draft', 'revision', 'status', 'reviewNotes', 'reviewChecks', 'reviewedByUid', 'reviewedByName', 'reviewedAt', 'approvedRevision', 'updatedAt'])
+              && validOrderRequest(request.resource.data)));
+        allow delete: if false;
+        match /versions/{revisionKey} {
+          allow read: if orderManager();
+          allow create: if orderManager()
+            && request.resource.data.keys().hasOnly(['record', 'archivedAt', 'archivedByUid'])
+            && request.resource.data.archivedByUid == request.auth.uid && request.resource.data.archivedAt == request.time
+            && request.resource.data.record == get(/databases/$(database)/documents/orderRequests/$(orderId)).data
+            && revisionKey == string(request.resource.data.record.revision)
+            && getAfter(/databases/$(database)/documents/orderRequests/$(orderId)).data.revision == request.resource.data.record.revision + 1;
+          allow update, delete: if false;
+        }
+      }
+
       match /users/{uid} {
         // Bootstrap read: a signed-in user must be able to inspect only their own profile before approval.
         allow get: if signedIn() && request.auth.uid == uid;

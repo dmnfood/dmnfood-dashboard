@@ -1,0 +1,47 @@
+/* Shared dashboard colors also apply to the home header notification menu. */
+.order-notifications { position: relative; font-family: inherit; color-scheme: dark; }
+.order-notifications [hidden] { display: none !important; }
+.order-notifications button, .order-notifications a, .order-notifications-toast a, .order-notifications-toast button { font: inherit; }
+.order-notifications-trigger { display: inline-flex; position: relative; align-items: center; gap: 7px; min-height: 34px; padding: 6px 11px; border: 1px solid var(--border); border-radius: 8px; color: var(--t1); background: var(--card-w); cursor: pointer; white-space: nowrap; font-size: 12px !important; }
+.order-notifications-trigger:hover { background: var(--card-s); color: var(--t0); }
+.order-notifications-trigger.has-pending { border-color: rgba(34, 211, 238, .35); background: rgba(34, 211, 238, .1); color: var(--brand-a); }
+.order-notifications-trigger:focus-visible, .order-notifications-panel :focus-visible, .order-notifications-toast :focus-visible { outline: 3px solid var(--brand-a); outline-offset: 3px; }
+.order-notifications-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px; border-radius: 11px; padding: 0 6px; font-size: 11px; font-weight: 700; background: var(--card-s); color: var(--t1); }
+.has-pending .order-notifications-badge { background: var(--brand-a); color: #071522; }
+.has-error .order-notifications-badge { border: 1px dashed var(--ac); }
+.order-notifications-unseen { width: 8px; height: 8px; border-radius: 50%; background: var(--ac); position: absolute; top: -3px; right: -2px; border: 1px solid #0b1220; }
+.order-notifications-panel { position: fixed; z-index: 1100; width: min(390px, calc(100vw - 24px)); overflow-y: auto; overscroll-behavior: contain; color: var(--t0); background: #111b2b; border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); text-align: left; line-height: 1.55; color-scheme: dark; }
+.order-notifications-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 17px 18px 8px; }
+.order-notifications-heading h2 { margin: 0; color: var(--t0); font-size: 16px; font-weight: 700; }
+.order-notifications-close { border: 1px solid var(--border); padding: 5px 8px; border-radius: 6px; background: var(--card-w); color: var(--t1); cursor: pointer; font-size: 12px !important; }
+.order-notifications-close:hover { background: var(--card-s); color: var(--t0); }
+.order-notifications-connection { margin: 0 18px 9px; font-size: 11px; color: var(--t1); }
+.order-notifications-connection.is-warning { color: var(--ac); }
+.order-notifications-summary { margin: 0; padding: 8px 18px; background: var(--card-w); color: var(--t1); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); font-size: 12px; }
+.order-notifications-list { margin: 0; padding: 0; list-style: none; }
+.order-notifications-item + .order-notifications-item { border-top: 1px solid var(--tb-br); }
+.order-notifications-order { display: flex; flex-direction: column; align-items: flex-start; padding: 13px 18px; color: var(--t0); text-decoration: none; gap: 4px; overflow-wrap: anywhere; }
+.order-notifications-order:hover { background: var(--tb-hv); }
+.order-notifications-order strong { font-size: 14px; font-weight: 700; }
+.order-notifications-detail { color: var(--t1); font-size: 11px; }
+.order-notifications-action { color: var(--brand-a); font-size: 12px; font-weight: 600; }
+.order-notifications-empty, .order-notifications-more { color: var(--t1); font-size: 12px; padding: 23px 18px; text-align: center; }
+.order-notifications-footer { display: flex; flex-direction: column; align-items: stretch; gap: 10px; padding: 15px 18px 17px; border-top: 1px solid var(--border); }
+.order-notifications-inbox { text-align: center; color: #071522; background: var(--brand-a); border: 1px solid var(--brand-a); border-radius: 8px; padding: 9px 12px; text-decoration: none; font-size: 13px; font-weight: 600; }
+.order-notifications-inbox:hover { background: #67e8f9; border-color: #67e8f9; }
+.order-notifications-browser, .order-notifications-retry { padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--card-w); color: var(--t1); cursor: pointer; font-size: 12px !important; }
+.order-notifications-browser:hover:not(:disabled), .order-notifications-retry:hover { background: var(--card-s); color: var(--t0); }
+.order-notifications-browser:disabled { color: var(--t1); opacity: .65; cursor: default; }
+.order-notifications-note, .order-notifications-permission { margin: 0; color: var(--t1); font-size: 11px; line-height: 1.6; }
+.order-notifications-permission:empty { display: none; }
+.order-notifications-toast { position: fixed; z-index: 1150; bottom: 24px; right: 24px; width: min(420px, calc(100vw - 32px)); display: flex; flex-wrap: wrap; gap: 11px; align-items: center; padding: 17px; border: 1px solid rgba(34, 211, 238, .35); border-radius: 14px; color: var(--t0); background: #111b2b; box-shadow: var(--shadow); line-height: 1.6; font-size: 13px; }
+.order-notifications-toast > span { flex-basis: 100%; }
+.order-notifications-toast a { color: var(--brand-a); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+.order-notifications-toast button { border: 0; background: transparent; color: var(--t1); margin-left: auto; cursor: pointer; padding: 4px; }
+@media (max-width: 600px) {
+  .order-notifications-label { display: none; }
+  .order-notifications-trigger { min-width: 44px; min-height: 44px; gap: 5px; padding: 5px 8px; }
+  .order-notifications-close, .order-notifications-browser, .order-notifications-retry, .order-notifications-toast button { min-height: 44px; }
+  .order-notifications-toast { bottom: 16px; right: 16px; }
+}
+@media print { .order-notifications, .order-notifications-toast { display: none !important; } }

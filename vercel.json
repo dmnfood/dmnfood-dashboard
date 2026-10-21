@@ -1,5 +1,6 @@
 {
     "rewrites": [
+        { "source": "/orders", "destination": "/dashboard/orders.html" },
         { "source": "/users", "destination": "/dashboard/users.html" },
         {
             "source": "/",

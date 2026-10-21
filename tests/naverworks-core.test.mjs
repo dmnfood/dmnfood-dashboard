@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
-import { createMailService, encryptionKey, sealTokens, openTokens, MAX_DETAILS } from '../lib/server/naverworks-core.cjs';
+import { createMailService, encryptionKey, sealTokens, openTokens, MAX_DETAILS, MAX_PAGES } from '../lib/server/naverworks-core.cjs';
 import { createHandler } from '../lib/server/naverworks-handlers.cjs';
 
 const NOW = Date.parse('2026-10-21T09:00:00+09:00');
@@ -222,6 +222,77 @@ test('bounded sync continuation freezes pending IDs despite live-page changes an
     assert.equal(pageReads, 1);
     assert.ok(store.intakes.has('official@dmnfood.co.kr:11'));
     assert.ok(store.intakes.has('official@dmnfood.co.kr:12'));
+});
+
+test('historical-only pages stop at the page budget and resume at the exact next cursor', async () => {
+    const store = memoryStore(); await seed(store);
+    const pages = [], pageCount = 17;
+    const oldTime = new Date(NOW - 8 * 86400000).toISOString();
+    const { service } = setup({ store, fetchImpl: async url => {
+        if (url.endsWith('/mailfolders')) return json(folderReply);
+        assert.ok(url.includes('/children'), 'out-of-range mail must not trigger a detail read');
+        const query = new URL(url).searchParams;
+        const page = Number(query.get('cursor') || 1);
+        assert.equal(query.get('count'), '30');
+        pages.push(page);
+        return json({
+            mails: Array.from({ length: 30 }, (_, i) => summary((page - 1) * 30 + i + 1, oldTime)),
+            responseMetaData: page < pageCount ? { nextCursor: String(page + 1) } : {},
+        });
+    } });
+    const first = await service.sync('administrator', { folderId: '0' });
+    assert.equal(MAX_PAGES, 15);
+    assert.equal(first.sync.status, 'partial');
+    assert.equal(first.sync.scanComplete, false);
+    assert.equal(first.sync.scanned, 450);
+    assert.equal(first.sync.skipped, 450);
+    assert.equal(first.sync.collected, 0);
+    assert.equal(pages.length, 15);
+    assert.ok(first.sync.continuation);
+    const last = await service.sync('administrator', { folderId: '0', continuation: first.sync.continuation });
+    assert.equal(last.sync.status, 'complete');
+    assert.equal(last.sync.scanComplete, true);
+    assert.equal(last.sync.scanned, 510);
+    assert.equal(last.sync.skipped, 510);
+    assert.equal(last.sync.collected, 0);
+    assert.equal(last.sync.continuation, null);
+    assert.equal(last.sync.from, first.sync.from);
+    assert.equal(last.sync.to, first.sync.to);
+    assert.deepEqual(pages, Array.from({ length: pageCount }, (_, i) => i + 1));
+    assert.equal(store.intakes.size, 0);
+});
+
+test('elapsed-time budget still stops historical scans and preserves a fetched pending page', async () => {
+    const store = memoryStore(); await seed(store);
+    let time = NOW, slow = true;
+    const pages = [], pageCount = 6;
+    const oldTime = new Date(NOW - 8 * 86400000).toISOString();
+    const { service } = setup({ store, now: () => time, fetchImpl: async url => {
+        if (url.endsWith('/mailfolders')) return json(folderReply);
+        assert.ok(url.includes('/children'), 'out-of-range mail must not trigger a detail read');
+        const page = Number(new URL(url).searchParams.get('cursor') || 1);
+        pages.push(page);
+        if (slow) time += 5000;
+        return json({
+            mails: Array.from({ length: 30 }, (_, i) => summary((page - 1) * 30 + i + 1, oldTime)),
+            responseMetaData: page < pageCount ? { nextCursor: String(page + 1) } : {},
+        });
+    } });
+    const first = await service.sync('administrator', { folderId: '0' });
+    assert.equal(first.sync.status, 'partial');
+    assert.equal(first.sync.scanned, 120);
+    assert.equal(first.sync.skipped, 120);
+    assert.equal(pages.length, 5);
+    assert.ok(pages.length < MAX_PAGES, 'elapsed time must stop the scan before its larger page budget');
+    slow = false;
+    const last = await service.sync('administrator', { folderId: '0', continuation: first.sync.continuation });
+    assert.equal(last.sync.status, 'complete');
+    assert.equal(last.sync.scanned, 180);
+    assert.equal(last.sync.skipped, 180);
+    assert.deepEqual(pages, [1, 2, 3, 4, 5, 6]);
+    assert.equal(last.sync.from, first.sync.from);
+    assert.equal(last.sync.to, first.sync.to);
+    assert.equal(store.intakes.size, 0);
 });
 
 test('expired OAuth state cannot exchange code and wrong cookie does not consume valid state', async () => {

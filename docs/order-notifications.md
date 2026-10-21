@@ -2,7 +2,7 @@
 
 업무의 목표는 **발주를 자동으로 수집·추출하고, 발주 담당자가 원문과 추출 결과를 대조하여 확정하는 것**입니다. 담당자가 발주를 직접 입력한 뒤 다른 사무 담당자에게 결재받는 절차가 아닙니다. 이 문서의 "확인·승인"은 자동 수집·인식의 오류를 사람이 확인하여 바로잡고 다음 처리에 사용할 내용을 확정한다는 의미입니다.
 
-현재 기능은 `orderRequests` 발주함의 알림·원문 대조·수정·확정 단계입니다. 네이버웍스·카카오톡·아이폰 문자·현대 ERP의 실제 발주 자동 수집은 아직 연결하지 않았습니다. 직접 접수는 자동 수집 장애나 누락을 보완하는 수단이고, 명시적으로 표시된 가상 발주는 흐름을 시험하는 용도입니다. 현재 화면의 승인은 ERP 등록·송장 발급·메신저 발송·출고를 실행하지 않습니다.
+현재 기능은 `orderRequests` 발주함의 알림·원문 대조·수정·확정 단계와 네이버웍스 메일 연결·최근 7일 원문 시험 수집 기반입니다. 실제 메일 계정은 서버 설정과 OAuth 동의 후 연결하며, 원문 시험 수집은 담당자가 메일함을 선택하고 시작합니다. 거래처별 발주 해석·상품 연결과 정기 자동 수집은 아직 활성화하지 않았습니다. 카카오톡·아이폰 문자·현대 ERP는 연결 전입니다. 직접 접수는 자동 수집 장애나 누락을 보완하는 수단이고, 명시적으로 표시된 가상 발주는 흐름을 시험하는 용도입니다. 현재 화면의 승인은 ERP 등록·송장 발급·메신저 발송·출고를 실행하지 않습니다.
 
 ## 사용 흐름
 
@@ -38,7 +38,7 @@
 
 - 회사 Developer Console에 OAuth 앱을 만들고 HTTPS Redirect URL과 읽기 전용 `mail.read` 권한을 등록합니다. Mail API는 **구성원 계정의 OAuth Authorization Code 인증만 지원하며 서비스 계정 JWT는 지원하지 않습니다**. 수신 계정으로 로그인·동의한 뒤 서버가 토큰을 관리합니다. 회사의 실제 계약·상품을 추정하여 지원 여부를 단정하지 않고, 해당 Console의 권한 제공 여부와 메일함 조회로 확인합니다. [Mail API](https://developers.worksmobile.com/kr/docs/mail), [OAuth 인증](https://developers.worksmobile.com/kr/docs/auth-oauth), [지원 권한 표](https://developers.worksmobile.com/kr/docs/auth-scope)
 - Client Secret과 토큰은 서버 전용 비밀 설정에 보관하며 브라우저·저장소·응답·로그에 노출하지 않습니다. Access Token의 만료를 확인하고 Refresh Token으로 갱신합니다. Refresh Token은 90일 유효하며, 회전 설정이 켜져 있으면 응답의 새 Refresh Token을 영속 저장해야 합니다. 환경변수만 사용하는 일회성 연결 점검을 무인 운영 완료로 간주하지 않습니다. 갱신 실패·재인증 필요 상태는 담당자에게 알려야 합니다. [토큰 갱신](https://developers.worksmobile.com/kr/docs/auth-oauth#refresh-access-token)
-- 서버는 `GET https://www.worksapis.com/v1.0/users/me/mail/mailfolders`로 메일함을 확인하고, 선택한 발주 메일함의 `/users/me/mail/mailfolders/{folderId}/children`을 조회합니다. 응답의 `responseMetaData.nextCursor`를 끝까지 처리하고 `계정 + mailId`로 중복 등록을 막습니다. 안 읽은 메일만 수집하면 직원이 먼저 읽은 발주가 누락될 수 있으므로 읽음 여부를 수집 기준으로 삼지 않습니다. 정렬이나 메일 ID의 증가만으로 조회 완료를 추정하지 않습니다. 공개 Mail 명세에 수신 webhook이 명시되어 있지 않아 정기 조회를 우선 검토하며, 조회 실패나 일부 페이지만 처리한 상태를 수집 완료로 표시하지 않습니다. [메일함 목록](https://developers.worksmobile.com/kr/docs/mail-folder-list), [메일 목록](https://developers.worksmobile.com/kr/docs/mail-folder-mail-list)
+- 서버는 `GET https://www.worksapis.com/v1.0/users/{수신계정}/mail/mailfolders`로 **지정된 수신 계정**의 접근을 확인하고, 선택한 메일함의 `/users/{수신계정}/mail/mailfolders/{folderId}/children`을 조회합니다. 로그인한 사용자의 프로필 신원을 추가로 검증했다고 표시하지 않습니다. 응답의 `responseMetaData.nextCursor`를 끝까지 처리하고 `계정 + mailId`로 중복 등록을 막습니다. 안 읽은 메일만 수집하면 직원이 먼저 읽은 발주가 누락될 수 있으므로 읽음 여부를 수집 기준으로 삼지 않습니다. 정렬이나 메일 ID의 증가만으로 조회 완료를 추정하지 않습니다. 공개 Mail 명세에 수신 webhook이 명시되어 있지 않아 정기 조회를 우선 검토하며, 조회 실패나 일부 페이지만 처리한 상태를 수집 완료로 표시하지 않습니다. [메일함 목록](https://developers.worksmobile.com/kr/docs/mail-folder-list), [메일 목록](https://developers.worksmobile.com/kr/docs/mail-folder-mail-list)
 - 본문은 `/users/me/mail/{mailId}`, 일반 첨부는 `/users/me/mail/{mailId}/attachments/{attachmentId}`로 가져옵니다. API 응답의 발신자·수신 시각·제목·본문·메일 식별자와 첨부 원형을 보존합니다. API가 제공하는 본문을 원본 EML이나 전체 메일 헤더라고 표시하지 않습니다. 다운로드 기한이 있는 첨부와 인라인 이미지는 공식 명세의 별도 방식을 따라야 합니다. 파일 누락·파싱 실패·빈 문서·상충하는 수량·불명확한 거래처는 근거와 함께 추가 확인으로 남기고 임의 보완하지 않습니다. 실제 미확인 첨부가 있으면 확인 전 확정을 막는 처리가 필요합니다. 이는 수집 연결 시 추가할 요건이며 현재 스키마가 첨부 검증을 이미 수행한다는 의미는 아닙니다. [메일 상세](https://developers.worksmobile.com/kr/docs/mail-get), [첨부 다운로드](https://developers.worksmobile.com/kr/docs/mail-attachment-get)
 - 연결 시 테스트 메일로 본문·표·첨부와 읽음 상태의 전후 차이, 전체 페이지 수집·중복 방지·실패 후 재시도를 확인합니다. API 상세의 GET이 기존 읽음 표시를 유지한다고 문서만으로 보장하지 않습니다. 실제 수집을 활성화하기 전에 조회 간격·대상 메일함·초기 수집 시작 범위·실패 알림을 정합니다. API 호출 제한과 동시 접속 제한에 맞춰 요청을 제한하고 재시도 간격을 늘립니다. [호출 제한](https://developers.worksmobile.com/kr/docs/rate-limits)
 
@@ -46,13 +46,51 @@
 
 API 사용이 어려우면 관리자 허용과 외부 앱 비밀번호를 사용하는 공식 IMAP(`imap.worksmobile.com:993`, SSL)을 먼저 검토할 수 있습니다. 브라우저 자동화는 공식 연결이 불가능한 서비스의 보완 수단으로 두고, 로그인 만료·화면 변경·수집 중단을 감지해야 합니다. 현재 이 대안들 역시 실제 계정에 연결하지 않았습니다. [공식 IMAP 설정](https://help.worksmobile.com/ko/use-guides/mail/settings/pop3-imap-smtp/)
 
+### 기본 연결 설정과 시험 수집
+
+이번 단계는 발신자·거래처를 미리 지정하지 않아도 계정 연결을 준비할 수 있습니다. 시험 수집 버튼을 누를 때 메일함 하나를 직접 선택하며, 선택한 메일함의 최근 7일 메일은 발주 여부와 무관하게 대상입니다. 제목에 ‘발주’가 없다는 이유로 제외하지 않습니다. 이 단계는 전체 메일함을 몰래 수집하거나 거래처를 임의 판별하지 않습니다.
+
+Developer Console 설정은 사용자가 직접 관리합니다.
+
+- Client ID: `kaXX9XpQRZ7ohuKFW1TU`
+- 수신 계정: `official@dmnfood.co.kr`
+- Redirect URL: `https://dashboard.dmnfood.co.kr/api/naverworks/callback`
+- OAuth 권한: `mail.read`만 사용합니다. `mail` 쓰기 권한이나 프로필 권한을 추가하지 않습니다.
+
+Vercel 프로젝트의 Production 환경에 아래 서버 전용 변수를 설정한 뒤 새로 배포합니다. Client Secret과 수집 계정 비밀번호·암호화 키는 **Secret** 형식으로 저장합니다. 실제 비밀값을 채팅·Git·공유 문서·OneDrive 작업 폴더에 기록하지 않습니다. [.env.example](../.env.example)은 빈 입력 항목과 공개 설정의 목록입니다.
+
+| 변수 | 값과 목적 |
+| --- | --- |
+| `NAVERWORKS_CLIENT_SECRET` | 사용자가 Console에서 확인한 앱의 Client Secret |
+| `MAIL_TOKEN_ENCRYPTION_KEY` | 암호학적 난수 32바이트의 Base64(44자) 또는 16진수(64자); 토큰·OAuth 증명 암호화 및 수집 재개 요청 서명 |
+| `MAIL_COLLECTOR_EMAIL` | 아래 전용 Firebase Auth 계정의 로그인 이메일 |
+| `MAIL_COLLECTOR_PASSWORD` | 전용 수집 계정의 강한 무작위 비밀번호 |
+
+Client ID·수신 계정·Redirect URL은 위 공개값이 기본값입니다. 필요하면 `.env.example`의 같은 이름으로 명시할 수 있으나 현재 Redirect URL은 위 운영 주소만 허용합니다. 암호화 키를 교체하면 기존 암호화 토큰과 진행 중 요청은 사용할 수 없으므로 메일 계정을 다시 연결해야 합니다. 설정이 빠지면 연결·수집 버튼은 사용할 수 없으며, 준비 상태를 연결 성공으로 표시하지 않습니다.
+
+메일 저장 권한을 활성화할 때는 다음 설정을 함께 적용합니다. 기존 발주함·HACCP 권한과 분리한 새 서버 계정·규칙이므로, 실제 운영 활성화 전에 이 범위를 확인합니다.
+
+1. Firebase `dmnfood-haccp` Authentication에 서버 수집 전용 Email/Password 계정을 생성합니다. 실제 직원 계정을 재사용하거나 `users/{uid}` 직원 프로필·관리자 역할을 부여하지 않습니다. 네이버웍스 메일 계정과는 별개인 내부 저장용 계정입니다.
+2. 관리자가 Firestore Console에서 `integrationAccess/naverworksMail` 문서에 `collectorUid`(위 UID, 문자열), `enabled`(`true`, 불리언)를 등록합니다. 웹앱과 수집 계정은 이 문서를 생성·수정할 수 없습니다.
+3. 준비된 `firestore.rules`를 배포합니다. 전용 UID는 메일 원문·암호화 토큰·일회성 OAuth 상태·작업 잠금·수집 이력만 다룹니다. 기존 발주 승인·HACCP 읽기 권한은 얻지 않습니다. 토큰·OAuth 상태는 직원이나 관리자의 브라우저에서도 읽을 수 없습니다. 원문은 승인된 매니저·관리자가 읽을 수 있으나 변경·삭제할 수 없습니다.
+4. Production 비밀 설정 후 새 배포에서 관리자 계정으로 발주함을 열고 **네이버웍스 계정 연결**을 누릅니다. `official@dmnfood.co.kr`의 접근이 확인되어야 메일함 선택이 열립니다. 직원 담당자는 연결 설정 API를 사용할 수 없습니다.
+5. 시험 메일함을 선택하고 **최근 7일 수집**을 누릅니다. 본문·첨부 정보의 원문 대조와 읽음 상태의 전후 차이를 확인합니다. ‘일부 수집’이면 **이어서 수집**으로 같은 기간의 남은 목록을 가져옵니다.
+
+한 번의 요청은 상세 10건·목록 3페이지·수집 루프 25초 이내로 제한합니다. 최초 요청 시의 시작·종료 시각을 7일 구간으로 고정하며, 재개 요청은 같은 관리자·메일함에 묶이고 1시간 뒤 만료됩니다. 재개할 목록의 남은 메일 ID·수신 시각을 서명된 요청에 고정하여 새로 도착한 메일 때문에 페이지 내 위치가 바뀌어 건너뛰는 문제를 막습니다. 서비스 자체의 페이지 커서는 전체 메일함의 고정 스냅샷을 보장하지 않으므로 운영 정기 수집에는 겹치는 기간의 반복 조회·중복 제거와 누락 점검이 추가로 필요합니다. 네트워크 오류나 실행 중단 후에는 새로 조회해도 이미 보관된 원문을 덮어쓰지 않습니다.
+
+`mailIntakes/{계정과메일ID의SHA256}`에 API 응답 본문·발신자·제목·수신 시각과 첨부 **정보**를 불변 보관합니다. 크기가 큰 원문은 같은 저장 작업으로 분할 저장하며 전체 바이트 수·SHA256으로 검증합니다(현재 최대 4MiB). 일반 첨부·인라인 이미지·대용량 첨부 **파일 자체의 다운로드는 아직 수행하지 않습니다**. 원문은 `pending_interpretation`, 첨부는 `metadata_only` 상태이고 기존 `orderRequests`로 생성하지 않습니다. 이 화면에서 발주 담당자가 원문 메일을 조회·해석하는 기능, 거래처 규칙·상품명 별칭 매핑, 자동 알림·정기 수집은 다음 단계입니다.
+
+OAuth 토큰은 AES-256-GCM으로 암호화하고, 일회성 상태·보안 쿠키와 시작한 관리자의 권한 재검증을 적용합니다. 동시 수집을 잠그고 회전된 갱신 토큰을 메일 조회보다 먼저 저장합니다. 운영 원문·인증 정보·메일 API 응답은 로그에 출력하지 않습니다. 연결을 중단할 때는 `integrationAccess/naverworksMail.enabled=false`로 저장 권한을 닫고 네이버웍스 앱 동의를 해제할 수 있습니다.
+
 ## 검증
 
 화면은 공통 `dashboard/style.css`의 배경·색상·글꼴·입력창 변수를 사용합니다. 메인 카드, 발주함, 알림 창은 같은 어두운 테마와 시안 강조색을 따릅니다. 모바일에서는 목록과 상세, 좁은 화면의 입력 항목을 한 열로 표시합니다.
 
-로컬 화면 검증: `node tests/order-ui-server.mjs` 실행 후 `http://127.0.0.1:4175/home`에서 발주 카드를 눌러 이동합니다. 이 서버는 허용된 화면 파일과 가상 담당자·메모리 데이터만 제공하며, 테스트 표시가 없는 접수를 거부합니다. 사용자 관리와 실제 외부 연결은 실행하지 않습니다. 테스트 서버·가상 모듈은 운영 배포에 포함하지 않습니다.
+로컬 화면 검증: `node tests/order-ui-server.mjs` 실행 후 `http://127.0.0.1:4175/home`에서 발주 카드를 눌러 이동합니다. `/orders?verificationRole=admin`은 미설정 관리자 화면, 같은 주소에 `&mailScenario=connected`를 추가하면 가상 연결·부분 수집·재개 흐름을 시험합니다. 이 서버는 허용된 화면 파일과 가상 담당자·메모리 데이터만 제공하며, 테스트 표시가 없는 접수를 거부합니다. 사용자 관리와 실제 외부 연결은 실행하지 않습니다. 테스트 서버·가상 모듈은 운영 배포에 포함하지 않습니다.
 
 일반 검증: `node --test tests/order-requests.test.mjs tests/order-notifications.test.mjs tests/auth-session.test.mjs`
+
+메일 연결 검증: `node --test tests/naverworks-core.test.mjs tests/mail-connection.test.mjs tests/mail-integration-store.test.mjs tests/mail-integration-rules.test.mjs`. 저장·규칙 통합 검증은 `MAIL_FIRESTORE_EMULATOR_HOST=127.0.0.1:8789`를 지정하고 격리된 `demo-mail-integration` 프로젝트에서만 실행합니다. 사용자 역할·전용 수집 계정의 격리, 원문 불변·분할·중복, 일회성 OAuth·만료·쿠키·관리자 권한 회수, 암호화 무결성·갱신 토큰 회전, 읽음 포함 기간 조회·페이지 재개를 검증합니다. 단위 시험은 네이버웍스 가짜 응답을 사용하며 실제 계정 인증 성공을 증명하지 않습니다.
 
 규칙 검증은 `demo-order-notifications` 프로젝트 이름의 격리된 로컬 Firestore 에뮬레이터에서만 수행합니다. 로컬 에뮬레이터를 `127.0.0.1:8788`에 최신 `firestore.rules`로 시작한 뒤 PowerShell에서 `$env:ORDER_FIRESTORE_EMULATOR_HOST='127.0.0.1:8788'; node --test tests/order-requests.test.mjs`를 실행합니다. 이 변수가 없으면 규칙 통합 시험은 건너뜁니다. 통합 시험은 외부 Firebase 호스트를 허용하지 않습니다. Windows에서 에뮬레이터의 한국어 진단 리소스 문제가 발생하면 Java 옵션 `'-Duser.language=en' '-Duser.country=US'`를 사용합니다.
 

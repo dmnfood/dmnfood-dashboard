@@ -12,6 +12,12 @@
       function approvedManagerOrAdmin() {
         return approvedActiveUser() && (profile().data.role == 'manager' || profile().data.role == 'admin');
       }
+      // A separate Firebase Auth identity is granted mail-only access by a console-managed record.
+      // It has no employee profile and cannot approve orders or read HACCP records.
+      function mailCollector() {
+        let access = get(/databases/$(database)/documents/integrationAccess/naverworksMail).data;
+        return signedIn() && access.enabled == true && access.collectorUid == request.auth.uid;
+      }
       function administrator() { return activeUser() && profile().data.role == 'admin'; }
       function validRole(role) { return role == 'worker' || role == 'manager' || role == 'admin'; }
       function validApprovalStatus(status) { return status == 'pending' || status == 'approved' || status == 'rejected'; }
@@ -547,6 +553,65 @@
           && request.resource.data.updatedByUid == request.auth.uid
           && (resource.data.createdByUid == request.auth.uid || approvedManagerOrAdmin());
         allow delete: if approvedActiveUser() && (resource.data.createdByUid == request.auth.uid || approvedManagerOrAdmin());
+      }
+
+      // Configure this record explicitly in Firebase Console; no dashboard or collector can grant access.
+      match /integrationAccess/naverworksMail {
+        allow get: if approvedManagerOrAdmin() && profile().data.role == 'admin';
+        allow write: if false;
+      }
+      match /mailIntegrationSecrets/naverworks {
+        allow get: if mailCollector();
+        allow create, update: if mailCollector()
+          && ('encryptedTokens' in request.resource.data)
+          && (request.resource.data.encryptedTokens is string || request.resource.data.encryptedTokens is map)
+          && !request.resource.data.keys().hasAny(['access_token', 'refresh_token', 'accessToken', 'refreshToken']);
+      }
+      match /mailIntegrationOAuthStates/{stateHash} {
+        allow get, delete: if mailCollector();
+        allow create: if mailCollector() && stateHash.matches('^[a-f0-9]{64}$')
+          && request.resource.data.keys().hasOnly(['uid', 'mailbox', 'cookieHash', 'encryptedAuthorization', 'createdAt', 'expiresAt'])
+          && request.resource.data.uid is string && request.resource.data.mailbox is string
+          && request.resource.data.cookieHash is string
+          && (!('encryptedAuthorization' in request.resource.data) || request.resource.data.encryptedAuthorization is string || request.resource.data.encryptedAuthorization is map)
+          && request.resource.data.createdAt is number && request.resource.data.expiresAt is number;
+      }
+      match /mailIntegrationLeases/{leaseId} {
+        allow get, delete: if mailCollector();
+        allow create, update: if mailCollector()
+          && request.resource.data.keys().hasOnly(['owner', 'expiresAt'])
+          && request.resource.data.owner is string && request.resource.data.expiresAt is number
+          && request.resource.data.expiresAt > request.time.toMillis();
+      }
+      match /mailIntegrationState/naverworks {
+        allow get, create, update: if mailCollector();
+      }
+      match /mailIntegrationRuns/{runId} {
+        allow get, list, create: if mailCollector();
+      }
+      match /mailIntakes/{intakeId} {
+        allow read: if mailCollector() || approvedManagerOrAdmin();
+        allow create: if mailCollector()
+          && intakeId.matches('^[a-f0-9]{64}$')
+          && request.resource.data.schemaVersion == 1
+          && request.resource.data.account == 'official@dmnfood.co.kr'
+          && request.resource.data.collectedByUid == request.auth.uid
+          && request.resource.data.sourceChannel == 'naverworks_mail'
+          && request.resource.data.processingStatus == 'pending_interpretation'
+          && request.resource.data.attachmentStatus == 'metadata_only'
+          && request.resource.data.collectionState == 'raw_saved_metadata_only'
+          && request.resource.data.rawStorage is map
+          && request.resource.data.rawStorage.chunkCount is int
+          && request.resource.data.rawStorage.chunkCount > 0 && request.resource.data.rawStorage.chunkCount <= 33;
+        // Raw source snapshots cannot be changed, deleted or promoted to a confirmed order.
+        match /source/{chunkId} {
+          allow read: if mailCollector() || approvedManagerOrAdmin();
+          allow create: if mailCollector()
+            && getAfter(/databases/$(database)/documents/mailIntakes/$(intakeId)).data.collectedByUid == request.auth.uid
+            && request.resource.data.keys().hasOnly(['index', 'text'])
+            && request.resource.data.index is int && request.resource.data.index >= 0 && request.resource.data.index < 33
+            && request.resource.data.text is string && request.resource.data.text.size() <= 131072;
+        }
       }
     }
   }

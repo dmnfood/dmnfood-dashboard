@@ -1,0 +1,8 @@
+# Server-only credentials must never enter Git.
+.env
+.env.*
+!.env.example
+.vercel/
+node_modules/
+firebase-debug.log
+firestore-debug.log

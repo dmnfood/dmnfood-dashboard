@@ -17,6 +17,7 @@ const uiFiles = new Set([
     '/dashboard/home.html', '/dashboard/orders.html', '/dashboard/js/orders.js',
     '/dashboard/js/order-notifications.js', '/dashboard/js/order-notification-utils.js',
     '/dashboard/js/order-request-model.js', '/dashboard/js/haccp-navigation.js', '/dashboard/style.css',
+    '/dashboard/js/mail-connection.js', '/dashboard/css/mail-connection.css',
     '/dashboard/css/user-management.css',
     '/dashboard/css/orders.css', '/dashboard/css/order-notifications.css',
 ]);
@@ -87,6 +88,27 @@ const server = createServer(async (req, res) => {
         || (req.headers.origin && req.headers.origin !== localOrigin)) return reply(res, 403, { error: 'Loopback verification only.' });
     const url = new URL(req.url, localOrigin);
     try {
+        if (url.pathname.startsWith('/api/naverworks/')) {
+            if (req.headers.authorization !== 'Bearer fictional-local-token-not-a-firebase-credential') return reply(res, 401, { ok: false });
+            const referer = new URL(req.headers.referer || localOrigin);
+            if (referer.origin !== localOrigin || referer.searchParams.get('verificationRole') !== 'admin') return reply(res, 403, { ok: false });
+            const connected = referer.searchParams.get('mailScenario') === 'connected';
+            if (url.pathname.endsWith('/status') && req.method === 'GET') return reply(res, 200, {
+                ok: true, configuration: { ready: connected, missing: connected ? [] : ['NAVERWORKS_CLIENT_SECRET', 'MAIL_TOKEN_ENCRYPTION_KEY', 'MAIL_COLLECTOR_EMAIL', 'MAIL_COLLECTOR_PASSWORD'] },
+                connection: { connected, accessStatus: connected ? 'mailbox_access_verified' : 'not_connected', mailbox: 'official@dmnfood.co.kr' },
+            });
+            if (url.pathname.endsWith('/folders') && req.method === 'GET') return reply(res, 200, { ok: true, folders: [{ id: '42', name: '가상 발주 시험 메일함' }] });
+            if (url.pathname.endsWith('/sync') && req.method === 'POST' && connected && req.headers.origin === localOrigin && req.headers['content-type']?.startsWith('application/json')) {
+                const input = await readAction(req);
+                if (input.folderId !== '42') return reply(res, 400, { ok: false });
+                const complete = input.continuation === 'fictional-local-continuation';
+                return reply(res, 200, { ok: true, sync: { status: complete ? 'complete' : 'partial', continuation: complete ? null : 'fictional-local-continuation',
+                    scanned: complete ? 20 : 10, collected: complete ? 3 : 2, duplicates: 0, skipped: complete ? 17 : 8,
+                    from: new Date(Date.now() - 7 * 86400000).toISOString(), to: new Date().toISOString(), mode: 'fictional_local_only',
+                } });
+            }
+            return reply(res, 503, { ok: false, error: { code: 'configuration_required' } });
+        }
         if (url.pathname === '/__order_ui/events' && req.method === 'GET') {
             res.writeHead(200, { ...headers, 'Content-Type': 'text/event-stream; charset=utf-8', Connection: 'keep-alive' });
             streams.add(res); res.write(snapshot());

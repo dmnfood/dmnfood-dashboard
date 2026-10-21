@@ -30,23 +30,33 @@
     </header>
     <main class="order-main">
       <div class="order-page-heading">
-        <div><p class="order-eyebrow">발주 수집·확인</p><h1>발주 원문과 수집 내용을 확인하세요</h1><p class="order-muted">자동으로 수집·정리된 품목·수량·납품 정보를 발주 담당자가 원문과 대조하고 확인을 완료합니다.</p></div>
-        <div class="order-actions"><button id="testOrderButton" class="order-button" type="button">알림 테스트</button><button id="newOrderButton" class="order-button" type="button">수동 보완 등록</button></div>
+        <div><p class="order-eyebrow">일반 사무</p><h1>발주 확인·승인</h1><p class="order-muted">거래처에서 받은 첨부 발주서를 확인하고 발주를 처리합니다.</p></div>
       </div>
       <div id="orderAccessDenied" class="order-message order-warning" hidden>발주함은 발주 확인 권한이 있는 관리자·매니저 계정으로 이용할 수 있습니다.</div>
       <section id="orderWorkspace" aria-label="발주 목록과 확인 화면">
-        <section id="mailConnectionMount" class="mail-connection" aria-label="네이버웍스 메일 연결 설정"><p class="mail-loading" role="status">메일 연결 설정을 확인하고 있습니다.</p></section>
-        <section id="mailSourceMount" class="mail-source" aria-label="수집한 메일 원본 열람"><p class="mail-loading" role="status">수집한 메일 원문을 확인하고 있습니다.</p></section>
-        <div class="order-service-note">메일 원문 수집과 발주 해석·상품 연결은 별도 단계입니다. 수집한 메일은 먼저 ‘해석 대기’로 보관하며, 거래처별 양식·상품명 규칙을 정한 뒤 담당자가 원문과 대조합니다. 아래 가상 발주 시험과 수동 보완 등록은 확인 화면의 동작을 점검하는 용도이며 ERP 등록·출고는 실행하지 않습니다.</div>
+        <section id="mailConnectionMount" class="mail-connection" aria-label="메일 수집 상태"><p class="mail-loading" role="status">메일 수집 상태 확인 중</p></section>
         <div id="orderMessage" class="order-message" role="status" aria-live="polite" hidden></div>
-        <div class="order-layout">
-          <aside class="order-list-panel" aria-label="발주 목록">
-            <div class="order-list-heading"><h2>발주 목록</h2><span id="orderCount" class="order-muted">연결 중</span></div>
-            <label class="order-filter" for="orderStatusFilter">처리 상태<select id="orderStatusFilter"><option value="pending_review">확인 대기</option><option value="needs_information">추가 확인</option><option value="approved">확인 완료</option><option value="rejected">처리 제외</option><option value="all">전체</option></select></label>
-            <div id="orderList" class="order-list" aria-live="polite"><p class="order-empty">발주 목록을 불러오고 있습니다.</p></div>
-          </aside>
-          <section id="orderDetail" class="order-detail" aria-label="선택한 발주 확인"><div class="order-empty"><h2>확인할 발주를 선택하세요</h2><p>알림을 누르면 해당 발주가 바로 열립니다.</p></div></section>
-        </div>
+        <section id="mailSourceMount" class="mail-source order-workbench" aria-labelledby="orderWorkbenchTitle">
+          <div class="order-workbench-heading"><div><h2 id="orderWorkbenchTitle">발주함</h2><p class="order-muted">메일을 선택해 첨부 원본을 확인하세요.</p></div><div id="mailSourceToolbar" class="mail-source-toolbar"></div></div>
+          <div class="order-workbench-layout">
+            <aside class="order-mail-queue" aria-label="메일 목록"><div id="mailQueueMount"><p class="mail-loading">메일 목록을 불러오고 있습니다.</p></div></aside>
+            <div class="order-workbench-content">
+              <div class="order-workbench-tabs" role="tablist" aria-label="발주 작업">
+                <button id="mailOriginalTab" class="order-workbench-tab" type="button" role="tab" aria-selected="true" aria-controls="mailOriginalPanel" tabindex="0">첨부 원본 확인</button>
+                <button id="orderProcessingTab" class="order-workbench-tab" type="button" role="tab" aria-selected="false" aria-controls="orderProcessingPanel" tabindex="-1">발주 목록·처리</button>
+              </div>
+              <section id="mailOriginalPanel" class="order-workbench-panel mail-source-detail" role="tabpanel" aria-labelledby="mailOriginalTab" tabindex="0"><p class="mail-source-empty">왼쪽에서 메일을 선택하세요.</p></section>
+              <section id="orderProcessingPanel" class="order-workbench-panel order-processing-panel" role="tabpanel" aria-labelledby="orderProcessingTab" tabindex="0" hidden>
+                <div class="order-processing-intro"><p id="orderMailContext" class="order-muted">수집한 메일은 해석 대기 상태입니다. 아래는 별도로 등록된 발주 목록입니다.</p><div class="order-actions"><button id="newOrderButton" class="order-button" type="button">수동 보완 등록</button><button id="testOrderButton" class="order-button order-text-button" type="button">가상 발주 시험</button></div></div>
+                <section class="order-list-panel" aria-label="발주 목록">
+                  <div class="order-processing-list-header"><div class="order-list-heading"><h2>등록된 발주</h2><span id="orderCount" class="order-muted">연결 중</span></div><label class="order-filter" for="orderStatusFilter">처리 상태<select id="orderStatusFilter"><option value="pending_review">확인 대기</option><option value="needs_information">추가 확인</option><option value="approved">확인 완료</option><option value="rejected">처리 제외</option><option value="all">전체</option></select></label></div>
+                  <div id="orderList" class="order-list" aria-live="polite"><p class="order-empty">발주 목록을 불러오고 있습니다.</p></div>
+                </section>
+                <section id="orderDetail" class="order-detail" aria-label="선택한 발주 확인"><div class="order-empty"><h2>확인할 발주를 선택하세요</h2><p>발주 목록이나 알림에서 선택하면 확인할 수 있습니다.</p></div></section>
+              </section>
+            </div>
+          </div>
+        </section>
       </section>
     </main>
   </div>

@@ -46,7 +46,7 @@ export function findSchoolMailFolder(folders) {
   return named.length === 1 && String(named[0].id) === SCHOOL_FOLDER_ID && folders.filter(folder => String(folder?.id) === SCHOOL_FOLDER_ID).length === 1 ? named[0] : null;
 }
 
-/** The panel only reads connection metadata on load. Mail collection requires an explicit folder and click. */
+/** Connection metadata is read on load; collection always requires a manual click. */
 export function initMailConnection(session, mount) {
   if (!mount) return () => {};
   const abortController = new AbortController();
@@ -54,6 +54,36 @@ export function initMailConnection(session, mount) {
   let state = null, folders = [], selectedFolder = '', continuation = null, syncResult = null, busy = false, disposed = false;
   let statusError = '', actionMessage = '', actionFailed = false, folderError = '';
   let callbackStatus = '', callbackMessage = '', callbackFailed = false;
+  let settingsTrigger = null;
+  const strip = element('div', undefined, 'mail-connection-strip');
+  const dialog = isAdmin ? element('dialog', undefined, 'mail-connection-dialog') : null;
+  const dialogBody = isAdmin ? element('div', undefined, 'mail-dialog-body') : null;
+  let dialogClose = null;
+  function closeSettings() {
+    if (!dialog?.open) return;
+    dialog.close();
+    if (!disposed) settingsTrigger?.focus();
+  }
+  function openSettings() {
+    if (disposed || !isAdmin || dialog.open) return;
+    dialog.showModal();
+    dialogClose.focus();
+  }
+  const cancelSettings = event => { event.preventDefault(); closeSettings(); };
+  const backdropSettings = event => { if (event.target === dialog) closeSettings(); };
+  if (dialog) {
+    const shell = element('div', undefined, 'mail-dialog-shell');
+    const header = element('div', undefined, 'mail-dialog-heading');
+    const title = element('h2', '메일 연결 설정');
+    title.id = 'mailConnectionDialogTitle';
+    dialog.setAttribute('aria-labelledby', title.id);
+    dialogClose = button('닫기', closeSettings);
+    dialogClose.setAttribute('aria-label', '메일 연결 설정 닫기');
+    header.append(title, dialogClose); shell.append(header, dialogBody); dialog.append(shell);
+    dialog.addEventListener('cancel', cancelSettings);
+    dialog.addEventListener('click', backdropSettings);
+  }
+  mount.replaceChildren(strip, ...(dialog ? [dialog] : []));
   try {
     const url = new URL(window.location.href);
     const values = url.searchParams.getAll('mail_connection');
@@ -78,6 +108,7 @@ export function initMailConnection(session, mount) {
       signal: abortController.signal, headers: { Authorization: `Bearer ${token}`, ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
     const data = await response.json().catch(() => ({}));
+    if (disposed) throw new DOMException('Panel closed', 'AbortError');
     if (!response.ok || data.ok !== true) {
       const error = new Error('Mail request failed'); error.status = response.status; error.code = data.error?.code || data.code; throw error;
     }
@@ -94,34 +125,67 @@ export function initMailConnection(session, mount) {
     if (!syncResult) return;
     const result = element('div', undefined, 'mail-result mail-message');
     const partial = syncResult.status !== 'complete';
-    result.append(element('strong', partial ? '메일 목록·본문 수집이 진행 중입니다' : '선택한 범위의 메일 목록·본문을 수집했습니다'));
+    result.append(element('strong', partial ? '학교급식 메일을 일부 가져왔습니다' : '선택한 범위의 학교급식 메일을 가져왔습니다'));
     const stats = element('div', undefined, 'mail-result-stats');
     for (const [label, value] of [['확인한 메일', syncResult.scanned], ['새로 보관', syncResult.collected], ['중복', syncResult.duplicates], ['건너뜀', syncResult.skipped]]) stats.append(element('span', `${label} ${counter(value)}건`));
     result.append(stats);
     const from = formatTime(syncResult.from), to = formatTime(syncResult.to);
     if (from && to) result.append(element('p', `${from} ~ ${to} · 한국 시간`, 'mail-description'));
-    result.append(element('p', '보관 상태: 해석 대기. 아직 발주로 확정하거나 상품을 연결하지 않았습니다. 아래 수집된 메일에서 원문을 열 수 있으며, 지원하는 Excel 첨부는 열람할 때 원본을 보관합니다.', 'mail-description'));
+    result.append(element('p', '보관 상태: 해석 대기. 아직 발주로 확정하거나 상품을 연결하지 않았습니다. 지원하는 Excel 첨부는 열람할 때 원본을 보관합니다.', 'mail-description'));
     if (partial) result.append(element('p', continuation ? '남은 메일이 있습니다. ‘이어서 수집’을 눌러 같은 기간의 다음 묶음을 가져오세요.' : '전체 범위 수집 완료가 확인되지 않았습니다. 연결 상태를 새로 확인해 주세요.', 'mail-description'));
     parent.append(result);
   }
   function render() {
     if (disposed) return;
-    mount.replaceChildren(); mount.setAttribute('aria-busy', String(busy));
-    mount.dataset.mode = isAdmin ? 'setup' : 'compact';
+    const focusRegion = strip.contains(document.activeElement) ? strip : dialog?.open && dialogBody.contains(document.activeElement) ? dialogBody : null;
+    const focusAction = focusRegion ? document.activeElement?.dataset?.mailAction : null;
+    strip.replaceChildren(); mount.setAttribute('aria-busy', String(busy));
+    mount.dataset.mode = 'compact';
+    const summary = element('div', undefined, 'mail-strip-summary');
+    const identity = element('div', undefined, 'mail-strip-identity');
+    identity.append(element('span', '네이버웍스', 'mail-strip-provider'), element('strong', SCHOOL_FOLDER_NAME));
+    summary.append(identity);
+    strip.append(summary);
     if (!isAdmin) {
-      const heading = element('div', undefined, 'mail-heading'), title = element('div');
-      title.append(element('h2', '네이버웍스 학교급식 메일 수집'), element('p', '메일 연결 설정은 관리자가 진행합니다. ‘학교급식 발주’ 메일함에서 수집한 자료를 아래에서 열람합니다. 현재는 담당자가 수집을 시작하는 방식이며, 발주 해석·승인은 아직 수행하지 않습니다.', 'mail-description'));
-      heading.append(title); mount.append(heading); return;
+      summary.append(element('p', '수집한 메일의 첨부 원본을 확인하세요. 메일 가져오기와 연결 설정은 관리자가 진행합니다.', 'mail-strip-note'));
+      if (callbackMessage) {
+        const message = element('p', callbackMessage, 'mail-strip-feedback'); message.setAttribute('role', callbackFailed ? 'alert' : 'status'); summary.append(message);
+      }
+      return;
     }
-    const heading = element('div', undefined, 'mail-heading'), title = element('div');
-    title.append(element('h2', '네이버웍스 메일 연결'), element('p', '먼저 원문을 안전하게 모으고, 거래처별 해석 규칙은 다음 단계에서 정합니다.', 'mail-description'));
-    const badge = element('span', statusError ? '상태 확인 필요' : connected() ? '계정 연결 확인' : ready() ? '계정 연결 전' : '설정 준비', 'mail-badge');
-    badge.dataset.state = connected() ? 'ready' : 'attention'; heading.append(title, badge); mount.append(heading);
+
+    const attention = Boolean(statusError || folderError);
+    const badge = element('span', attention ? '확인 필요' : !state ? '연결 확인 중' : connected() ? '연결 정상' : ready() ? '연결 필요' : '설정 필요', 'mail-badge');
+    badge.dataset.state = connected() && !attention ? 'ready' : !state && !statusError ? 'neutral' : 'attention'; identity.append(badge);
+    const schoolSync = syncResult || (state?.lastSync?.folderId === SCHOOL_FOLDER_ID ? state.lastSync : null);
+    let recent = '최근 7일 · 버튼을 눌러 메일을 가져옵니다';
+    if (schoolSync) {
+      const through = formatTime(schoolSync.to);
+      recent = schoolSync.status === 'complete' ? `최근 수집 범위 ${through ? `${through}까지` : '확인됨'} · 해석 대기` : continuation ? '일부 수집 · 이어서 가져오기가 필요합니다' : '일부 수집 · 수집 범위 확인이 필요합니다';
+    }
+    summary.append(element('p', recent, 'mail-strip-note'));
+    const actions = element('div', undefined, 'mail-strip-actions');
+    const sync = button(busy ? '처리 중…' : continuation ? '이어서 수집' : '메일 가져오기', syncMail, true);
+    sync.dataset.mailAction = 'sync';
+    // Keep the active action focusable while busy; syncMail's guard prevents repeat requests.
+    sync.disabled = !connected() || selectedFolder !== SCHOOL_FOLDER_ID || Boolean(folderError);
+    sync.setAttribute('aria-disabled', String(busy || sync.disabled));
+    settingsTrigger = button('연결 설정', openSettings);
+    settingsTrigger.dataset.mailAction = 'open-settings';
+    settingsTrigger.setAttribute('aria-haspopup', 'dialog');
+    actions.append(sync, settingsTrigger); strip.append(actions);
+    const feedbacks = [callbackMessage && { text: callbackMessage, error: callbackFailed }, (statusError || folderError || actionMessage) && { text: statusError || folderError || actionMessage, error: Boolean(statusError || folderError || actionFailed) }].filter(Boolean);
+    for (const feedback of feedbacks) {
+      const message = element('div', feedback.text, 'mail-strip-feedback');
+      message.setAttribute('role', feedback.error ? 'alert' : 'status'); message.dataset.error = String(feedback.error); strip.append(message);
+    }
+
+    dialogBody.replaceChildren();
     const statuses = element('div', undefined, 'mail-status-grid');
-    statuses.append(statusCard('1 · 서버 설정', !isAdmin ? '관리자 확인 필요' : state ? ready() ? '준비 완료' : '설정 필요' : statusError ? '확인 필요' : '확인 중', '인증 정보와 원문 저장 설정을 확인합니다.'),
-      statusCard('2 · 메일 계정', connected() ? '연결 확인' : '연결 전', MAILBOX),
-      statusCard('3 · 학교급식 최근 7일 시험', syncResult ? syncResult.status === 'complete' ? '목록·본문 수집 완료' : '일부 수집 · 계속 필요' : state?.lastSync?.folderId === SCHOOL_FOLDER_ID ? '학교급식 최근 수집 기록 있음' : '학교급식 수집 전', state?.lastSync && state.lastSync.folderId !== SCHOOL_FOLDER_ID && !syncResult ? '다른 메일함의 기존 기록은 ‘전체 수집 메일’에서 확인할 수 있습니다.' : '수집 결과는 ‘해석 대기’로 보관합니다.'));
-    mount.append(statuses);
+    statuses.append(statusCard('서버 설정', state ? ready() ? '준비 완료' : '설정 필요' : statusError ? '확인 필요' : '확인 중', '인증 정보와 원문 저장 설정'),
+      statusCard('메일 계정', connected() ? '연결 확인' : '연결 전', MAILBOX),
+      statusCard('학교급식 최근 7일', schoolSync ? schoolSync.status === 'complete' ? '수집 범위 확인됨' : '일부 수집 · 계속 필요' : '학교급식 수집 기록 확인 필요', state?.lastSync && state.lastSync.folderId !== SCHOOL_FOLDER_ID && !syncResult ? '다른 메일함의 기존 기록은 ‘전체 수집 메일’에서 확인할 수 있습니다.' : '수집 결과는 ‘해석 대기’로 보관합니다.'));
+    dialogBody.append(statuses);
 
     const details = element('details', undefined, 'mail-settings');
     details.open = !ready(); details.append(element('summary', '연결 계정과 서버 설정 확인'));
@@ -130,8 +194,7 @@ export function initMailConnection(session, mount) {
       account.append(element('dt', label), element('dd', value, code ? 'mail-code' : undefined));
     }
     content.append(account);
-    if (!isAdmin) content.append(element('p', '메일 연결 설정과 시험 수집은 관리자 계정에서 진행합니다. 발주 담당자의 확인 화면과는 별도 설정입니다.', 'mail-description'));
-    else if (state && !ready()) {
+    if (state && !ready()) {
       content.append(element('p', '서버에 필요한 설정을 먼저 준비해 주세요. 비밀값은 이 화면이나 채팅에 입력하지 않습니다.', 'mail-description'));
       const missing = Array.isArray(state.configuration?.missing) ? state.configuration.missing.filter(key => typeof key === 'string' && /^[A-Z][A-Z0-9_]{1,79}$/.test(key)) : [];
       if (missing.length) {
@@ -143,31 +206,31 @@ export function initMailConnection(session, mount) {
       content.append(link);
     }
     content.append(element('p', '메일 읽기 전용 연결입니다. 이 단계에서 메일 발송·삭제, ERP 등록·출고는 실행하지 않습니다.', 'mail-description'));
-    details.append(content); mount.append(details);
+    details.append(content); dialogBody.append(details);
 
-    const actions = element('div', undefined, 'mail-actions');
-    const refresh = button(busy ? '확인 중…' : '연결 상태 새로 확인', () => refreshStatus()); refresh.disabled = busy || !isAdmin;
-    const connect = button(connected() ? '메일 계정 다시 연결' : '네이버웍스 계정 연결', connectAccount, true); connect.disabled = busy || !isAdmin || !ready();
-    actions.append(refresh, connect); mount.append(actions);
-    if (callbackMessage) {
-      const feedback = element('div', callbackMessage, 'mail-message'); feedback.setAttribute('role', callbackFailed ? 'alert' : 'status'); feedback.dataset.error = String(callbackFailed); mount.append(feedback);
-    }
-    if (statusError || actionMessage) {
-      const message = element('div', statusError || actionMessage, 'mail-message'); message.setAttribute('role', statusError || actionFailed ? 'alert' : 'status'); message.dataset.error = String(Boolean(statusError || actionFailed)); mount.append(message);
+    const setupActions = element('div', undefined, 'mail-actions');
+    const refresh = button(busy ? '확인 중…' : '연결 상태 새로 확인', () => refreshStatus()); refresh.disabled = busy; refresh.dataset.mailAction = 'refresh';
+    const connect = button(connected() ? '메일 계정 다시 연결' : '네이버웍스 계정 연결', connectAccount, true); connect.disabled = busy || !ready(); connect.dataset.mailAction = 'connect';
+    setupActions.append(refresh, connect); dialogBody.append(setupActions);
+    for (const feedback of feedbacks) {
+      const message = element('div', feedback.text, 'mail-message'); message.setAttribute('role', feedback.error ? 'alert' : 'status'); message.dataset.error = String(feedback.error); dialogBody.append(message);
     }
 
     const syncArea = element('div', undefined, 'mail-sync-area');
-    syncArea.append(element('h3', '학교급식 발주 · 최근 7일 시험 수집'), element('p', '수집 범위는 ‘학교급식 발주’ 메일함으로 고정합니다. 메일함 이름과 위치를 확인한 뒤 최근 7일 자료를 가져옵니다. 수집 버튼을 눌러야 실행되며, 상시 자동 수집은 아직 가동하지 않습니다. 수집이 발주 확인 완료를 뜻하지 않습니다.', 'mail-description'));
+    syncArea.append(element('h3', '메일 가져오기 범위'), element('p', '‘학교급식 발주’ 메일함에서 최근 7일 자료를 가져옵니다. 버튼을 눌러야 실행되며, 상시 자동 수집은 아직 가동하지 않습니다. 수집이 발주 확인 완료를 뜻하지 않습니다.', 'mail-description'));
     const label = element('label', '학교급식 수집 메일함 · 고정', 'mail-folder');
     const select = element('select'); select.setAttribute('aria-label', '학교급식 수집 메일함');
     const option = element('option', selectedFolder ? SCHOOL_FOLDER_NAME : !connected() ? '계정 연결 후 확인합니다' : folderError ? '학교급식 메일함 확인 필요' : '학교급식 메일함 확인 중'); option.value = selectedFolder; select.append(option);
     select.value = selectedFolder; select.disabled = true;
     label.append(select); syncArea.append(label);
     if (folderError) { const warning = element('p', folderError, 'mail-message'); warning.setAttribute('role', 'alert'); syncArea.append(warning); }
-    const syncActions = element('div', undefined, 'mail-actions');
-    const sync = button(busy ? '처리 중…' : continuation ? '이어서 수집' : '학교급식 발주 최근 7일 수집', syncMail, true);
-    sync.disabled = busy || !isAdmin || !connected() || !selectedFolder || Boolean(folderError); syncActions.append(sync); syncArea.append(syncActions);
-    renderResult(syncArea); mount.append(syncArea);
+    renderResult(syncArea); dialogBody.append(syncArea);
+    if (focusAction) {
+      const nextFocus = focusRegion.querySelector(`[data-mail-action="${focusAction}"]`);
+      if (nextFocus && !nextFocus.disabled) nextFocus.focus();
+      else if (focusRegion === dialogBody) dialogClose.focus();
+      else settingsTrigger.focus();
+    }
   }
 
   async function loadFolders() {
@@ -217,7 +280,7 @@ export function initMailConnection(session, mount) {
       if (!data.sync || !['complete', 'partial'].includes(data.sync.status)) throw new Error('Invalid collection response');
       syncResult = data.sync;
       continuation = data.sync.status === 'partial' && typeof data.sync.continuation === 'string' && data.sync.continuation ? data.sync.continuation : null;
-      actionMessage = data.sync.status === 'partial' ? '이번 묶음의 목록·본문을 보관했습니다. 남은 메일 수집이 필요합니다.' : '선택한 기간의 메일 목록·본문을 보관했습니다. 아래 수집된 메일에서 원문과 Excel 첨부를 확인하세요.';
+      actionMessage = data.sync.status === 'partial' ? '메일을 일부 가져왔습니다. ‘이어서 수집’을 눌러 나머지를 가져오세요.' : '학교급식 메일을 가져왔습니다. 목록에서 첨부 원본을 확인하세요.';
       window.dispatchEvent?.(new CustomEvent('mail-intakes-updated'));
     } catch (error) { actionMessage = safeError(error); actionFailed = true; }
     finally { busy = false; render(); }
@@ -225,5 +288,13 @@ export function initMailConnection(session, mount) {
 
   render();
   if (isAdmin) void refreshStatus();
-  return () => { disposed = true; abortController.abort(); };
+  return () => {
+    disposed = true; abortController.abort();
+    if (dialog) {
+      dialog.removeEventListener('cancel', cancelSettings);
+      dialog.removeEventListener('click', backdropSettings);
+      if (dialog.open) dialog.close();
+      dialog.remove();
+    }
+  };
 }

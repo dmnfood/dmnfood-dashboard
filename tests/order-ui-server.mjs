@@ -6,6 +6,7 @@ import { readFile } from 'node:fs/promises';
 import { createHash, randomUUID } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { normalizeOrderAiAnalysis, assertOrderAiConfirmation } from '../dashboard/js/order-ai-model.js';
+import { buildSchoolMealCompanies } from '../dashboard/js/school-meal-company-model.js';
 import {
     assertOrderRevision, buildOrderReview, emptyReviewChecks, normalizeOrderDraft,
     validateOrderDraft, validateOrderInput,
@@ -29,6 +30,7 @@ const uiFiles = new Set([
     '/dashboard/js/mail-preparation-ui.js', '/dashboard/js/mail-preparation-model.js', '/dashboard/css/mail-preparation.css',
     '/dashboard/js/order-ai-client.js', '/dashboard/js/order-ai-chat.js', '/dashboard/js/order-ai-evidence.js',
     '/dashboard/js/order-ai-model.js', '/dashboard/css/order-ai-chat.css',
+    '/dashboard/js/school-meal-company-model.js',
     '/dashboard/js/erp-customer-model.js', '/dashboard/js/erp-customer-import.js',
     '/dashboard/js/erp-customer-settings.js', '/dashboard/css/erp-customer-settings.css',
     '/dashboard/vendor/sheetjs/xlsx.full.min.js',
@@ -41,6 +43,7 @@ const fixtures = new Map([
     ['/dashboard/js/order-request-store.js', 'order-ui-store.js'],
     ['/dashboard/js/erp-customer-store.js', 'order-ui-erp-customers.js'],
     ['/dashboard/js/mail-preparation-store.js', 'order-ui-mail-preparation.js'],
+    ['/dashboard/js/school-meal-company-store.js', 'order-ui-school-meal-companies.js'],
     ['/__order_ui/transport.js', 'order-ui-transport.js'],
     ['/__order_ui/firestore.js', 'order-ui-firestore.js'],
 ]);
@@ -64,14 +67,16 @@ for (const mail of mailFixtures) {
     mail.schemaVersion = 1; mail.account = 'official@dmnfood.co.kr';
     mail.rawStorage = { sha256: createHash('sha256').update(JSON.stringify(mail.raw)).digest('hex') };
 }
-// An intentionally fictional company catalog used only by this loopback server.
-// Register the same 0007 / 가상 급식 거래처 in the local browser settings to review.
-const orderAiCustomers = [{ code: '0007', name: '가상 급식 거래처', revision: 1 }];
+// An intentionally fictional weekly-company catalog used only on loopback.
+// This internal selection ID is never an ERP customer code.
+const orderAiCustomerId = `school-${createHash('sha256').update('가상 급식 거래처'.normalize('NFKC')).digest('hex').slice(0, 24)}`;
+let schoolCompanyCatalog = { schemaVersion: 1, revision: 1, companies: [{ id: orderAiCustomerId, name: '가상 급식 거래처' }] };
+const orderAiCustomers = () => schoolCompanyCatalog.companies.map(item => ({ ...item, revision: schoolCompanyCatalog.revision, source: 'school_meal', erpCode: null }));
 const orderAiBytes = await readFile(new URL('fixtures/mail-workbooks/sample-school-order.xls', import.meta.url));
 const orderAiParsed = await extractWorkbook(orderAiBytes, '가상 학교급식 발주서.xls');
 const orderAiSources = [{ attachmentId: '101', sha256: createHash('sha256').update(orderAiBytes).digest('hex'),
     fileName: '가상 학교급식 발주서.xls', kind: 'workbook', complete: true, sheets: orderAiParsed.sheets }];
-function orderAiProposal(blocked) {
+function orderAiProposal(blocked, customerId) {
     const included = [2, 3, 4, 5, 6], lineIds = new Map();
     const lines = [...included, ...(blocked ? [7] : [])].map(rowIndex => {
         const id = `fictional-line-${rowIndex + 1}`; lineIds.set(rowIndex, id);
@@ -84,7 +89,7 @@ function orderAiProposal(blocked) {
         ? '가상 검증: 중국산 참기름 1.8L 6병과 국산 참기름 1.8L 5병을 찾았습니다. 들기름 2병은 회사 상품 목록에 없어 확인이 필요합니다. 실제 AI 호출이나 ERP 등록은 실행하지 않습니다.'
         : '가상 검증: 중국산 참기름 1.8L 6병과 국산 참기름 1.8L 5병입니다. 회사 상품 목록에 없는 들기름 2병은 제외했습니다. 실제 AI 호출이나 ERP 등록은 실행하지 않습니다.',
         questions: blocked ? [{ id: 'fictional-question-1', text: '회사 상품 목록에 없는 들기름 2병을 제외할까요?', lineId: 'fictional-line-8' }] : [],
-        customerCode: '0007', lines,
+        customerId, lines,
         coverage: orderAiSources[0].sheets[0].rows.map(({ rowIndex }) => ({ attachmentId: '101', sheetIndex: 0, rowIndex,
             disposition: lineIds.has(rowIndex) ? rowIndex === 7 ? 'unresolved' : 'included' : 'excluded',
             lineIds: lineIds.has(rowIndex) ? [lineIds.get(rowIndex)] : [], reason: rowIndex < 2 ? '제목과 열 제목'
@@ -94,10 +99,11 @@ function orderAiProposal(blocked) {
 function createOrderAiFixture(input, scenario, old) {
     if (input.intakeId !== SCHOOL_MAIL_ID) throw new Error('이 가상 메일에는 분석할 발주 첨부가 없습니다.');
     if (input.expectedRevision !== (old?.revision || 0) || old?.status === 'confirmed') throw new Error('가상 분석의 최신 버전을 다시 불러와 주세요.');
-    if (input.customerCode && input.customerCode !== '0007') throw new Error('가상 검증에서는 거래처 0007만 사용합니다.');
+    const customers = orderAiCustomers(), selectedId = input.customerId || old?.customer?.id || customers[0]?.id || null;
+    if (selectedId && !customers.some(item => item.id === selectedId)) throw new Error('가상 주간현황표 업체 목록에서 다시 선택해 주세요.');
     const blocked = scenario === 'blocked' && !/제외/.test(input.message || '');
     const normalized = normalizeOrderAiAnalysis({ id: 'fictional-analysis', intakeId: input.intakeId, revision: (old?.revision || 0) + 1,
-        sourceHash: mailFixtures[0].rawStorage.sha256, sources: orderAiSources, customers: orderAiCustomers, output: orderAiProposal(blocked) });
+        sourceHash: mailFixtures[0].rawStorage.sha256, sources: orderAiSources, customers, output: orderAiProposal(blocked, selectedId) });
     const conversation = [...(old?.conversation || []), ...(input.message ? [{ role: 'user', content: String(input.message) }] : []),
         { role: 'assistant', content: normalized.assistantMessage }];
     return { ...normalized, conversation, mode: 'fictional_local_only', updatedAt: new Date().toISOString() };
@@ -157,6 +163,16 @@ const server = createServer(async (req, res) => {
         || (req.headers.origin && req.headers.origin !== localOrigin)) return reply(res, 403, { error: 'Loopback verification only.' });
     const url = new URL(req.url, localOrigin);
     try {
+        if (url.pathname === '/__order_ui/school-companies') {
+            if (req.headers.authorization !== 'Bearer fictional-local-token-not-a-firebase-credential') return reply(res, 401, { ok: false });
+            if (req.method === 'GET') return reply(res, 200, { ok: true, catalog: schoolCompanyCatalog, mode: 'fictional_local_only' });
+            if (req.method !== 'POST' || req.headers.origin !== localOrigin || !req.headers['content-type']?.startsWith('application/json')) return reply(res, 405, { ok: false });
+            const input = await readAction(req);
+            if (input.expectedRevision !== schoolCompanyCatalog.revision) throw new Error('가상 업체 목록의 최신 버전을 불러와 주세요.');
+            const companies = await buildSchoolMealCompanies(input.names);
+            if (JSON.stringify(companies) !== JSON.stringify(schoolCompanyCatalog.companies)) schoolCompanyCatalog = { schemaVersion: 1, revision: schoolCompanyCatalog.revision + 1, companies };
+            return reply(res, 200, { ok: true, catalog: schoolCompanyCatalog, mode: 'fictional_local_only' });
+        }
         if (url.pathname.startsWith('/api/order-ai/')) {
             if (req.headers.authorization !== 'Bearer fictional-local-token-not-a-firebase-credential') return reply(res, 401, { ok: false });
             const referer = new URL(req.headers.referer || localOrigin), scenario = referer.searchParams.get('orderAiScenario') || 'valid';
@@ -175,7 +191,7 @@ const server = createServer(async (req, res) => {
             if (url.pathname.endsWith('/confirm')) {
                 if (!previous || previous.updatedAt !== input.expectedUpdatedAt) throw new Error('가상 분석의 최신 버전을 다시 대조해 주세요.');
                 assertOrderAiConfirmation(previous, { revision: input.expectedRevision, sourceHash: mailFixtures[0].rawStorage.sha256,
-                    sources: orderAiSources, customers: orderAiCustomers, reviewedGroupIds: input.reviewedGroupIds,
+                    sources: orderAiSources, customers: orderAiCustomers(), reviewedGroupIds: input.reviewedGroupIds,
                     reviewedExclusions: input.reviewedExclusions });
                 const analysis = { ...previous, status: 'confirmed', confirmedRevision: previous.revision,
                     reviewedGroupIds: [...input.reviewedGroupIds], reviewedExclusions: input.reviewedExclusions === true,

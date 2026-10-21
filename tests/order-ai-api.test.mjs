@@ -2,9 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
+import { createHash } from 'node:crypto';
 import { createHandler, createOrderAiService } from '../lib/server/order-ai-service.cjs';
 import { extractWorkbook, extractMailSources, imageDimensions, LIMITS } from '../lib/server/order-ai-extraction.cjs';
 import { createOrderAiStore } from '../lib/server/order-ai-store.cjs';
+import { encodeFields } from '../lib/server/mail-integration-store.cjs';
 import { ORDER_AI_RESPONSE_SCHEMA } from '../dashboard/js/order-ai-model.js';
 const intakeId = 'a'.repeat(64), sourceHash = 'b'.repeat(64), sha256 = 'c'.repeat(64);
 const XLSX = createRequire(import.meta.url)('../dashboard/vendor/sheetjs/xlsx.full.min.js');
@@ -12,8 +14,9 @@ const source = { attachmentId: '12', sha256, kind: 'workbook', complete: true, f
     { rowIndex: 0, cells: [{ columnIndex: 0, value: '국산 참기름 1L' }, { columnIndex: 1, value: 2 }, { columnIndex: 2, value: '병' }] },
     { rowIndex: 1, cells: [{ columnIndex: 0, value: '국산 참기름 1L' }, { columnIndex: 1, value: 3 }, { columnIndex: 2, value: '병' }] },
 ] }] };
-const customers = [{ id: '0007', code: '0007', name: '가상 거래처', revision: 1 }];
-const output = () => ({ assistantMessage: '원본의 두 행에서 5병을 확인했습니다. 대조해 주세요.', questions: [], customerCode: '0007',
+const companyName = '가상 거래처', companyId = `school-${createHash('sha256').update(companyName).digest('hex').slice(0, 24)}`;
+const customers = [{ id: companyId, name: companyName, revision: 1, source: 'school_meal', erpCode: null }];
+const output = () => ({ assistantMessage: '원본의 두 행에서 5병을 확인했습니다. 대조해 주세요.', questions: [], customerId: companyId,
     lines: [0, 1].map(rowIndex => ({ id: `line-${rowIndex}`, productId: 'oil-kr-1l', unit: '병', imageQuantity: null, issues: [],
         source: { attachmentId: '12', sheetIndex: 0, rowIndex, productCells: [`A${rowIndex + 1}`], quantityCell: `B${rowIndex + 1}`, unitCell: `C${rowIndex + 1}`, bbox: null } })),
     coverage: [0, 1].map(rowIndex => ({ attachmentId: '12', sheetIndex: 0, rowIndex, disposition: 'included', lineIds: [`line-${rowIndex}`], reason: '' })) });
@@ -52,8 +55,23 @@ test('provider receives strict schema, complete sources, no store or tools and a
 test('missing API setting, stale revision, unknown customer and invalid input cause no provider charge', async () => {
     const f = fixture({ env: { OPENAI_API_KEY: '' } }); await assert.rejects(f.service.analyze(start, actor), { code: 'ai_configuration_required' }); assert.equal(f.calls.length, 0);
     const g = fixture();
-    for (const input of [{ ...start, expectedRevision: 1 }, { ...start, customerCode: 'fabricated' }, { ...start, message: '' }, { ...start, prompt: 'injected' }]) await assert.rejects(g.service.analyze(input, actor));
+    for (const input of [{ ...start, expectedRevision: 1 }, { ...start, customerId: 'school-' + 'f'.repeat(24) }, { ...start, customerCode: '0007' }, { ...start, message: '' }, { ...start, prompt: 'injected' }]) await assert.rejects(g.service.analyze(input, actor));
     assert.equal(g.calls.length, 0);
+    const missing = fixture(); missing.store.customers = async () => [];
+    await assert.rejects(missing.service.analyze(start, actor), { code: 'ai_customer_catalog_required' }); assert.equal(missing.calls.length, 0);
+});
+test('new analysis uses only the canonical school roster and never treats an internal ID as an ERP code', async () => {
+    const catalog = { schemaVersion: 1, revision: 4, companies: [{ id: companyId, name: companyName }] }, paths = [];
+    const store = createOrderAiStore({ token: 'user-token', fetchImpl: async url => { paths.push(String(url)); return new Response(JSON.stringify({ fields: encodeFields(catalog) })); } });
+    const records = await store.customers();
+    assert.deepEqual(records, [{ id: companyId, name: companyName, revision: 4, source: 'school_meal', erpCode: null }]);
+    assert.ok(paths.every(path => path.endsWith('/settings/schoolMealCompanies'))); assert.equal('code' in records[0], false);
+    for (const companies of [[{ id: 'invented', name: companyName }], [{ id: companyId, name: ` ${companyName}` }], [{ id: companyId, name: companyName }, { id: companyId, name: companyName }]]) {
+        const malformed = createOrderAiStore({ token: 'user-token', fetchImpl: async () => new Response(JSON.stringify({ fields: encodeFields({ ...catalog, companies }) })) });
+        await assert.rejects(malformed.customers(), { code: 'ai_customer_catalog_invalid' });
+    }
+    const missing = createOrderAiStore({ token: 'user-token', fetchImpl: async () => new Response('{}', { status: 404 }) });
+    assert.deepEqual(await missing.customers(), []);
 });
 test('repeat clicks cannot run concurrent analysis or silently charge a stale follow-up', async () => {
     let complete; const pending = new Promise(resolve => complete = resolve);
@@ -98,10 +116,17 @@ test('excluded source rows need separate human evidence review before confirmati
 });
 test('follow-up explicitly invokes one new analysis and archives exact prior revision', async () => {
     const f = fixture(); await f.service.analyze(start, actor); const previous = structuredClone(f.record.data);
-    const second = await f.service.analyze({ intakeId, expectedRevision: 1, message: '거래처는 가상 거래처입니다.', customerCode: '0007' }, actor);
+    const second = await f.service.analyze({ intakeId, expectedRevision: 1, message: '업체는 가상 거래처입니다.', customerId: companyId }, actor);
     assert.equal(second.analysis.revision, 2); assert.equal(second.analysis.conversation.length, 4); assert.equal(f.calls.length, 2);
     assert.deepEqual(f.history[0], previous);
     assert.equal(f.history[0].revision, 1);
+});
+test('an existing analysis without a company can continue using a selected weekly company without an ERP code', async () => {
+    const candidate = { ...output(), customerId: null }, f = fixture({ output: candidate });
+    const first = await f.service.analyze(start, actor); assert.equal(first.analysis.customer, null); assert.equal(first.analysis.readyForReview, false);
+    const second = await f.service.analyze({ intakeId, expectedRevision: 1, customerId: companyId, message: '선택한 학교급식 업체입니다.' }, actor);
+    assert.deepEqual(second.analysis.customer, customers[0]); assert.equal(second.analysis.readyForReview, true); assert.equal(second.analysis.revision, 2);
+    assert.equal(second.analysis.customer.erpCode, null); assert.equal('code' in second.analysis.customer, false); assert.equal(f.history[0].analysis.customer, null);
 });
 test('handlers require approved role, same origin JSON and safe request size without invoking provider', async () => {
     for (const [authorize, req, expected] of [

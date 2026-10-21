@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createOrderAiStore } from '../lib/server/order-ai-store.cjs';
 import { createOrderAiService } from '../lib/server/order-ai-service.cjs';
+import { createHash } from 'node:crypto';
 const host = process.env.MAIL_FIRESTORE_EMULATOR_HOST || process.env.ORDER_FIRESTORE_EMULATOR_HOST;
 test('AI rules bind source, actor and exact immutable review version; collector never gains analysis access', { skip: !host }, async () => {
     assert.match(host, /^(127\.0\.0\.1|localhost):\d+$/);
@@ -54,6 +55,19 @@ test('AI rules bind source, actor and exact immutable review version; collector 
     assert.equal((await remove(`orderAiLocks/${intakeId}`, 'collector')).status, 403); assert.equal((await remove(`orderAiLocks/${intakeId}`, 'admin')).status, 403);
     assert.equal((await remove(`orderAiLocks/${intakeId}`, 'manager')).status, 200);
 
+    const companyName = '가상 거래처', companyId = `school-${createHash('sha256').update(companyName).digest('hex').slice(0, 24)}`;
+    const catalogPath = 'settings/schoolMealCompanies'; await remove(catalogPath);
+    const saveCatalog = (revision, uid = 'manager', companies = [{ id: companyId, name: companyName }]) => fetch(`${base}:commit`, { method: 'POST', headers: headers(uid), body: JSON.stringify({ writes: [{ update: { name: `${documentName}/${catalogPath}`, fields: fields({ schemaVersion: 1, revision, companies, updatedByUid: uid }) }, updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }] }] }) });
+    for (const uid of ['', 'collector', 'pending', 'inactive']) {
+        assert.equal((await get(catalogPath, uid)).status, 403); assert.equal((await saveCatalog(1, uid)).status, 403);
+    }
+    assert.equal((await saveCatalog(1, 'worker')).status, 403);
+    const initialized = await saveCatalog(1); assert.equal(initialized.status, 200, await initialized.text());
+    assert.equal((await get(catalogPath, 'worker')).status, 200, 'approved staff can read the weekly roster without permission to change it');
+    assert.equal((await saveCatalog(1)).status, 403); assert.equal((await saveCatalog(3)).status, 403);
+    assert.equal((await saveCatalog(2, 'admin', Array.from({ length: 201 }, () => ({ id: companyId, name: companyName })))).status, 403);
+    assert.equal((await remove(catalogPath, 'admin')).status, 403);
+
     // Exercise the actual REST adapter and service together, including timestamp
     // transforms and a version archive; no provider or production service is used.
     const liveId = 'd'.repeat(64), livePath = `orderAiAnalyses/${liveId}`;
@@ -61,7 +75,7 @@ test('AI rules bind source, actor and exact immutable review version; collector 
     await put(`mailIntakes/${liveId}`, { account: 'official@dmnfood.co.kr', rawStorage: { sha256: sourceHash } });
     const sources = [{ attachmentId: '12', sha256: 'c'.repeat(64), kind: 'workbook', complete: true,
         sheets: [{ sheetIndex: 0, sheetName: '가상', rows: [{ rowIndex: 0, cells: [{ columnIndex: 0, value: '국산 참기름 1L' }, { columnIndex: 1, value: 2 }, { columnIndex: 2, value: '병' }] }] }] }];
-    const candidate = { assistantMessage: '원본과 대조해 주세요.', questions: [], customerCode: '0007',
+    const candidate = { assistantMessage: '원본과 대조해 주세요.', questions: [], customerId: companyId,
         lines: [{ id: 'line-1', productId: 'oil-kr-1l', unit: '병', imageQuantity: null, issues: [], source: { attachmentId: '12', sheetIndex: 0, rowIndex: 0, productCells: ['A1'], quantityCell: 'B1', unitCell: 'C1', bbox: null } }],
         coverage: [{ attachmentId: '12', sheetIndex: 0, rowIndex: 0, disposition: 'included', lineIds: ['line-1'], reason: '' }] };
     let charges = 0;
@@ -71,6 +85,10 @@ test('AI rules bind source, actor and exact immutable review version; collector 
         fetchImpl: async () => { charges++; return new Response(JSON.stringify({ status: 'completed', output: [{ type: 'message', content: [{ type: 'output_text', text: JSON.stringify(candidate) }] }] })); } });
     const analyzed = await actualService.analyze({ intakeId: liveId, expectedRevision: 0 }, { uid: 'manager', role: 'manager' });
     assert.equal(analyzed.analysis.groups[0].quantity, '2'); assert.equal(typeof analyzed.analysis.updatedAt, 'string');
+    assert.deepEqual(analyzed.analysis.customer, { id: companyId, name: companyName, revision: 1, source: 'school_meal', erpCode: null });
+    assert.equal((await saveCatalog(2)).status, 200);
+    await assert.rejects(actualService.confirm({ intakeId: liveId, expectedRevision: 1, reviewedGroupIds: analyzed.analysis.groups.map(group => group.id) }, { uid: 'manager', role: 'manager' }), { code: 'ai_confirmation_blocked' });
+    await put(catalogPath, { schemaVersion: 1, revision: 1, companies: [{ id: companyId, name: companyName }], updatedByUid: 'owner', updatedAt: { $timestamp: new Date().toISOString() } });
     const completed = await actualService.confirm({ intakeId: liveId, expectedRevision: 1, expectedUpdatedAt: analyzed.analysis.updatedAt, reviewedGroupIds: analyzed.analysis.groups.map(group => group.id) }, { uid: 'manager', role: 'manager' });
     assert.equal(completed.analysis.status, 'confirmed'); assert.equal(completed.analysis.revision, 2); assert.equal(charges, 1);
     const actualArchive = await (await get(`${livePath}/versions/1`)).json();

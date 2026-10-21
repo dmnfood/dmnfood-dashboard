@@ -635,6 +635,7 @@
         </div>
       </section>
 
+      <p id="companyCatalogStatus" role="status" aria-live="polite" hidden></p>
       <section class="upload-panel">
         <div class="panel-head">
           <div>
@@ -717,6 +718,7 @@
           <input class="company-input" id="companyNameInput" type="text" placeholder="업체명 입력" autocomplete="off">
           <button class="btn-small primary" id="companyAddBtn" type="button">추가</button>
         </div>
+        <p id="companySyncStatus" role="status" aria-live="polite"></p>
         <div id="companyListHost"></div>
         <div class="company-modal-foot">
           <div class="company-count" id="companyCountText"></div>
@@ -735,6 +737,7 @@
       document.getElementById('userChip').textContent = user.email.split('@')[0];
       document.getElementById('loadingScreen').classList.add('hidden');
       document.getElementById('mainContent').classList.remove('auth-hidden');
+      window.connectSchoolMealCompanyCatalog(session);
     });
 
     window.handleLogout = async () => {
@@ -847,7 +850,7 @@
     const emptyValues = () => Object.fromEntries(PRODUCT_COLUMNS.map(c => [c, 0]));
 
     function normalizeCompanyName(name) {
-      return norm(name).replace(/\s+/g, ' ').trim();
+      return norm(name).normalize('NFKC').replace(/\s+/g, ' ').trim();
     }
 
     function normalizeCompanyKey(name) {
@@ -874,16 +877,18 @@
         console.warn('포함 업체 목록을 읽지 못했습니다.', err);
       }
       const defaults = uniqueCompanyList(DEFAULT_INCLUDED_COMPANIES);
-      localStorage.setItem(INCLUDED_COMPANY_STORAGE_KEY, JSON.stringify(defaults));
       return defaults;
     }
 
-    function saveIncludedCompanyList(list) {
-      includedCompanies = uniqueCompanyList(list);
-      localStorage.setItem(INCLUDED_COMPANY_STORAGE_KEY, JSON.stringify(includedCompanies));
-      drawBoard();
-      renderCompanyList();
-      return includedCompanies;
+    async function saveIncludedCompanyList(list) {
+      if (!companyReady || companySaving || !companyStore || !canManageCompanies()) return false;
+      companySaving = true; updateCompanyControls(); setCompanyMessage('업체 목록을 저장하는 중…');
+      try {
+        const result = await companyStore.saveSchoolMealCompanies(list, { expectedRevision: companyRevision }, companySession);
+        companyRevision = result.revision; includedCompanies = list.map(normalizeCompanyName);
+        drawBoard(); renderCompanyList(); setCompanyMessage('업체 목록을 저장했습니다.'); return true;
+      } catch (error) { setCompanyMessage(error.message || '업체 목록을 저장하지 못했습니다.', true); return false; }
+      finally { companySaving = false; updateCompanyControls(); }
     }
 
     function isIncludedCompany(name) {
@@ -892,6 +897,7 @@
     }
 
     let includedCompanies = getIncludedCompanyList();
+    let companySession = null, companyStore = null, companyRevision = 0, companyReady = false, companySaving = false, companyUnsubscribe = null;
 
     const excelInput = document.getElementById('excelInput');
     const uploadZone = document.getElementById('uploadZone');
@@ -908,6 +914,35 @@
     const companyResetBtn = document.getElementById('companyResetBtn');
     const companyListHost = document.getElementById('companyListHost');
     const companyCountText = document.getElementById('companyCountText');
+    const companySyncStatus = document.getElementById('companySyncStatus');
+    companyManageBtn.disabled = true;
+    function canManageCompanies() { return ['admin', 'manager'].includes(companySession?.profile?.role); }
+    function setCompanyMessage(message, failed = false) {
+      companySyncStatus.textContent = message; companySyncStatus.style.color = failed ? '#fbbf24' : '';
+      const outside = document.getElementById('companyCatalogStatus'); outside.textContent = message; outside.hidden = !failed; outside.style.color = '#fbbf24';
+    }
+    function updateCompanyControls() {
+      const editable = companyReady && !companySaving && canManageCompanies();
+      companyManageBtn.disabled = !companyReady;
+      for (const node of [companyNameInput, companyAddBtn, companyResetBtn, ...companyListHost.querySelectorAll('input, button')]) node.disabled = !editable;
+    }
+    async function connectSchoolMealCompanyCatalog(session) {
+      companySession = session; setCompanyMessage('업체 목록을 연결하는 중…');
+      try {
+        companyStore = await import('/dashboard/js/school-meal-company-store.js');
+        companyUnsubscribe?.();
+        companyUnsubscribe = companyStore.subscribeSchoolMealCompanies((companies, metadata) => {
+          companyReady = !metadata.fromCache && !metadata.hasPendingWrites && metadata.exists;
+          if (companyReady) {
+            includedCompanies = companies.map(item => item.name); companyRevision = metadata.revision;
+            drawBoard(); renderCompanyList(); setCompanyMessage(canManageCompanies() ? '' : '업체 목록 변경은 관리자와 매니저가 할 수 있습니다.');
+          } else setCompanyMessage(metadata.exists ? '업체 목록을 확인하는 중…' : '공유 업체 목록을 준비하는 중…');
+          updateCompanyControls();
+        }, error => { companyReady = false; setCompanyMessage(error.message || '업체 목록을 연결하지 못했습니다.', true); updateCompanyControls(); });
+        if (canManageCompanies()) await companyStore.ensureSchoolMealCompanies(session);
+      } catch (error) { companyReady = false; setCompanyMessage(error.message || '업체 목록을 연결하지 못했습니다. 새로고침 후 다시 확인해 주세요.', true); updateCompanyControls(); }
+    }
+    window.addEventListener('pagehide', () => companyUnsubscribe?.());
 
     excelInput.addEventListener('change', e => {
       if (e.target.files[0]) loadFile(e.target.files[0]);
@@ -985,14 +1020,14 @@
       companyNameInput.value = '';
     }
 
-    function addCompanyFromInput() {
+    async function addCompanyFromInput() {
       const name = normalizeCompanyName(companyNameInput.value);
       if (!name) return;
       if (isIncludedCompany(name)) {
         companyNameInput.value = '';
         return;
       }
-      saveIncludedCompanyList([...includedCompanies, name]);
+      if (!await saveIncludedCompanyList([...includedCompanies, name])) return;
       companyNameInput.value = '';
       companyNameInput.focus();
     }
@@ -1010,6 +1045,7 @@
           <button class="btn-small danger" type="button" data-company-delete>삭제</button>
         </div>`).join('')}
       </div>`;
+      updateCompanyControls();
     }
 
     function loadFile(file) {
@@ -1252,7 +1288,6 @@
 
     function getDisplayRows() {
       if (state.viewMode === 'ordered') return state.board;
-      includedCompanies = getIncludedCompanyList();
       const includedList = includedCompanies;
       const byName = new Map(state.board.map(row => [normalizeCompanyKey(row.customer), row]));
       const knownOrder = new Map(includedList.map((name, i) => [normalizeCompanyKey(name), i]));

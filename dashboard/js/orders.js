@@ -4,7 +4,6 @@ import { initMailConnection } from './mail-connection.js';
 import { initMailSourceViewer } from './mail-source-viewer.js';
 import { initOrderAiChat } from './order-ai-chat.js';
 import { initOrderAiEvidence } from './order-ai-evidence.js';
-import { initErpCustomerSettings } from './erp-customer-settings.js';
 import { ORDER_CUSTOMER_GROUPS, ORDER_SOURCE_CHANNELS, ORDER_STATUSES, ORDER_DELIVERY_METHODS, ORDER_LIMITS, getApprovalIssues } from './order-request-model.js';
 import { createOrderRequest, subscribeOrderRequests, subscribeOrderRequest, updateOrderRequest, reviewOrderRequest } from './order-request-store.js';
 
@@ -279,7 +278,6 @@ requireApprovedActiveUser().then(approvedSession => {
   preparation = initOrderAiChat(session, $('orderChatMount'), { openEvidence: value => evidence.review(value), previewAttachment: value => evidence.preview(value) });
   unsubscribe.push(() => preparation.destroy());
   unsubscribe.push(() => evidence.destroy());
-  unsubscribe.push(initErpCustomerSettings(session, $('erpCustomerSettingsMount')));
   unsubscribe.push(initMailConnection(session, $('mailConnectionMount')));
   unsubscribe.push(initMailSourceViewer(session, $('mailSourceMount'), {
     toolbarMount: $('mailSourceToolbar'), listMount: $('mailQueueMount'), detailMount: $('mailOriginalPanel'),

@@ -379,9 +379,35 @@
         return data.status == 'needs_review' && data.analysis.revision == data.revision
           && data.reviewedGroupIds.size() == 0 && data.reviewedExclusions == false && data.confirmedRevision == null && data.confirmedAt == null && data.confirmedByUid == null;
       }
-      function orderAiCustomerCurrent(customer) {
+      function orderAiLegacyCustomerCurrent(customer) {
         let master = get(/databases/$(database)/documents/erpCustomers/$(customer.code)).data;
-        return customer is map && customer.code is string && customer.name == master.name && customer.revision == master.revision;
+        return customer.keys().hasOnly(['code', 'name', 'revision']) && customer.code is string && customer.name == master.name && customer.revision == master.revision;
+      }
+      function orderAiSchoolCustomerCurrent(customer) {
+        let catalog = get(/databases/$(database)/documents/settings/schoolMealCompanies).data;
+        return customer.keys().hasOnly(['id', 'name', 'revision', 'source', 'erpCode'])
+          && customer.source == 'school_meal' && customer.erpCode == null
+          && customer.id is string && customer.id.matches('^school-[a-f0-9]{24}$')
+          && customer.name is string && customer.revision == catalog.revision && catalog.schemaVersion == 1
+          && {'id': customer.id, 'name': customer.name} in catalog.companies;
+      }
+      function orderAiCustomerCurrent(customer) {
+        return customer is map && (customer.get('source', '') == 'school_meal'
+          ? orderAiSchoolCustomerCurrent(customer) : orderAiLegacyCustomerCurrent(customer));
+      }
+      // The weekly school-meal roster is the canonical company list for order
+      // review. Its internal IDs do not create or imply ERP customer codes.
+      match /settings/schoolMealCompanies {
+        function validCatalog() {
+          return request.resource.data.keys().hasOnly(['schemaVersion', 'revision', 'companies', 'updatedAt', 'updatedByUid'])
+            && request.resource.data.schemaVersion == 1 && request.resource.data.revision is int
+            && request.resource.data.revision >= 1 && request.resource.data.companies is list
+            && request.resource.data.companies.size() <= 200
+            && request.resource.data.updatedAt == request.time && request.resource.data.updatedByUid == request.auth.uid;
+        }
+        allow read: if approvedActiveUser();
+        allow create: if approvedManagerOrAdmin() && validCatalog() && request.resource.data.revision == 1;
+        allow update: if approvedManagerOrAdmin() && validCatalog() && request.resource.data.revision == resource.data.revision + 1;
       }
       match /orderAiAnalyses/{intakeId} {
         allow read: if approvedManagerOrAdmin();

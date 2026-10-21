@@ -47,7 +47,30 @@ test('model JSON schema is strict at every nested object and nullable fields sta
         schema.anyOf?.forEach(inspect);
     }
     inspect(ORDER_AI_RESPONSE_SCHEMA);
+    assert.ok(ORDER_AI_RESPONSE_SCHEMA.required.includes('customerId'));
+    assert.equal('customerCode' in ORDER_AI_RESPONSE_SCHEMA.properties, false);
     assert.ok(ORDER_AI_RESPONSE_SCHEMA.properties.lines.items.properties.source.required.includes('unitCell'));
+});
+
+test('school weekly companies are valid review identities without any ERP code', () => {
+    const input = fixture(), school = { id: 'school-' + 'c'.repeat(24), name: '가상 학교급식 업체', revision: 7, source: 'school_meal', erpCode: null };
+    delete input.output.customerCode; input.output.customerId = school.id; input.customers = [school];
+    const analysis = normalizeOrderAiAnalysis(input);
+    assert.deepEqual(analysis.customer, school); assert.equal(analysis.readyForReview, true); assert.equal('code' in analysis.customer, false);
+    const review = { revision: input.revision, sourceHash: input.sourceHash, sources: input.sources, customers: input.customers,
+        reviewedGroupIds: analysis.groups.map(group => group.id), reviewedExclusions: true };
+    assert.equal(assertOrderAiConfirmation(analysis, review), true);
+    assert.throws(() => assertOrderAiConfirmation(analysis, { ...review, customers: [{ ...school, revision: 8 }] }), /업체 정보/);
+    assert.throws(() => assertOrderAiConfirmation(analysis, { ...review, customers: [{ ...school, name: '다른 업체' }] }), /업체 정보/);
+    for (const replacement of [{ ...school, erpCode: 'invented' }, { ...school, source: 'erp' }, { ...school, id: 'unknown' }]) {
+        assert.ok(normalizeOrderAiAnalysis({ ...input, customers: [replacement] }).blockers.some(value => value.code === 'customer_required'));
+    }
+});
+
+test('legacy ERP-backed evidence retains its identity but cannot disguise a school company as an ERP code', () => {
+    assert.deepEqual(result().customer, customer);
+    const input = fixture(); input.customers = [{ id: 'school-' + 'c'.repeat(24), code: '0001', name: '학교 업체', revision: 1, source: 'school_meal', erpCode: null }];
+    assert.ok(normalizeOrderAiAnalysis(input).blockers.some(value => value.code === 'customer_required'));
 });
 
 test('decimal quantities sum exactly without floating point rounding or row counting', () => {

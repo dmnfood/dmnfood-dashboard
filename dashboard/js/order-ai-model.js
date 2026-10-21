@@ -21,7 +21,7 @@ const array = items => ({ type: 'array', items });
 export const ORDER_AI_RESPONSE_SCHEMA = object({
     assistantMessage: string,
     questions: array(object({ id: string, text: string, lineId: nullable(string) })),
-    customerCode: nullable(string),
+    customerId: nullable(string),
     lines: array(object({
         id: string, productId: nullable({ type: 'string', enum: ORDER_AI_PRODUCTS.map(product => product.id) }),
         unit: nullable(string), imageQuantity: nullable(string), issues: array(string),
@@ -153,8 +153,9 @@ function sameKeys(value, expected) {
     return isObject(value) && Object.keys(value).length === expected.length && expected.every(key => Object.hasOwn(value, key));
 }
 function assertOutputShape(output) {
-    if (!sameKeys(output, ['assistantMessage', 'questions', 'customerCode', 'lines', 'coverage']) || !boundedText(output.assistantMessage)
-        || (output.customerCode !== null && !boundedText(output.customerCode, 100))
+    const customerField = isObject(output) && Object.hasOwn(output, 'customerId') ? 'customerId' : 'customerCode';
+    if (!sameKeys(output, ['assistantMessage', 'questions', customerField, 'lines', 'coverage']) || !boundedText(output.assistantMessage)
+        || (output[customerField] !== null && !boundedText(output[customerField], 100))
         || !Array.isArray(output.questions) || output.questions.length > ORDER_AI_LIMITS.questions
         || !Array.isArray(output.lines) || output.lines.length > ORDER_AI_LIMITS.lines
         || !Array.isArray(output.coverage) || output.coverage.length > ORDER_AI_LIMITS.rows + ORDER_AI_LIMITS.sources) fail('분석 응답 형식을 확인할 수 없습니다. 다시 분석해 주세요.');
@@ -207,12 +208,17 @@ export function normalizeOrderAiAnalysis({ id: analysisId, intakeId, revision, s
     const block = (code, message, lineId = null) => blockers.push({ code, message, lineId });
     for (const source of sources) if (source.complete !== true) block('source_incomplete', '일부 원본을 읽지 못했습니다. 전체 원본을 확인해 주세요.');
     let customer = null;
-    if (!Array.isArray(customers)) fail('ERP 거래처 목록을 확인할 수 없습니다.');
-    const matches = customers.filter(value => value?.code === output.customerCode);
-    if (output.customerCode !== null && matches.length === 1 && boundedText(matches[0].name, 200) && matches[0].name.trim()
-        && Number.isSafeInteger(matches[0].revision) && matches[0].revision > 0) {
-        customer = { code: matches[0].code, name: matches[0].name, revision: matches[0].revision };
-    } else block('customer_required', '등록된 ERP 거래처를 선택해 주세요.');
+    if (!Array.isArray(customers)) fail('학교급식 업체 목록을 확인할 수 없습니다.');
+    const schoolSelection = Object.hasOwn(output, 'customerId');
+    const matches = schoolSelection
+        ? customers.filter(value => value?.source === 'school_meal' && value.id === output.customerId && value.erpCode === null)
+        : customers.filter(value => value?.source !== 'school_meal' && value?.code === output.customerCode);
+    if ((schoolSelection ? output.customerId : output.customerCode) !== null && matches.length === 1
+        && boundedText(matches[0].name, 200) && matches[0].name.trim() && Number.isSafeInteger(matches[0].revision) && matches[0].revision > 0
+        && (!schoolSelection || /^school-[a-f0-9]{24}$/.test(matches[0].id))) {
+        customer = schoolSelection ? { id: matches[0].id, name: matches[0].name, revision: matches[0].revision, source: 'school_meal', erpCode: null }
+            : { code: matches[0].code, name: matches[0].name, revision: matches[0].revision };
+    } else block('customer_required', '학교급식 주간현황표에 등록된 업체를 선택해 주세요.');
     const usedQuantities = new Map(), usedImageEvidence = new Map();
     const lines = output.lines.map(candidate => {
         const issues = [...candidate.issues], source = candidate.source, product = PRODUCTS.get(candidate.productId);
@@ -325,8 +331,10 @@ export function assertOrderAiConfirmation(analysis, { revision, sourceHash, sour
         || !Array.isArray(analysis.blockers) || analysis.blockers.length || !analysis.customer) fail('미확인 내용을 먼저 확인해 주세요.');
     if (analysis.revision !== revision || analysis.sourceHash !== sourceHash || !hash(sourceHash)
         || JSON.stringify(identities(analysis.sources)) !== JSON.stringify(identities(sources))) fail('원본 또는 분석이 변경되었습니다. 최신 내용을 다시 확인해 주세요.');
-    const customer = customers?.find(value => value.code === analysis.customer.code);
-    if (!customer || customer.name !== analysis.customer.name || customer.revision !== analysis.customer.revision) fail('ERP 거래처 정보가 변경되었습니다. 다시 선택해 주세요.');
+    const schoolSelection = analysis.customer.source === 'school_meal';
+    const customer = customers?.find(value => schoolSelection ? value.source === 'school_meal' && value.id === analysis.customer.id && value.erpCode === null : value.source !== 'school_meal' && value.code === analysis.customer.code);
+    if (!customer || customer.name !== analysis.customer.name || customer.revision !== analysis.customer.revision
+        || (schoolSelection && analysis.customer.erpCode !== null)) fail('업체 정보가 변경되었습니다. 다시 선택해 주세요.');
     if (!Array.isArray(reviewedGroupIds) || new Set(reviewedGroupIds).size !== reviewedGroupIds.length
         || !Array.isArray(analysis.groups) || !analysis.groups.length || reviewedGroupIds.length !== analysis.groups.length
         || analysis.groups.some(group => !reviewedGroupIds.includes(group.id))) fail('모든 상품을 원본과 대조해 주세요.');

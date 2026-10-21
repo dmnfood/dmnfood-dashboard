@@ -1,32 +1,51 @@
 .order-chat-summary { flex: 0 0 auto; border-bottom: 1px solid var(--border); max-height: 220px; overflow: auto; }
-.order-workbench .order-chat-summary .mail-source-detail-heading { padding: 16px 22px; }
+.order-workbench .order-chat-summary .mail-source-detail-heading { padding: 12px 22px 8px; }
 .order-chat-summary .mail-source-detail-heading h3 { margin: 0 0 8px; font-size: 14px; }
 .order-chat-summary .mail-source-meta { display: flex; flex-wrap: wrap; gap: 5px 12px; margin: 0 0 8px; font-size: 11px; }
 .order-chat-summary .mail-source-detail-actions .order-button { padding: 6px 10px; font-size: 11px; }
 .order-chat-summary .mail-source-badge { display: none; }
-.order-chat-files { display: flex; flex-wrap: wrap; gap: 7px; margin: 0 22px 14px; }
+.order-chat-files { display: flex; flex-wrap: wrap; gap: 7px; margin: 0 22px 10px; }
 .order-chat-files .order-button { max-width: 100%; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.order-ai-chat { padding: 22px; min-height: 0; overflow: auto; flex: 1; overscroll-behavior: contain; }
-.order-ai-message { max-width: 820px; margin: 0 0 16px; padding: 15px 18px; border-radius: 12px; background: var(--card-w); border: 1px solid var(--border); }
-.order-ai-message strong { display: block; color: var(--brand-a); font-size: 11px; margin-bottom: 8px; }
-.order-ai-message p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; line-height: 1.9; }
-.order-ai-message-user { margin-left: auto; background: rgba(34,211,238,.08); }
-.order-ai-message-user strong { color: var(--t1); }
-.order-ai-start-actions { display: flex; gap: 10px; }
+.order-ai-chat { padding: 22px; min-height: 0; overflow: hidden; flex: 1; display: flex; flex-direction: column; }
+.order-ai-steps { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; margin-bottom: 24px; }
+.order-ai-step { display: flex; align-items: center; gap: 9px; padding: 12px 10px; border-color: transparent; border-bottom: 2px solid var(--border); border-radius: 0; background: transparent; color: var(--t1); justify-content: center; font-size: 12px; }
+.order-ai-step:disabled { opacity: .65; }
+.order-ai-step[aria-current="step"] { color: var(--brand-a); border-bottom-color: var(--brand-a); opacity: 1; }
+.order-ai-step[data-completed="true"] .order-ai-step-number { background: rgba(34,211,238,.15); color: var(--brand-a); }
+.order-ai-step-number { display: inline-grid; place-items: center; width: 24px; height: 24px; flex: 0 0 24px; border-radius: 50%; border: 1px solid var(--border); font-size: 11px; }
+.order-ai-stage { max-width: 900px; margin: 0 auto; width: 100%; min-height: 0; flex: 1; overflow: auto; overscroll-behavior: contain; padding-right: 6px; }
+.order-ai-stage-heading { position: relative; margin: 0 0 22px; }
+.order-ai-stage h2 { font-size: 20px; line-height: 1.5; margin: 8px 0; }
+.order-ai-stage-heading > p,.order-ai-empty p { color: var(--t1); font-size: 12px; line-height: 1.8; margin: 8px 0 0; }
+.order-ai-kicker { font-size: 10px; font-weight: 700; letter-spacing: .08em; color: var(--t1); }
+.order-ai-current-summary { margin: 0 0 20px; padding: 16px 18px; border-radius: 10px; border-left: 3px solid var(--brand-a); background: rgba(34,211,238,.05); font-size: 13px; line-height: 1.9; white-space: pre-wrap; overflow-wrap: anywhere; }
+.order-ai-empty { padding: 35px 0; max-width: 540px; }
+.order-ai-empty .order-button { margin: 22px 8px 0 0; }
+.order-ai-stage-footer { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border); }
+.order-ai-pending { padding: 16px 18px; margin: 18px 0; border: 1px solid rgba(251,191,36,.2); border-radius: 10px; background: rgba(251,191,36,.035); font-size: 12px; line-height: 1.9; }
+.order-ai-pending strong { color: var(--ac); }
+.order-ai-pending ul { margin: 8px 0 0; padding-left: 18px; }
+.order-ai-history,.order-ai-correction { margin-top: 20px; color: var(--t1); font-size: 12px; }
+.order-ai-history summary,.order-ai-correction summary { cursor: pointer; padding: 8px 0; }
+.order-ai-history > div { padding: 12px 0; border-bottom: 1px solid var(--border); }
+.order-ai-history p { margin: 7px 0 0; white-space: pre-wrap; line-height: 1.8; overflow-wrap: anywhere; }
+.order-ai-review-progress { display: inline-block; padding: 5px 10px; border: 1px solid var(--border); border-radius: 20px; color: var(--brand-a); font-size: 12px; margin-top: 12px; }
+.order-ai-exclusions { padding: 16px 0; color: var(--t1); font-size: 12px; }
+.order-ai-exclusions p { margin-top: 0; line-height: 1.8; }
+.order-ai-summary-table { width: 100%; border-collapse: collapse; margin-top: 20px; text-align: left; font-size: 13px; }
+.order-ai-summary-table th { color: var(--t1); font-size: 11px; font-weight: 500; background: var(--card-w); }
+.order-ai-summary-table th,.order-ai-summary-table td { padding: 16px 12px; border-bottom: 1px solid var(--border); }
+.order-ai-summary-table th:last-child,.order-ai-summary-table td:last-child { text-align: right; white-space: nowrap; }
+.order-ai-summary-table td:nth-child(2) { color: var(--brand-a); }
 .order-ai-feedback { padding: 10px 0; color: var(--t1); font-size: 12px; line-height: 1.8; }
 .order-ai-feedback[data-error="true"], .order-ai-evidence-dialog .order-ai-feedback { color: var(--rv); }
-.order-ai-result h3 { font-size: 14px; margin: 20px 0 10px; }
-.order-ai-questions { margin: 0 0 16px; padding-left: 20px; color: var(--t1); font-size: 12px; line-height: 1.9; }
 .order-ai-customer { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 16px 0; font-size: 12px; }
 .order-ai-customer select { margin-left: auto; max-width: 100%; }
 .order-ai-product { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--border); }
 .order-ai-product > div { display: grid; gap: 6px; font-size: 13px; }
 .order-ai-quantity { color: var(--brand-a); font-size: 14px; }
 .order-ai-product[data-reviewed="true"] .order-ai-quantity { color: #7dd3ae; }
-.order-ai-blockers { color: var(--ac); font-size: 12px; line-height: 1.8; padding: 14px 0; }
-.order-ai-blockers ul { padding-left: 20px; }
 .order-ai-note { color: var(--t1); font-size: 12px; line-height: 1.8; margin: 10px 0; overflow-wrap: anywhere; }
-.order-ai-result > .order-primary { margin-top: 18px; }
 .order-ai-composer { display: flex; align-items: end; gap: 12px; padding: 18px 0 0; margin-top: 16px; border-top: 1px solid var(--border); }
 .order-ai-composer label { display: grid; gap: 8px; font-size: 11px; color: var(--t1); flex: 1; }
 .order-ai-composer textarea,.order-ai-customer select { width: 100%; min-width: 0; border: 1px solid var(--in-br); border-radius: 10px; padding: 10px 12px; background: var(--in-bg); color: var(--t0); font: inherit; font-size: 13px; }
@@ -50,4 +69,6 @@
 .order-ai-image-stage img { display: block; max-width: 100%; height: auto; }
 .order-ai-image-evidence { position: absolute; outline: 3px solid #9a67ea; background: rgba(154,103,234,.18); pointer-events: none; }
 @media(max-width:900px) { .order-ai-evidence-body { grid-template-columns: minmax(0,1fr); } .order-ai-evidence-summary { order: -1; } }
+@media(max-width:720px) { .order-ai-chat { display: block; } .order-ai-stage { overflow: visible; padding-right: 0; } }
+@media(max-width:480px) { .order-ai-steps { gap: 4px; margin-bottom: 20px; } .order-ai-step { gap: 5px; padding: 10px 2px; font-size: 11px; } .order-ai-step-number { width: 21px; height: 21px; flex-basis: 21px; } .order-ai-stage h2 { font-size: 18px; } .order-ai-stage-footer > .order-button { flex: 1 0 auto; } }
 @media(max-width:720px) { .order-ai-chat { overflow: visible; padding: 16px; } .order-chat-summary { max-height: none; } .order-workbench .order-chat-summary .mail-source-detail-heading { padding: 16px; } .order-chat-files { margin: 0 16px 14px; } .order-ai-composer { flex-direction: column; align-items: stretch; } .order-ai-composer textarea,.order-ai-customer select { font-size: 16px; } .order-ai-customer select { width: 100%; margin: 0; } .order-ai-product { flex-wrap: wrap; } .order-ai-evidence-dialog { width: calc(100% - 16px); padding: 14px; } }

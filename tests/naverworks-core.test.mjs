@@ -353,3 +353,60 @@ test('callback removes OAuth query and cookie on both success and failure withou
         assert.equal(JSON.stringify(res).includes('private-code'), false);
     }
 });
+
+const schoolFolders = { mailFolders: [...folderReply.mailFolders, { folderId: 106, folderName: '학교급식 발주', folderType: 'U', mailCount: 20 }] };
+test('school scope metadata is explicit and manual; exact unique school name and ID are required without inbox fallback', async () => {
+    const store = memoryStore(); await seed(store);
+    let current = schoolFolders;
+    const { service, calls } = setup({ store, fetchImpl: async url => {
+        if (url.endsWith('/mailfolders')) return json(current);
+        if (url.includes('/children')) return json({ mails: [] });
+        throw new Error('unexpected detail');
+    } });
+    const status = await service.status();
+    assert.deepEqual(status.schoolScope, { folderId: '106', folderName: '학교급식 발주', available: null, verified: false, collectionMode: 'manual', automatic: false });
+    assert.equal(calls.length, 0, 'status does not claim live folder verification');
+    assert.equal((await service.folders()).schoolScope.available, true);
+    for (const reply of [folderReply, { mailFolders: [...schoolFolders.mailFolders, { folderId: 107, folderName: '학교급식 발주' }] }, { mailFolders: [...schoolFolders.mailFolders, { folderId: 106, folderName: '다른 메일함' }] }, { mailFolders: [{ folderId: 106, folderName: '이름 변경됨' }] }, { mailFolders: [{ folderId: 107, folderName: '학교급식 발주' }] }]) {
+        current = reply;
+        assert.equal((await service.folders()).schoolScope.available, false);
+        await assert.rejects(service.sync('administrator', { folderId: '106', scope: 'school' }), { code: 'school_mail_folder_unavailable' });
+    }
+    const before = calls.length;
+    await assert.rejects(service.sync('administrator', { folderId: '0', scope: 'school' }), { code: 'school_mail_folder_required' });
+    assert.equal(calls.length, before, 'wrong school folder fails before any provider call');
+    current = folderReply;
+    assert.equal((await service.sync('administrator', { folderId: '0' })).sync.status, 'complete', 'generic other-folder collection stays supported');
+});
+
+test('school collection requires exact folder on the detail response and never saves moved or missing-folder mail', async () => {
+    for (const changes of [{ folderId: 0 }, {}, { folderId: '106' }, { folderId: null }]) {
+        const store = memoryStore(); await seed(store);
+        const { service } = setup({ store, fetchImpl: async url => url.endsWith('/mailfolders') ? json(schoolFolders)
+            : url.includes('/children') ? json({ mails: [summary(1)] }) : json(raw(1, changes)) });
+        await assert.rejects(service.sync('administrator', { folderId: '106', scope: 'school' }), { code: 'mail_folder_source_changed' });
+        assert.equal(store.intakes.size, 0); assert.equal(await store.getSyncState(), null);
+    }
+    const store = memoryStore(); await seed(store);
+    const { service } = setup({ store, fetchImpl: async url => url.endsWith('/mailfolders') ? json(schoolFolders)
+        : url.includes('/children') ? json({ mails: [summary(1)] }) : json(raw(1, { folderId: 106 })) });
+    assert.equal((await service.sync('administrator', { folderId: '106', scope: 'school' })).sync.status, 'complete');
+    assert.equal([...store.intakes.values()][0].folderId, '106');
+    assert.equal([...store.intakes.values()][0].processingStatus, 'pending_interpretation', 'folder does not approve or classify an order');
+});
+
+test('school continuation remains scope-bound and membership failure cannot publish a completed run', async () => {
+    const store = memoryStore(); await seed(store);
+    const { service } = setup({ store, fetchImpl: async url => url.endsWith('/mailfolders') ? json(schoolFolders)
+        : url.includes('/children') ? json({ mails: Array.from({ length: MAX_DETAILS + 1 }, (_, i) => summary(i + 1)) }) : json(raw(Number(new URL(url).pathname.split('/').at(-1)), { folderId: 106 })) });
+    const first = await service.sync('administrator', { folderId: '106', scope: 'school' });
+    assert.equal(first.sync.status, 'partial');
+    await assert.rejects(service.sync('administrator', { folderId: '106', continuation: first.sync.continuation }), { code: 'mail_continuation_invalid' });
+    const save = store.createIntake;
+    store.createIntake = async () => { throw Object.assign(new Error('membership unavailable'), { code: 'MAIL_STORE_UNAVAILABLE', status: 503 }); };
+    await assert.rejects(service.sync('administrator', { folderId: '106', scope: 'school', continuation: first.sync.continuation }), { code: 'MAIL_STORE_UNAVAILABLE' });
+    assert.equal((await store.getSyncState()).data.summary.status, 'partial');
+    store.createIntake = save;
+    const last = await service.sync('administrator', { folderId: '106', scope: 'school', continuation: first.sync.continuation });
+    assert.equal(last.sync.status, 'complete'); assert.equal(store.intakes.size, MAX_DETAILS + 1);
+});

@@ -589,6 +589,24 @@
       match /mailIntegrationRuns/{runId} {
         allow get, list, create: if mailCollector();
       }
+      // A mail can move folders after its first immutable snapshot. Preserve that snapshot
+      // and record each observed folder as a separate immutable source-bound membership.
+      match /mailFolders/{folderId}/intakes/{intakeId} {
+        function sourceMail() { return get(/databases/$(database)/documents/mailIntakes/$(intakeId)).data; }
+        allow read: if mailCollector() || approvedManagerOrAdmin();
+        allow create: if mailCollector() && folderId.matches('^-?[0-9]{1,12}$') && intakeId.matches('^[a-f0-9]{64}$')
+          && request.resource.data.keys().hasOnly(['schemaVersion', 'intakeId', 'account', 'mailId', 'folderId', 'originalFolderId', 'subject', 'from', 'receivedAt', 'collectedAt', 'observedAt', 'sourceHash', 'processingStatus', 'collectedByUid'])
+          && request.resource.data.schemaVersion == 1 && request.resource.data.intakeId == intakeId
+          && request.resource.data.account == 'official@dmnfood.co.kr' && request.resource.data.account == sourceMail().account
+          && request.resource.data.mailId == sourceMail().mailId && request.resource.data.folderId == folderId
+          && request.resource.data.originalFolderId == sourceMail().folderId
+          && request.resource.data.subject == sourceMail().subject && request.resource.data.from == sourceMail().from
+          && request.resource.data.receivedAt == sourceMail().receivedAt && request.resource.data.collectedAt == sourceMail().collectedAt
+          && request.resource.data.sourceHash == sourceMail().rawStorage.sha256
+          && request.resource.data.sourceHash is string && request.resource.data.sourceHash.matches('^[a-f0-9]{64}$')
+          && request.resource.data.processingStatus == sourceMail().processingStatus
+          && request.resource.data.observedAt is string && request.resource.data.collectedByUid == request.auth.uid;
+      }
       match /mailIntakes/{intakeId} {
         allow read: if mailCollector() || approvedManagerOrAdmin();
         allow create: if mailCollector()

@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import vm from 'node:vm';
+import { readFile } from 'node:fs/promises';
 import { getMailAttachmentPolicy } from '../dashboard/js/mail-source-viewer.js';
 
 const ordinary = { attachmentId: '101', filename: '학교급식 발주서.xls', contentType: 'application/vnd.ms-excel', size: 1200 };
@@ -28,4 +30,88 @@ test('unsupported types, MIME mismatches, and unverified sizes have visible reas
     for (const size of [0, -1, NaN, 1.5, undefined]) assert.match(getMailAttachmentPolicy({ ...ordinary, size }).restriction, /크기/);
     assert.match(getMailAttachmentPolicy({ ...ordinary, size: 3 * 1024 * 1024 + 1 }).restriction, /3 MB/);
     assert.match(getMailAttachmentPolicy({ ...ordinary, filename: '발주\u0000서.xls' }).restriction, /이름/);
+});
+
+// A minimal DOM transport harness exercises list/history/request races. HTML
+// sanitizing and workbook rendering are checked separately in real browsers.
+const viewerSource = await readFile(new URL('../dashboard/js/mail-source-viewer.js', import.meta.url), 'utf8');
+class UiNode {
+    static TEXT_NODE = 3;
+    static ELEMENT_NODE = 1;
+    constructor(tag) { this.tagName = tag.toUpperCase(); this.nodeType = 1; this.children = []; this.listeners = new Map(); this.attributes = {}; this.dataset = {}; this._text = ''; this.value = ''; if (tag === 'template') this.content = { childNodes: [] }; }
+    get childNodes() { return this.children; }
+    get innerHTML() { return ''; }
+    set innerHTML(value) { if (value) throw new Error('This transport harness does not parse HTML'); }
+    set textContent(value) { this._text = String(value); this.children = []; }
+    get textContent() { return this._text + this.children.map(child => child.textContent).join(''); }
+    append(...children) { this.children.push(...children); }
+    replaceChildren(...children) { this._text = ''; this.children = children; }
+    setAttribute(name, value) { this.attributes[name] = value; }
+    getAttribute(name) { return this.attributes[name] || null; }
+    addEventListener(name, handler) { this.listeners.set(name, handler); }
+    fire(name) { return this.listeners.get(name)?.({ target: this }); }
+    scrollIntoView() {}
+}
+function uiNodes(node, predicate) { return [...(predicate(node) ? [node] : []), ...node.children.flatMap(child => uiNodes(child, predicate))]; }
+const settleUi = async () => { await new Promise(resolve => setImmediate(resolve)); await new Promise(resolve => setImmediate(resolve)); };
+function viewerHarness(respond, href = 'https://dashboard.dmnfood.co.kr/orders') {
+    const calls = [], listeners = new Map(), mount = new UiNode('section'), location = { href, get search() { return new URL(this.href).search; } };
+    const history = { state: {}, pushState(state, title, path) { location.href = new URL(path, location.href).href; }, replaceState(state, title, path) { location.href = new URL(path, location.href).href; } };
+    const context = vm.createContext({ document: { createElement: tag => new UiNode(tag), createTextNode: value => { const node = new UiNode('#text'); node.nodeType = 3; node.textContent = value; return node; } }, Node: UiNode,
+        location, window: { history, addEventListener: (name, callback) => listeners.set(name, callback), removeEventListener: name => listeners.delete(name) },
+        URL, URLSearchParams, AbortController, DOMException, Intl, Date,
+        fetch: async (path, settings) => { calls.push({ path, settings }); const body = await respond(new URL(path, location.href), settings); return { ok: true, status: 200, json: async () => body }; },
+    });
+    vm.runInContext(`${viewerSource.replace(/^export /gm, '')}\nglobalThis.startViewer = initMailSourceViewer`, context);
+    const cleanup = context.startViewer({ user: { getIdToken: async () => 'fictional-ui-token' } }, mount);
+    return { calls, mount, cleanup, location, select: () => uiNodes(mount, node => node.tagName === 'SELECT')[0] };
+}
+const scoped = (folderId, mails, nextCursor = null) => ({ ok: true, scope: { folderId }, mails, nextCursor });
+const mailSummary = (id, folderId = '106') => ({ id, folderId, subject: id, from: 'fictional@example.test', receivedAt: '2026-10-21T01:00:00Z' });
+
+test('source viewer starts in school scope and clears its folder-bound cursor when switching to all mail', async () => {
+    const app = viewerHarness(url => url.searchParams.get('folderId') === '106' ? scoped('106', [mailSummary('school-first')], 'school-cursor') : scoped(null, [mailSummary('other-history', '0')]));
+    await settleUi();
+    assert.equal(app.calls[0].path, '/api/naverworks/source?folderId=106');
+    assert.match(app.mount.textContent, /수집할 때 ‘학교급식 발주’ 메일함에서 확인한 자료/);
+    app.select().value = 'all'; app.select().fire('change'); await settleUi();
+    assert.equal(app.calls.at(-1).path, '/api/naverworks/source');
+    assert.match(app.location.search, /mail_scope=all/);
+    assert.match(app.mount.textContent, /other-history/);
+    assert.doesNotMatch(app.mount.textContent, /school-first/);
+    app.cleanup();
+});
+
+test('outside-school mail deep links remain selected when a school or all-mail list is loaded', async () => {
+    const app = viewerHarness(url => url.searchParams.has('intakeId') ? { ok: true, mail: { ...mailSummary('outside-mail', '0'), subject: '링크로 선택한 기존 원문', raw: { mail: { body: '' }, attachments: [] } } } : scoped(url.searchParams.get('folderId'), [mailSummary('school-first')]), 'https://dashboard.dmnfood.co.kr/orders?order=existing-order&mail=outside-mail');
+    await settleUi();
+    assert.match(app.mount.textContent, /링크로 선택한 기존 원문/);
+    app.select().value = 'all'; app.select().fire('change'); await settleUi();
+    assert.match(app.mount.textContent, /링크로 선택한 기존 원문/);
+    assert.equal(app.calls.filter(call => call.path.includes('intakeId=')).length, 1);
+    const url = new URL(app.location.href);
+    assert.equal(url.searchParams.get('mail'), 'outside-mail');
+    assert.equal(url.searchParams.get('order'), 'existing-order');
+    app.cleanup();
+});
+
+test('a slow previous-school response cannot replace a newer all-mail selection', async () => {
+    let finishSchool;
+    const app = viewerHarness(url => url.searchParams.has('folderId') ? new Promise(resolve => { finishSchool = resolve; }) : scoped(null, [mailSummary('all-mail-result', '0')]));
+    await settleUi();
+    app.select().value = 'all'; app.select().fire('change'); await settleUi();
+    assert.equal(app.calls[0].settings.signal.aborted, true);
+    finishSchool(scoped('106', [mailSummary('stale-school-result')])); await settleUi();
+    assert.match(app.mount.textContent, /all-mail-result/);
+    assert.doesNotMatch(app.mount.textContent, /stale-school-result/);
+    app.cleanup();
+});
+
+test('school list rejects an unscoped or wrong-folder response instead of showing unrelated mail', async () => {
+    for (const reply of [scoped(null, [mailSummary('unrelated-inbox', '0')]), scoped('106', [mailSummary('unrelated-inbox', '0')])]) {
+        const app = viewerHarness(() => reply); await settleUi();
+        assert.match(app.mount.textContent, /메일 목록 확인이 필요합니다/);
+        assert.doesNotMatch(app.mount.textContent, /unrelated-inbox/);
+        app.cleanup();
+    }
 });

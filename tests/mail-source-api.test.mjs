@@ -19,7 +19,7 @@ function fixture({ bytes = Buffer.from('original spreadsheet bytes'), attachment
         saveConnection: async data => { events.push('save-token'); connection = { data, version: 'v2' }; },
         withLease: async (name, run) => { events.push(`lease:${name}`); return run({ name }); },
         getRawMail: async id => id === intakeId ? structuredClone(record) : null,
-        listRawMails: async ({ cursor, limit }) => { events.push({ cursor, limit }); return { mails: [{ id: intakeId, account, subject: record.subject }], nextCursor: null }; },
+        listRawMails: async ({ cursor, limit, folderId }) => { events.push({ cursor, limit, folderId }); return { mails: [{ id: intakeId, account, subject: record.subject }], nextCursor: null }; },
         getAttachment: async (id, attachmentId) => archives.get(`${id}/${attachmentId}`) || null,
         createAttachment: async (id, attachmentId, metadata, data) => {
             writes.push({ id, attachmentId, metadata, data });
@@ -46,6 +46,16 @@ test('stored mail browsing never contacts NAVER and returns immutable source; ID
     await assert.rejects(f.service.source({ intakeId, cursor: 'other' }), { status: 400 });
     f.record.account = 'other@example.invalid';
     await assert.rejects(f.service.source({ intakeId }), { status: 404 });
+});
+
+test('source list passes explicit folder scope while original detail remains independent of current folder', async () => {
+    const f = fixture(); f.record.folderId = '0';
+    const result = await f.service.source({ folderId: '106' });
+    assert.equal(result.scope.folderId, '106'); assert.equal(result.schoolScope.automatic, false);
+    assert.deepEqual(f.events.at(-1), { cursor: null, limit: 20, folderId: '106' });
+    assert.equal((await f.service.source({ intakeId })).mail.folderId, '0');
+    await assert.rejects(f.service.source({ intakeId, folderId: '106' }), { status: 400 });
+    assert.equal(f.calls.length, 0);
 });
 
 test('ordinary attachment uses only saved source IDs, fixed official host and no redirects; cached copy needs no OAuth', async () => {

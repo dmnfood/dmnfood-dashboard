@@ -24,6 +24,7 @@ const settled = async () => { await new Promise(resolve => setImmediate(resolve)
 const configured = (connection = {}) => ({ ok: true, configuration: { ready: true, missing: [] },
   connection: { connected: true, mailbox: 'official@dmnfood.co.kr', accessStatus: 'mailbox_access_verified', ...connection },
   pilot: { days: 7, mode: 'raw_mail_only', interpretationReady: false }, lastSync: null });
+const schoolFolders = folders => ({ ok: true, folders, schoolScope: { folderId: '106', folderName: '학교급식 발주', available: true, verified: true, collectionMode: 'manual', automatic: false } });
 
 function panel({ role = 'admin', responses, url = 'https://dashboard.dmnfood.co.kr/orders' } = {}) {
   const calls = [], navigations = [], historyReplacements = [], mount = new Node('section');
@@ -47,7 +48,8 @@ test('manager panel stays compact without asserting unknown status, exposing set
   assert.equal(app.mount.dataset.mode, 'compact');
   assert.equal(findAll(app.mount, node => ['button', 'select', 'details', 'input', 'textarea', 'dl'].includes(node.tagName)).length, 0);
   assert.match(app.mount.textContent, /메일 연결 설정은 관리자가 진행합니다/);
-  assert.match(app.mount.textContent, /수집된 발주는 해석 규칙을 적용한 뒤 확인 대기 목록에 표시됩니다/);
+  assert.match(app.mount.textContent, /‘학교급식 발주’ 메일함에서 수집한 자료/);
+  assert.match(app.mount.textContent, /담당자가 수집을 시작하는 방식/);
   assert.doesNotMatch(app.mount.textContent, /연결 전|수집 전|Client ID|kaXX9XpQRZ7ohuKFW1TU|설정 필요/);
   app.cleanup();
 });
@@ -57,9 +59,9 @@ test('missing configuration blocks OAuth and sync even if a disabled button even
   await settled();
   assert.deepEqual(app.calls.map(call => call.path), ['/api/naverworks/status']);
   assert.equal(findButton(app.mount, '네이버웍스 계정 연결').disabled, true);
-  assert.equal(findButton(app.mount, '선택한 메일함에서 최근 7일 수집').disabled, true);
+  assert.equal(findButton(app.mount, '학교급식 발주 최근 7일 수집').disabled, true);
   await findButton(app.mount, '네이버웍스 계정 연결').fire('click');
-  await findButton(app.mount, '선택한 메일함에서 최근 7일 수집').fire('click');
+  await findButton(app.mount, '학교급식 발주 최근 7일 수집').fire('click');
   assert.equal(app.calls.length, 1);
   assert.equal(findAll(app.mount, node => node.tagName === 'input' || node.tagName === 'textarea').length, 0);
   app.cleanup();
@@ -70,41 +72,76 @@ for (const [label, connection] of [['unverified mailbox', { accessStatus: null }
     const app = panel({ responses: () => configured(connection) });
     await settled();
     assert.deepEqual(app.calls.map(call => call.path), ['/api/naverworks/status']);
-    assert.equal(findButton(app.mount, '선택한 메일함에서 최근 7일 수집').disabled, true);
-    await findButton(app.mount, '선택한 메일함에서 최근 7일 수집').fire('click');
+    assert.equal(findButton(app.mount, '학교급식 발주 최근 7일 수집').disabled, true);
+    await findButton(app.mount, '학교급식 발주 최근 7일 수집').fire('click');
     assert.equal(app.calls.length, 1);
     app.cleanup();
   });
 }
 
-test('verified connection still requires an explicit folder; partial sync stays incomplete and continues its signed range', async () => {
+test('verified school folder is locked and collection only starts on click; continuation preserves school scope', async () => {
   let batches = 0;
   const app = panel({ responses: path => {
     if (path.endsWith('/status')) return configured();
-    if (path.endsWith('/folders')) return { ok: true, folders: [{ id: '0', name: '받은메일함' }, { id: '1000', name: '발주 시험' }] };
+    if (path.endsWith('/folders')) return schoolFolders([{ id: '0', name: '받은메일함' }, { id: '106', name: '학교급식 발주' }]);
     if (path.endsWith('/sync')) return { ok: true, sync: { status: ++batches === 1 ? 'partial' : 'complete', scanned: 20, collected: 18, duplicates: 2, skipped: 0,
       from: '2026-10-14T01:00:00Z', to: '2026-10-21T01:00:00Z', continuation: batches === 1 ? 'opaque-signed-continuation' : null, attachmentHandling: 'metadata_only', interpretationReady: false } };
     throw new Error(`Unexpected request: ${path}`);
   } });
   await settled();
   assert.deepEqual(app.calls.map(call => call.path), ['/api/naverworks/status', '/api/naverworks/folders']);
-  assert.equal(findButton(app.mount, '선택한 메일함에서 최근 7일 수집').disabled, true);
+  assert.equal(findButton(app.mount, '학교급식 발주 최근 7일 수집').disabled, false);
   const select = findAll(app.mount, node => node.tagName === 'select')[0];
-  assert.equal(select.value, ''); select.value = '1000'; await select.fire('change');
-  assert.equal(findButton(app.mount, '선택한 메일함에서 최근 7일 수집').disabled, false);
-  await findButton(app.mount, '선택한 메일함에서 최근 7일 수집').fire('click');
+  assert.equal(select.value, '106'); assert.equal(select.disabled, true);
+  assert.equal(batches, 0);
+  await findButton(app.mount, '학교급식 발주 최근 7일 수집').fire('click');
   assert.equal(batches, 1);
   assert.equal(findButton(app.mount, '이어서 수집').disabled, false);
   assert.match(app.mount.textContent, /일부 수집 · 계속 필요/);
   assert.equal(findAll(app.mount, node => node.tagName === 'select')[0].disabled, true);
-  assert.deepEqual(JSON.parse(app.calls.at(-1).settings.body), { folderId: '1000' });
+  assert.deepEqual(JSON.parse(app.calls.at(-1).settings.body), { folderId: '106', scope: 'school' });
   await findButton(app.mount, '이어서 수집').fire('click');
-  assert.deepEqual(JSON.parse(app.calls.at(-1).settings.body), { folderId: '1000', continuation: 'opaque-signed-continuation' });
+  assert.deepEqual(JSON.parse(app.calls.at(-1).settings.body), { folderId: '106', scope: 'school', continuation: 'opaque-signed-continuation' });
   assert.match(app.mount.textContent, /목록·본문 수집 완료/);
   assert.match(app.mount.textContent, /해석 대기/);
   assert.match(app.mount.textContent, /지원하는 Excel 첨부는 열람할 때 원본을 보관/);
   assert.ok(app.calls.every(call => call.settings.headers.Authorization === 'Bearer firebase-user-token'));
   assert.ok(app.calls.every(call => !call.path.includes('firebase-user-token')));
+  app.cleanup();
+});
+
+for (const [label, folders] of [
+  ['missing', [{ id: '0', name: '받은메일함' }]],
+  ['renamed', [{ id: '106', name: '다른 이름' }]],
+  ['replacement ID', [{ id: '107', name: '학교급식 발주' }]],
+  ['duplicate name', [{ id: '106', name: '학교급식 발주' }, { id: '107', name: '학교급식 발주' }]],
+  ['duplicate ID', [{ id: '106', name: '학교급식 발주' }, { id: '106', name: '다른 이름' }]],
+]) {
+  test(`school collection never falls back to another folder when the fixed folder is ${label}`, async () => {
+    const app = panel({ responses: path => path.endsWith('/status') ? configured() : schoolFolders(folders) });
+    await settled();
+    assert.equal(findButton(app.mount, '학교급식 발주 최근 7일 수집').disabled, true);
+    assert.equal(findAll(app.mount, node => node.tagName === 'select')[0].value, '');
+    assert.match(app.mount.textContent, /다른 메일함으로 대신 수집하지 않습니다/);
+    await findButton(app.mount, '학교급식 발주 최근 7일 수집').fire('click');
+    assert.equal(app.calls.length, 2);
+    app.cleanup();
+  });
+}
+
+test('provider folder list alone cannot enable school sync without verified school scope', async () => {
+  const app = panel({ responses: path => path.endsWith('/status') ? configured() : { ok: true, folders: [{ id: '106', name: '학교급식 발주' }] } });
+  await settled();
+  assert.equal(findButton(app.mount, '학교급식 발주 최근 7일 수집').disabled, true);
+  app.cleanup();
+});
+
+test('earlier inbox collection never implies the school folder has been collected', async () => {
+  const app = panel({ responses: path => path.endsWith('/status') ? { ...configured(), lastSync: { folderId: '0', status: 'complete' } } : schoolFolders([{ id: '106', name: '학교급식 발주' }]) });
+  await settled();
+  assert.match(app.mount.textContent, /학교급식 수집 전/);
+  assert.match(app.mount.textContent, /다른 메일함의 기존 기록/);
+  assert.doesNotMatch(app.mount.textContent, /학교급식 최근 수집 기록 있음/);
   app.cleanup();
 });
 

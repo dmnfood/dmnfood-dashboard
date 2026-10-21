@@ -1,5 +1,7 @@
 const MAILBOX = 'official@dmnfood.co.kr';
 const CLIENT_ID = 'kaXX9XpQRZ7ohuKFW1TU';
+const SCHOOL_FOLDER_ID = '106';
+const SCHOOL_FOLDER_NAME = '학교급식 발주';
 const CONFIGURATION_URL = 'https://vercel.com/dmnfoods-projects/dmnfood-dashboard/settings/environment-variables';
 const CONFIGURATION_LABELS = {
   NAVERWORKS_CLIENT_ID: '네이버웍스 Client ID',
@@ -30,11 +32,18 @@ function safeError(error) {
   if (error?.name === 'AbortError') return '';
   if (error?.status === 401) return '로그인 시간이 만료되었습니다. 다시 로그인한 뒤 연결 상태를 확인해 주세요.';
   if (error?.status === 403) return '메일 연결 설정은 승인된 관리자 계정으로 진행해 주세요.';
+  if (error?.code === 'school_mail_folder_unavailable' || error?.code === 'school_mail_folder_required') return '학교급식 발주 메일함의 이름이나 위치를 확인하지 못해 수집을 중단했습니다. 연결 상태를 새로 확인해 주세요.';
   if (error?.code === 'mail_configuration_required') return '서버 연결 설정이 아직 준비되지 않았습니다. 설정 항목을 저장한 뒤 연결 상태를 다시 확인해 주세요.';
   if (error?.code === 'naverworks_reconnect_required' || error?.code === 'mail_connection_required') return '메일 계정 연결을 다시 확인해야 합니다. 네이버웍스 계정 연결을 진행해 주세요.';
   if (error?.status === 409) return '연결 상태 또는 수집 범위가 변경되었습니다. 연결 상태를 새로 확인해 주세요.';
   if (error?.status === 429) return '요청이 많아 잠시 기다려야 합니다. 잠시 후 다시 시도해 주세요.';
   return '메일 연결 상태를 확인하지 못했습니다. 인터넷 연결과 서버 설정을 확인한 뒤 다시 시도해 주세요.';
+}
+
+/** Fail closed when the fixed school folder was renamed, duplicated, or replaced. */
+export function findSchoolMailFolder(folders) {
+  const named = folders.filter(folder => folder?.name === SCHOOL_FOLDER_NAME);
+  return named.length === 1 && String(named[0].id) === SCHOOL_FOLDER_ID && folders.filter(folder => String(folder?.id) === SCHOOL_FOLDER_ID).length === 1 ? named[0] : null;
 }
 
 /** The panel only reads connection metadata on load. Mail collection requires an explicit folder and click. */
@@ -101,7 +110,7 @@ export function initMailConnection(session, mount) {
     mount.dataset.mode = isAdmin ? 'setup' : 'compact';
     if (!isAdmin) {
       const heading = element('div', undefined, 'mail-heading'), title = element('div');
-      title.append(element('h2', '네이버웍스 메일 수집'), element('p', '메일 연결 설정은 관리자가 진행합니다. 수집된 발주는 해석 규칙을 적용한 뒤 확인 대기 목록에 표시됩니다.', 'mail-description'));
+      title.append(element('h2', '네이버웍스 학교급식 메일 수집'), element('p', '메일 연결 설정은 관리자가 진행합니다. ‘학교급식 발주’ 메일함에서 수집한 자료를 아래에서 열람합니다. 현재는 담당자가 수집을 시작하는 방식이며, 발주 해석·승인은 아직 수행하지 않습니다.', 'mail-description'));
       heading.append(title); mount.append(heading); return;
     }
     const heading = element('div', undefined, 'mail-heading'), title = element('div');
@@ -111,13 +120,13 @@ export function initMailConnection(session, mount) {
     const statuses = element('div', undefined, 'mail-status-grid');
     statuses.append(statusCard('1 · 서버 설정', !isAdmin ? '관리자 확인 필요' : state ? ready() ? '준비 완료' : '설정 필요' : statusError ? '확인 필요' : '확인 중', '인증 정보와 원문 저장 설정을 확인합니다.'),
       statusCard('2 · 메일 계정', connected() ? '연결 확인' : '연결 전', MAILBOX),
-      statusCard('3 · 최근 7일 시험', syncResult ? syncResult.status === 'complete' ? '목록·본문 수집 완료' : '일부 수집 · 계속 필요' : state?.lastSync ? '최근 수집 기록 있음' : '수집 전', '수집 결과는 ‘해석 대기’로 보관합니다.'));
+      statusCard('3 · 학교급식 최근 7일 시험', syncResult ? syncResult.status === 'complete' ? '목록·본문 수집 완료' : '일부 수집 · 계속 필요' : state?.lastSync?.folderId === SCHOOL_FOLDER_ID ? '학교급식 최근 수집 기록 있음' : '학교급식 수집 전', state?.lastSync && state.lastSync.folderId !== SCHOOL_FOLDER_ID && !syncResult ? '다른 메일함의 기존 기록은 ‘전체 수집 메일’에서 확인할 수 있습니다.' : '수집 결과는 ‘해석 대기’로 보관합니다.'));
     mount.append(statuses);
 
     const details = element('details', undefined, 'mail-settings');
     details.open = !ready(); details.append(element('summary', '연결 계정과 서버 설정 확인'));
     const content = element('div', undefined, 'mail-settings-content'), account = element('dl', undefined, 'mail-account');
-    for (const [label, value, code] of [['수집 계정', MAILBOX], ['Client ID', CLIENT_ID, true], ['시험 수집 기간', '선택한 메일함의 최근 7일'], ['발주 해석·상품 연결', '규칙 설정 전 · 자동 확정하지 않음']]) {
+    for (const [label, value, code] of [['수집 계정', MAILBOX], ['Client ID', CLIENT_ID, true], ['학교급식 수집 범위', '학교급식 발주 메일함 · 최근 7일'], ['수집 실행 방식', '담당자가 수집 버튼으로 시작 · 상시 자동 수집 미가동'], ['발주 해석·상품 연결', '규칙 설정 전 · 자동 확정하지 않음']]) {
       account.append(element('dt', label), element('dd', value, code ? 'mail-code' : undefined));
     }
     content.append(account);
@@ -148,17 +157,15 @@ export function initMailConnection(session, mount) {
     }
 
     const syncArea = element('div', undefined, 'mail-sync-area');
-    syncArea.append(element('h3', '최근 7일 메일 목록·본문 시험 수집'), element('p', '수집할 메일함을 직접 선택하세요. 거래처 지정과 발주서 해석은 아직 적용하지 않으므로 선택한 메일함의 해당 기간 메일이 모두 대상입니다. 수집된 메일에서 본문과 지원하는 Excel 첨부를 열람할 수 있습니다. 수집이 발주 확인 완료를 뜻하지 않습니다.', 'mail-description'));
-    const label = element('label', '수집할 메일함', 'mail-folder');
-    const select = element('select'); select.setAttribute('aria-label', '수집할 메일함');
-    const placeholder = element('option', !connected() ? '계정 연결 후 선택할 수 있습니다' : folderError ? '메일함 확인 필요' : folders.length ? '메일함을 선택하세요' : '메일함을 확인하고 있습니다'); placeholder.value = ''; select.append(placeholder);
-    for (const folder of folders) { const option = element('option', folder.name); option.value = folder.id; select.append(option); }
-    select.value = selectedFolder; select.disabled = busy || !connected() || !folders.length || Boolean(continuation);
-    select.addEventListener('change', () => { selectedFolder = select.value; continuation = null; syncResult = null; actionMessage = ''; actionFailed = false; render(); });
+    syncArea.append(element('h3', '학교급식 발주 · 최근 7일 시험 수집'), element('p', '수집 범위는 ‘학교급식 발주’ 메일함으로 고정합니다. 메일함 이름과 위치를 확인한 뒤 최근 7일 자료를 가져옵니다. 수집 버튼을 눌러야 실행되며, 상시 자동 수집은 아직 가동하지 않습니다. 수집이 발주 확인 완료를 뜻하지 않습니다.', 'mail-description'));
+    const label = element('label', '학교급식 수집 메일함 · 고정', 'mail-folder');
+    const select = element('select'); select.setAttribute('aria-label', '학교급식 수집 메일함');
+    const option = element('option', selectedFolder ? SCHOOL_FOLDER_NAME : !connected() ? '계정 연결 후 확인합니다' : folderError ? '학교급식 메일함 확인 필요' : '학교급식 메일함 확인 중'); option.value = selectedFolder; select.append(option);
+    select.value = selectedFolder; select.disabled = true;
     label.append(select); syncArea.append(label);
     if (folderError) { const warning = element('p', folderError, 'mail-message'); warning.setAttribute('role', 'alert'); syncArea.append(warning); }
     const syncActions = element('div', undefined, 'mail-actions');
-    const sync = button(busy ? '처리 중…' : continuation ? '이어서 수집' : '선택한 메일함에서 최근 7일 수집', syncMail, true);
+    const sync = button(busy ? '처리 중…' : continuation ? '이어서 수집' : '학교급식 발주 최근 7일 수집', syncMail, true);
     sync.disabled = busy || !isAdmin || !connected() || !selectedFolder || Boolean(folderError); syncActions.append(sync); syncArea.append(syncActions);
     renderResult(syncArea); mount.append(syncArea);
   }
@@ -167,8 +174,11 @@ export function initMailConnection(session, mount) {
     try {
       const data = await request('folders');
       folders = Array.isArray(data.folders) ? data.folders.filter(folder => folder && (typeof folder.id === 'string' || typeof folder.id === 'number') && typeof folder.name === 'string').map(folder => ({ id: String(folder.id), name: folder.name })) : [];
-      folderError = folders.length ? '' : '선택할 수 있는 메일함이 없습니다. 연결 계정을 확인해 주세요.';
-      if (!folders.some(folder => folder.id === selectedFolder)) { selectedFolder = ''; continuation = null; }
+      const folder = findSchoolMailFolder(folders), scope = data.schoolScope;
+      const verified = folder && scope?.available === true && scope.verified === true && scope.folderId === SCHOOL_FOLDER_ID && scope.folderName === SCHOOL_FOLDER_NAME;
+      folderError = verified ? '' : '‘학교급식 발주’ 메일함의 이름과 위치를 확인하지 못했습니다. 이름 변경·중복 여부를 확인해 주세요. 다른 메일함으로 대신 수집하지 않습니다.';
+      selectedFolder = verified ? SCHOOL_FOLDER_ID : '';
+      if (!verified) continuation = null;
     } catch (error) { folderError = safeError(error); folders = []; selectedFolder = ''; continuation = null; }
   }
   async function refreshStatus() {
@@ -200,10 +210,10 @@ export function initMailConnection(session, mount) {
     finally { busy = false; render(); }
   }
   async function syncMail() {
-    if (busy || !isAdmin || !connected() || !selectedFolder || disposed) return;
+    if (busy || !isAdmin || !connected() || selectedFolder !== SCHOOL_FOLDER_ID || folderError || disposed) return;
     busy = true; actionMessage = ''; actionFailed = false; render();
     try {
-      const data = await request('sync', { method: 'POST', body: { folderId: selectedFolder, ...(continuation ? { continuation } : {}) } });
+      const data = await request('sync', { method: 'POST', body: { folderId: selectedFolder, scope: 'school', ...(continuation ? { continuation } : {}) } });
       if (!data.sync || !['complete', 'partial'].includes(data.sync.status)) throw new Error('Invalid collection response');
       syncResult = data.sync;
       continuation = data.sync.status === 'partial' && typeof data.sync.continuation === 'string' && data.sync.continuation ? data.sync.continuation : null;

@@ -1,5 +1,6 @@
 const SOURCE_PATH = '/api/naverworks/source';
 const ATTACHMENT_PATH = '/api/naverworks/attachment';
+const SCHOOL_FOLDER_ID = '106';
 const MAX_ATTACHMENT_BYTES = 3 * 1024 * 1024;
 const SOURCE_ID = /^[A-Za-z0-9_-]{1,128}$/;
 const ALLOWED_TAGS = new Set(['P', 'DIV', 'SPAN', 'BR', 'HR', 'B', 'STRONG', 'I', 'EM', 'U', 'S', 'SMALL', 'SUB', 'SUP', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'UL', 'OL', 'LI', 'BLOCKQUOTE', 'PRE', 'CODE', 'TABLE', 'CAPTION', 'COLGROUP', 'COL', 'THEAD', 'TBODY', 'TFOOT', 'TR', 'TH', 'TD']);
@@ -124,16 +125,30 @@ export function initMailSourceViewer(session, mount) {
   if (!mount) return () => {};
   let disposed = false, mails = [], nextCursor = null, selectedId = '', currentMail = null, listBusy = false, listError = '', detailBusy = false, detailError = '', detailVersion = 0, listVersion = 0, attachmentVersion = 0;
   let listController, detailController, attachmentController, workbookCleanup;
+  let listScope = new URLSearchParams(location.search).get('mail_scope') === 'all' ? 'all' : 'school';
   const blobUrls = new Set();
   const heading = element('div', undefined, 'mail-source-heading'), intro = element('div');
   intro.append(element('p', '자동 수집 자료 · 읽기 전용', 'order-eyebrow'), element('h2', '수집한 메일 원본'), element('p', '보관된 본문과 첨부 Excel을 확인합니다. 현재는 해석 대기이며 발주 승인·ERP 등록은 실행되지 않습니다.', 'mail-source-muted'));
   const refresh = button('메일 목록 새로고침', () => void loadList()); heading.append(intro, refresh);
+  const scopeRow = element('div', undefined, 'mail-source-scope-row'), scopeLabel = element('label', '메일 보기 범위', 'mail-source-scope-label');
+  const scopeSelect = element('select'); scopeSelect.setAttribute('aria-label', '메일 보기 범위');
+  for (const [value, name] of [['school', '학교급식 발주'], ['all', '전체 수집 메일']]) { const option = element('option', name); option.value = value; scopeSelect.append(option); }
+  scopeSelect.value = listScope; scopeLabel.append(scopeSelect);
+  const scopeNote = element('p', '', 'mail-source-muted'); scopeRow.append(scopeLabel, scopeNote);
+  scopeSelect.addEventListener('change', () => {
+    const scope = scopeSelect.value === 'all' ? 'all' : 'school';
+    if (scope === listScope) return;
+    listScope = scope; mails = []; nextCursor = null;
+    const url = new URL(location.href); if (scope === 'all') url.searchParams.set('mail_scope', 'all'); else url.searchParams.delete('mail_scope');
+    window.history.pushState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+    void loadList();
+  });
   const feedback = element('p', '', 'mail-source-feedback'); feedback.setAttribute('role', 'status'); feedback.setAttribute('aria-live', 'polite'); feedback.hidden = true;
   const layout = element('div', undefined, 'mail-source-layout'), listSection = element('section', undefined, 'mail-source-list-panel'); listSection.setAttribute('aria-label', '수집 메일 목록');
   const list = element('div', undefined, 'mail-source-list'), more = button('메일 더 불러오기', () => void loadList(true)); more.hidden = true;
   listSection.append(list, more);
   const detail = element('section', undefined, 'mail-source-detail'); detail.setAttribute('aria-label', '선택한 메일 원문');
-  layout.append(listSection, detail); mount.replaceChildren(heading, feedback, layout);
+  layout.append(listSection, detail); mount.replaceChildren(heading, scopeRow, feedback, layout);
 
   function cleanupAttachment() {
     attachmentVersion += 1; attachmentController?.abort(); attachmentController = null;
@@ -150,9 +165,11 @@ export function initMailSourceViewer(session, mount) {
     return data;
   }
   function renderList() {
+    scopeSelect.value = listScope;
+    scopeNote.textContent = listScope === 'school' ? '수집할 때 ‘학교급식 발주’ 메일함에서 확인한 자료입니다. 해석 대기 상태이며 상시 자동 수집은 아직 가동하지 않습니다.' : '지금까지 보관한 모든 메일입니다. 학교급식 외 자료도 포함될 수 있습니다. 목록 범위를 바꿔도 현재 열람 중인 원문은 유지됩니다.';
     refresh.disabled = listBusy; more.disabled = listBusy; more.hidden = !nextCursor;
     listSection.setAttribute('aria-busy', String(listBusy)); list.replaceChildren();
-    if (!mails.length) list.append(element('p', listBusy ? '수집한 메일을 불러오고 있습니다.' : listError ? '메일 목록 확인이 필요합니다.' : '아직 보관된 메일이 없습니다. 메일 수집 후 목록을 새로고침해 주세요.', 'mail-source-empty'));
+    if (!mails.length) list.append(element('p', listBusy ? '수집한 메일을 불러오고 있습니다.' : listError ? '메일 목록 확인이 필요합니다.' : listScope === 'school' ? '아직 이 메일함에서 수집한 자료가 없습니다. ‘학교급식 발주 최근 7일 수집’을 실행한 뒤 확인해 주세요.' : '아직 보관된 메일이 없습니다. 메일 수집 후 목록을 새로고침해 주세요.', 'mail-source-empty'));
     for (const mail of mails) {
       const item = element('button', undefined, 'mail-source-item'); item.type = 'button'; item.setAttribute('aria-current', String(mail.id === selectedId));
       item.append(element('strong', mail.subject || '(제목 없음)'), element('span', sender(mail.from) || '발신자 확인 필요', 'mail-source-sender'), element('span', formatTime(mail.receivedAt), 'mail-source-time'), element('span', '해석 대기', 'mail-source-badge'));
@@ -251,12 +268,13 @@ export function initMailSourceViewer(session, mount) {
   }
   async function loadList(append = false) {
     if (disposed || (append && (listBusy || !nextCursor))) return;
-    listController?.abort(); const version = ++listVersion, controller = new AbortController(); listController = controller; const cursor = append ? nextCursor : null;
+    listController?.abort(); const version = ++listVersion, controller = new AbortController(); listController = controller; const cursor = append ? nextCursor : null, folderId = listScope === 'school' ? SCHOOL_FOLDER_ID : null;
     listBusy = true; listError = ''; renderList();
     try {
-      const data = await request(`${SOURCE_PATH}${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`, controller);
+      const params = new URLSearchParams(); if (folderId) params.set('folderId', folderId); if (cursor) params.set('cursor', cursor);
+      const data = await request(`${SOURCE_PATH}${params.size ? `?${params}` : ''}`, controller);
       if (disposed || version !== listVersion) return;
-      if (!Array.isArray(data.mails)) throw new Error('Invalid mail list');
+      if (!Array.isArray(data.mails) || data.scope?.folderId !== folderId || data.mails.some(mail => !mail || !SOURCE_ID.test(mail.id) || (folderId && mail.folderId !== folderId))) throw new Error('Invalid mail list scope');
       const records = data.mails.filter(mail => mail && SOURCE_ID.test(mail.id));
       mails = [...new Map([...(append ? mails : []), ...records].map(mail => [mail.id, mail])).values()];
       nextCursor = typeof data.nextCursor === 'string' && data.nextCursor ? data.nextCursor : null;
@@ -264,6 +282,8 @@ export function initMailSourceViewer(session, mount) {
     finally { if (!disposed && version === listVersion) { listBusy = false; renderList(); } }
   }
   function onPopState() {
+    const scope = new URLSearchParams(location.search).get('mail_scope') === 'all' ? 'all' : 'school';
+    if (scope !== listScope) { listScope = scope; mails = []; nextCursor = null; void loadList(); }
     const id = new URLSearchParams(location.search).get('mail') || '';
     if (id === selectedId) return;
     if (id) void selectMail(id, { history: false });

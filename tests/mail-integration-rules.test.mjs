@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
-const { createMailboxStore, encodeFields } = createRequire(import.meta.url)('../lib/server/mail-integration-store.cjs');
+const { createMailboxStore, encodeFields, decodeFields } = createRequire(import.meta.url)('../lib/server/mail-integration-store.cjs');
 const emulatorHost = process.env.MAIL_FIRESTORE_EMULATOR_HOST || process.env.ORDER_FIRESTORE_EMULATOR_HOST;
 
 test('mail rules isolate the collector from employee data, secrets from staff and immutable source from confirmation', { skip: !emulatorHost }, async () => {
@@ -63,6 +63,28 @@ test('mail rules isolate the collector from employee data, secrets from staff an
     assert.equal((await remove(path, collector)).status, 403);
     assert.equal((await put(`mailIntakes/${'d'.repeat(64)}`, { ...immutable, processingStatus: 'approved' }, collector)).status, 403);
     assert.equal((await put(`mailIntakes/${'e'.repeat(64)}`, { ...immutable, account: 'other@example.invalid' }, collector)).status, 403);
+    const moved = await store.createIntake({ ...intake, folderId: '106', raw: { ...intake.raw, mail: { ...intake.raw.mail, folderId: 106 } } });
+    assert.equal(moved.created, false); assert.equal(moved.membershipCreated, true);
+    assert.deepEqual(await store.getRawMail(id), immutable);
+    const memberPath = `mailFolders/106/intakes/${id}`;
+    const membership = decodeFields((await (await get(memberPath, collector)).json()).fields);
+    assert.equal(membership.originalFolderId, '0'); assert.equal(membership.folderId, '106'); assert.equal(membership.sourceHash, immutable.rawStorage.sha256);
+    for (const uid of ['admin', 'manager', collector]) {
+        assert.equal((await get(memberPath, uid)).status, 200);
+        assert.equal((await put(memberPath, { ...membership, subject: '수정' }, uid)).status, 403);
+        assert.equal((await remove(memberPath, uid)).status, 403);
+    }
+    for (const uid of ['', 'worker', 'pending-manager', 'unknown-collector']) assert.equal((await get(memberPath, uid)).status, 403);
+    assert.equal((await put(`mailFolders/107/intakes/${id}`, { ...membership, folderId: '107', sourceHash: 'a'.repeat(64) }, collector)).status, 403);
+    assert.equal((await put(`mailFolders/107/intakes/${id}`, { ...membership, folderId: '107', account: 'other@example.invalid' }, collector)).status, 403);
+    assert.equal((await put(`mailFolders/107/intakes/${id}`, { ...membership, folderId: '107' }, 'manager')).status, 403);
+    assert.equal((await put(`mailFolders/107/intakes/${'f'.repeat(64)}`, { ...membership, folderId: '107', intakeId: 'f'.repeat(64) }, collector)).status, 403);
+    assert.ok((await store.listRawMails({ folderId: '106' })).mails.some(mail => mail.id === id));
+    // Simulate an interrupted membership write: only the missing membership is repaired.
+    assert.equal((await remove(memberPath, 'owner')).status, 200);
+    const repair = await store.createIntake({ ...intake, folderId: '106', raw: { ...intake.raw, mail: { ...intake.raw.mail, folderId: 106 } } });
+    assert.equal(repair.created, false); assert.equal(repair.membershipCreated, true);
+    assert.deepEqual(await store.getRawMail(id), immutable);
     const attachmentBytes = Buffer.alloc(3 * 1024 * 1024, 0x5a);
     const attachment = await store.createAttachment(id, '2', { fileName: '가상 원본.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', sourceSize: attachmentBytes.length }, attachmentBytes);
     assert.equal(attachment.chunkCount, 32, 'full-limit archive must fit rules access and batch limits');

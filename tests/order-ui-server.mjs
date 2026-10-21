@@ -37,8 +37,9 @@ const headers = {
     'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; font-src 'self'; img-src 'self' data:; base-uri 'none'; frame-ancestors 'none'",
 };
 const timestamp = () => ({ seconds: Date.now() / 1000 });
+const schoolScope = { folderId: '106', folderName: '학교급식 발주', available: null, verified: false, collectionMode: 'manual', automatic: false };
 const mailFixtures = [
-    { id: 'fictional-school-mail', subject: '[가상 자료] 학교급식 발주서 열람 시험', from: { name: '가상 급식 거래처', email: 'school@example.test' }, receivedAt: '2026-10-21T01:00:00.000Z', collectedAt: '2026-10-21T01:01:00.000Z', folderId: '42', processingStatus: 'pending_interpretation',
+    { id: 'fictional-school-mail', subject: '[가상 자료] 학교급식 발주서 열람 시험', from: { name: '가상 급식 거래처', email: 'school@example.test' }, receivedAt: '2026-10-21T01:00:00.000Z', collectedAt: '2026-10-21T01:01:00.000Z', folderId: '0', processingStatus: 'pending_interpretation',
         raw: { mail: { mailId: 'fixture-1', subject: '[가상 자료] 학교급식 발주서 열람 시험', body: '<p>가상 학교급식 발주서입니다.</p><p>첨부 Excel의 상품명·수량·일정을 원문으로 확인해 주세요.</p><table><tr><th>안내</th><th>상태</th></tr><tr><td>실제 발주가 아닙니다</td><td>해석 대기</td></tr></table>', from: { name: '가상 급식 거래처', email: 'school@example.test' } }, attachments: [{ attachmentId: '101', filename: '가상 학교급식 발주서.xls', contentType: 'application/vnd.ms-excel', size: (await readFile(new URL('fixtures/mail-workbooks/sample-school-order.xls', import.meta.url))).length }, { attachmentId: '102', filename: '가상 참고 이미지.png', contentType: 'image/png', size: 100 }, { attachmentId: '103', filename: '가상 대용량 발주서.xlsx', contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', size: 4 * 1024 * 1024 }] } },
     { id: 'fictional-mail-safety', subject: '[가상 자료] 본문 안전 표시 시험', from: { email: 'safety@example.test' }, receivedAt: '2026-10-20T01:00:00.000Z', collectedAt: '2026-10-20T01:01:00.000Z', processingStatus: 'pending_interpretation',
         raw: { mail: { mailId: 'fixture-2', body: '<div onclick="alert(1)" style="background:url(https://example.invalid/mail-css)">안전한 본문 텍스트</div><img src="https://example.invalid/mail-image" onerror="alert(1)" alt="외부 이미지 차단"><script>window.parent.__mailInjected=true</script><iframe src="https://example.invalid/mail-frame"></iframe><form action="https://example.invalid/mail-form"><input value="차단"></form><a href="javascript:alert(1)">외부 링크는 텍스트로 표시</a><svg><a href="https://example.invalid/mail-svg">SVG</a></svg><table><tr><td colspan="2" background="https://example.invalid/mail-bg">보존되는 표</td></tr></table>' }, attachments: [] } },
@@ -113,9 +114,13 @@ const server = createServer(async (req, res) => {
                     if (mail && referer.searchParams.get('mailBodyScenario') === 'large') mail.raw.mail.body = `<p>${'가상 본문 '.repeat(180000)}</p>`;
                     return reply(res, mail ? 200 : 404, mail ? { ok: true, mail } : { ok: false });
                 }
-                const records = referer.searchParams.get('mailSourceScenario') === 'empty' ? [] : mailFixtures;
-                const offset = url.searchParams.get('cursor') === 'fictional-mail-page-2' ? 2 : 0;
-                return reply(res, 200, { ok: true, mails: records.slice(offset, offset + 2).map(({ raw, ...summary }) => summary), nextCursor: records.length > offset + 2 ? 'fictional-mail-page-2' : null });
+                const folderId = url.searchParams.get('folderId'), cursor = url.searchParams.get('cursor');
+                if (folderId && folderId !== '106') return reply(res, 400, { ok: false });
+                const nextToken = folderId ? 'fictional-school-page-2' : 'fictional-mail-page-2';
+                if (cursor && cursor !== nextToken) return reply(res, 400, { ok: false });
+                const records = referer.searchParams.get('mailSourceScenario') === 'empty' ? [] : folderId ? mailFixtures.filter(mail => mail.id !== 'fictional-mail-title-only') : mailFixtures;
+                const offset = cursor ? 2 : 0;
+                return reply(res, 200, { ok: true, mails: records.slice(offset, offset + 2).map(({ raw, ...summary }) => ({ ...summary, ...(folderId ? { folderId, observedAt: '2026-10-21T02:00:00.000Z' } : {}) })), nextCursor: records.length > offset + 2 ? nextToken : null, scope: { folderId }, schoolScope });
             }
             if (url.pathname.endsWith('/attachment') && req.method === 'POST' && req.headers.origin === localOrigin && req.headers['content-type']?.startsWith('application/json')) {
                 const input = await readAction(req);
@@ -128,11 +133,17 @@ const server = createServer(async (req, res) => {
             if (url.pathname.endsWith('/status') && req.method === 'GET') return reply(res, 200, {
                 ok: true, configuration: { ready: connected, missing: connected ? [] : ['NAVERWORKS_CLIENT_SECRET', 'MAIL_TOKEN_ENCRYPTION_KEY', 'MAIL_COLLECTOR_EMAIL', 'MAIL_COLLECTOR_PASSWORD'] },
                 connection: { connected, accessStatus: connected ? 'mailbox_access_verified' : 'not_connected', mailbox: 'official@dmnfood.co.kr' },
+                schoolScope,
             });
-            if (url.pathname.endsWith('/folders') && req.method === 'GET') return reply(res, 200, { ok: true, folders: [{ id: '42', name: '가상 발주 시험 메일함' }] });
+            if (url.pathname.endsWith('/folders') && req.method === 'GET') {
+                const scenario = referer.searchParams.get('schoolFolderScenario');
+                const folders = scenario === 'missing' ? [{ id: '0', name: '받은메일함' }] : scenario === 'renamed' ? [{ id: '106', name: '이름이 변경된 메일함' }] : scenario === 'duplicate' ? [{ id: '106', name: '학교급식 발주' }, { id: '107', name: '학교급식 발주' }] : [{ id: '0', name: '받은메일함' }, { id: '106', name: '학교급식 발주' }];
+                return reply(res, 200, { ok: true, folders, schoolScope: { ...schoolScope, available: !scenario, verified: true } });
+            }
             if (url.pathname.endsWith('/sync') && req.method === 'POST' && connected && req.headers.origin === localOrigin && req.headers['content-type']?.startsWith('application/json')) {
                 const input = await readAction(req);
-                if (input.folderId !== '42') return reply(res, 400, { ok: false });
+                if (input.folderId !== '106' || input.scope !== 'school') return reply(res, 400, { ok: false });
+                if (referer.searchParams.get('schoolFolderScenario')) return reply(res, 409, { ok: false, error: { code: 'school_mail_folder_unavailable' } });
                 const complete = input.continuation === 'fictional-local-continuation';
                 return reply(res, 200, { ok: true, sync: { status: complete ? 'complete' : 'partial', continuation: complete ? null : 'fictional-local-continuation',
                     scanned: complete ? 20 : 10, collected: complete ? 3 : 2, duplicates: 0, skipped: complete ? 17 : 8,

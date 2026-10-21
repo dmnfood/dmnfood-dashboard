@@ -6,7 +6,7 @@ const { createMailboxStore, buildIntakeId, encodeFields, decodeFields, MAX_RAW_B
 
 const response = (body, status = 200) => ({ ok: status >= 200 && status < 300, status, json: async () => body });
 function fixture() {
-    const docs = new Map(), calls = []; let time = 1792530000000, version = 0, failCommit = false;
+    const docs = new Map(), calls = []; let time = 1792530000000, version = 0, failCommit = false, failMembershipCommit = false;
     const env = { MAIL_COLLECTOR_EMAIL: 'collector@example.invalid', MAIL_COLLECTOR_PASSWORD: 'test-secret' };
     const fetchImpl = async (url, settings = {}) => {
         calls.push({ url, settings });
@@ -15,7 +15,9 @@ function fixture() {
         assert.match(settings.headers.Authorization, /^Bearer (collector-id-token|renewed-collector-id-token)$/);
         if (url.endsWith(':runQuery')) {
             const query = JSON.parse(settings.body).structuredQuery;
-            const rows = [...docs.values()].filter(doc => /\/mailIntakes\/[a-f0-9]{64}$/.test(doc.name))
+            const folder = url.match(/\/mailFolders\/(-?\d+):runQuery$/)?.[1];
+            const pattern = folder ? new RegExp(`/mailFolders/${folder}/intakes/[a-f0-9]{64}$`) : /\/mailIntakes\/[a-f0-9]{64}$/;
+            const rows = [...docs.values()].filter(doc => pattern.test(doc.name))
                 .sort((a, b) => decodeFields(b.fields).receivedAt.localeCompare(decodeFields(a.fields).receivedAt) || b.name.localeCompare(a.name));
             const after = query.startAt?.values;
             const filtered = after ? rows.filter(doc => decodeFields(doc.fields).receivedAt < after[0].stringValue || (decodeFields(doc.fields).receivedAt === after[0].stringValue && doc.name < after[1].referenceValue)) : rows;
@@ -24,6 +26,7 @@ function fixture() {
         if (url.endsWith(':commit')) {
             if (failCommit) return response({ error: { status: 'PERMISSION_DENIED', message: 'private upstream detail' } }, 403);
             const writes = JSON.parse(settings.body).writes;
+            if (failMembershipCommit && writes.some(write => write.update?.name.includes('/mailFolders/'))) return response({ error: { status: 'PERMISSION_DENIED' } }, 403);
             for (const write of writes) {
                 const existing = docs.get(write.update?.name || write.delete), condition = write.currentDocument;
                 if ((condition?.exists === false && existing) || (condition?.updateTime && existing?.updateTime !== condition.updateTime)) return response({ error: { status: 'FAILED_PRECONDITION' } }, 400);
@@ -39,7 +42,7 @@ function fixture() {
         return docs.has(name) ? response(docs.get(name)) : response({ error: { status: 'NOT_FOUND' } }, 404);
     };
     const store = createMailboxStore({ env, fetchImpl, now: () => time });
-    return { store, docs, calls, advance: ms => { time += ms; }, get now() { return time; }, set failCommit(value) { failCommit = value; } };
+    return { store, docs, calls, advance: ms => { time += ms; }, get now() { return time; }, set failCommit(value) { failCommit = value; }, set failMembershipCommit(value) { failMembershipCommit = value; } };
 }
 const rawRecord = (raw = { mail: { body: '원문 상품명 180ml × 12개' }, attachments: [{ fileName: '발주서.xlsx', fileId: 'file-1' }] }) => ({
     account: 'official@dmnfood.co.kr', mailId: 'mail-1', folderId: '0', subject: '발주 요청', from: [{ email: 'customer@example.invalid' }], receivedAt: '2026-10-21T00:00:00Z', raw,
@@ -213,4 +216,61 @@ test('attachment archive is atomic, bounded and immutable; cached bytes are chec
     state.failCommit = true;
     await assert.rejects(state.store.createAttachment(id, '4', { ...metadata, sourceSize: 1 }, Buffer.from('x')), { code: 'MAIL_STORE_UNAVAILABLE' });
     assert.equal(state.docs.size, before, 'failed atomic commit leaves no attachment metadata or chunks');
+});
+
+test('moved duplicate receives immutable folder membership using first source without replacing inbox snapshot', async () => {
+    const state = fixture(), first = rawRecord({ mail: { body: '최초 원문', folderId: 0 }, attachments: [] });
+    const initial = await state.store.createIntake(first), snapshot = await state.store.getRawMail(initial.id);
+    assert.equal(initial.membershipCreated, true);
+    assert.equal((await state.store.listRawMails({ folderId: '106' })).mails.length, 0);
+    const moved = { ...first, folderId: '106', raw: { ...first.raw, mail: { ...first.raw.mail, folderId: 106 } } };
+    const duplicated = await state.store.createIntake(moved);
+    assert.equal(duplicated.created, false); assert.equal(duplicated.membershipCreated, true);
+    assert.deepEqual(await state.store.getRawMail(initial.id), snapshot);
+    const school = await state.store.listRawMails({ folderId: '106' });
+    assert.equal(school.mails.length, 1); assert.equal(school.mails[0].folderId, '106');
+    assert.equal(school.mails[0].originalFolderId, '0'); assert.equal(school.mails[0].sourceHash, snapshot.rawStorage.sha256);
+    assert.equal((await state.store.listRawMails({ folderId: '0' })).mails.length, 1);
+    const member = [...state.docs.values()].find(doc => doc.name.endsWith(`/mailFolders/106/intakes/${initial.id}`));
+    const originalVersion = member.updateTime;
+    state.advance(10000);
+    assert.equal((await state.store.createIntake(moved)).membershipCreated, false);
+    assert.equal(member.updateTime, originalVersion);
+    member.fields.sourceHash.stringValue = 'a'.repeat(64);
+    await assert.rejects(state.store.createIntake(moved), { code: 'MAIL_FOLDER_MEMBERSHIP_INVALID' });
+    assert.deepEqual(await state.store.getRawMail(initial.id), snapshot);
+});
+
+test('failed membership cannot be reported as complete; duplicate retry repairs it and folder mismatch is rejected before raw write', async () => {
+    const state = fixture(), record = { ...rawRecord({ mail: { folderId: 106, body: '원본 유지' }, attachments: [] }), folderId: '106' };
+    state.failMembershipCommit = true;
+    await assert.rejects(state.store.createIntake(record), { code: 'MAIL_STORE_UNAVAILABLE' });
+    const id = buildIntakeId(record.account, record.mailId), snapshot = await state.store.getRawMail(id);
+    assert.ok(snapshot); assert.equal((await state.store.listRawMails({ folderId: '106' })).mails.length, 0);
+    state.failMembershipCommit = false;
+    const repaired = await state.store.createIntake(record);
+    assert.equal(repaired.created, false); assert.equal(repaired.membershipCreated, true);
+    assert.deepEqual(await state.store.getRawMail(id), snapshot);
+    const before = state.docs.size;
+    await assert.rejects(state.store.createIntake({ ...record, mailId: 'moved-during-read', raw: { mail: { folderId: 0 }, attachments: [] } }), { code: 'MAIL_FOLDER_SOURCE_CHANGED' });
+    assert.equal(state.docs.size, before);
+});
+
+test('folder list cursors bind to folder while ordinary all-mail and other-folder lists remain available', async () => {
+    const state = fixture();
+    for (let n = 0; n < 3; n++) await state.store.createIntake({ ...rawRecord(), mailId: `school-${n}`, folderId: '106', receivedAt: new Date(Date.parse('2026-10-21T00:00:00Z') + n * 1000).toISOString() });
+    await state.store.createIntake({ ...rawRecord(), mailId: 'other', folderId: '0' });
+    const first = await state.store.listRawMails({ folderId: '106', limit: 1 });
+    assert.ok(first.nextCursor);
+    const next = await state.store.listRawMails({ folderId: '106', cursor: first.nextCursor, limit: 1 });
+    assert.notEqual(first.mails[0].id, next.mails[0].id);
+    await assert.rejects(state.store.listRawMails({ cursor: first.nextCursor }), { code: 'MAIL_LIST_INVALID' });
+    await assert.rejects(state.store.listRawMails({ folderId: '0', cursor: first.nextCursor }), { code: 'MAIL_LIST_INVALID' });
+    const all = await state.store.listRawMails({ limit: 1 });
+    await assert.rejects(state.store.listRawMails({ folderId: '106', cursor: all.nextCursor }), { code: 'MAIL_LIST_INVALID' });
+    assert.equal((await state.store.listRawMails()).mails.length, 4);
+    assert.equal((await state.store.listRawMails({ folderId: '0' })).mails.length, 1);
+    const queryCall = state.calls.find(call => call.url.endsWith('/mailFolders/106:runQuery'));
+    const query = JSON.parse(queryCall.settings.body).structuredQuery;
+    assert.deepEqual(query.from, [{ collectionId: 'intakes' }]); assert.equal(query.where, undefined);
 });

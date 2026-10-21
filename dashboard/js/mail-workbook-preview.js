@@ -28,7 +28,7 @@ export async function renderMailWorkbook({ mount, bytes, fileName = '', signal }
   const id = `mail-workbook-${++nextInstance}`, root = element('section', 'mail-workbook');
   root.setAttribute('aria-label', 'Excel 읽기 전용 셀 미리보기');
   const heading = element('h4', 'mail-workbook-title', 'Excel 셀 미리보기 · 원본 파일과 서식이 다를 수 있음');
-  const originalNote = element('p', 'mail-workbook-note', '읽기 전용입니다. 수식은 다시 계산하지 않고 파일에 저장된 계산값을 표시합니다. 매크로·외부 링크는 실행하지 않습니다.');
+  const originalNote = element('p', 'mail-workbook-note', '읽기 전용입니다. 긴 글은 오른쪽 빈 셀 위로 이어 표시합니다. ‘…’ 표시가 있으면 셀을 눌러 원문 전체를 확인하세요. 수식은 저장된 계산값을 표시하며 매크로·외부 링크는 실행하지 않습니다.');
   const status = element('p', 'mail-workbook-status', 'Excel 원본의 셀을 읽고 있습니다…'); status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
   const notices = element('div', 'mail-workbook-notices'), controls = element('div', 'mail-workbook-controls');
   const sheetLabel = element('label', 'mail-workbook-field', '시트 선택'); sheetLabel.htmlFor = `${id}-sheet`;
@@ -38,10 +38,11 @@ export async function renderMailWorkbook({ mount, bytes, fileName = '', signal }
   const region = element('div', 'mail-workbook-grid-region'); region.tabIndex = 0; region.setAttribute('aria-label', 'Excel 셀 표. 가로와 세로로 스크롤할 수 있습니다.');
   const detail = element('p', 'mail-workbook-cell-detail', '셀을 누르면 주소와 수식·표시 형식을 확인할 수 있습니다.'); detail.setAttribute('role', 'status');
   root.append(heading, originalNote, notices, controls, status, region, detail); controls.append(sheetLabel, nav, columnNav); mount.replaceChildren(root);
-  let disposed = false, worker, requestId = 0, pageRevision = 0, sheetIndex = 0, rowPage = 0, columnPage = 0, currentPage, metadata;
+  let disposed = false, worker, layoutFrame = 0, requestId = 0, pageRevision = 0, sheetIndex = 0, rowPage = 0, columnPage = 0, currentPage, metadata;
   const pending = new Map();
   function cleanup() {
     if (disposed) return; disposed = true; worker?.terminate();
+    if (layoutFrame) cancelAnimationFrame(layoutFrame);
     signal?.removeEventListener('abort', cleanup);
     for (const item of pending.values()) { clearTimeout(item.timeout); item.reject(new Error('Excel 미리보기가 닫혔습니다.')); }
     pending.clear();
@@ -77,16 +78,20 @@ export async function renderMailWorkbook({ mount, bytes, fileName = '', signal }
   }
   function fillTable(page) {
     const table = element('table', 'mail-workbook-grid');
+    table.style.width = `${48 + page.columns.reduce((sum, col) => sum + col.width, 0)}px`;
+    const colgroup = element('colgroup'), rowNumberCol = element('col'); rowNumberCol.style.width = '48px'; colgroup.append(rowNumberCol);
+    for (const column of page.columns) { const col = element('col'); col.style.width = `${column.width}px`; colgroup.append(col); }
     const caption = element('caption', 'mail-workbook-caption', `${page.info.name} · 원본 행·열 번호 기준`); table.append(caption);
+    table.append(colgroup);
     const head = element('thead'), header = element('tr'), corner = element('th', 'mail-workbook-corner', '행'); corner.scope = 'col'; header.append(corner);
     for (const col of page.columns) {
       const th = element('th', col.hidden ? 'mail-workbook-hidden-source' : '', `${col.label}${col.hidden ? ' · 원본 숨김' : ''}`);
-      th.scope = 'col'; th.style.minWidth = `${col.width}px`; header.append(th);
+      th.scope = 'col'; header.append(th);
     }
     head.append(header); table.append(head);
-    const body = element('tbody');
+    const body = element('tbody'), layoutCells = [];
     for (const row of page.rows) {
-      const tr = element('tr'); if (row.hidden) tr.classList.add('mail-workbook-hidden-source');
+      const tr = element('tr'); tr.style.height = `${row.height}px`; if (row.hidden) tr.classList.add('mail-workbook-hidden-source');
       const label = element('th', 'mail-workbook-row-number', `${row.label}${row.hidden ? ' · 숨김' : ''}`); label.scope = 'row'; tr.append(label);
       for (let i = 0; i < row.cells.length; i++) {
         const col = page.columns[i], merge = page.merges.find(m => row.index >= m.startRow && row.index <= m.endRow && col.index >= m.startColumn && col.index <= m.endColumn);
@@ -97,7 +102,15 @@ export async function renderMailWorkbook({ mount, bytes, fileName = '', signal }
         if (cell.numeric) td.classList.add('mail-workbook-numeric');
         if (col.hidden) td.classList.add('mail-workbook-hidden-source');
         if (cell.fill) { td.style.backgroundColor = cell.fill; td.style.color = '#111827'; }
-        const value = element('span', 'mail-workbook-cell-value', cell.text); td.append(value);
+        const content = element('div', 'mail-workbook-cell-content');
+        const value = element('span', 'mail-workbook-cell-value', cell.text); content.append(value); td.append(content);
+        if (cell.wrap) value.classList.add('mail-workbook-wrap');
+        else {
+          const visualWidth = merge ? page.columns.filter(column => column.index >= merge.startColumn && column.index <= merge.endColumn).reduce((sum, column) => sum + column.width, 0)
+            : cell.displayWidth || col.width;
+          value.style.width = `${Math.max(8, visualWidth - 16)}px`;
+          layoutCells.push({ value, td, content });
+        }
         if (cell.formula) td.append(element('span', cell.cached ? 'mail-workbook-formula' : 'mail-workbook-formula mail-workbook-missing-cache', cell.cached ? '수식 저장값' : '계산값 없음'));
         if (merge?.clipped) td.append(element('span', 'mail-workbook-formula', '병합 구간 이어짐'));
         const cellText = `${cell.address}${merge ? ` · 병합 ${merge.address}` : ''}: ${cell.text || '(빈 셀)'}${cell.formula ? ' · 수식 저장값' : ''}`;
@@ -109,6 +122,15 @@ export async function renderMailWorkbook({ mount, bytes, fileName = '', signal }
       body.append(tr);
     }
     table.append(body); region.replaceChildren(table); region.scrollTop = 0; region.scrollLeft = 0;
+    if (layoutFrame) cancelAnimationFrame(layoutFrame);
+    layoutFrame = requestAnimationFrame(() => {
+      layoutFrame = 0; if (disposed || !table.isConnected) return;
+      for (const { value, td } of layoutCells) {
+        if (value.scrollWidth <= value.clientWidth + 1) continue;
+        td.dataset.clipped = 'true';
+        td.append(element('span', 'mail-workbook-clipped-note', '… 전체 내용'));
+      }
+    });
   }
   async function loadPage() {
     const revision = ++pageRevision;

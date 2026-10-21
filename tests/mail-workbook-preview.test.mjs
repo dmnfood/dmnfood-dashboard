@@ -87,6 +87,24 @@ test('row and column pages expose every original coordinate and split merges wit
   assert.equal(hidden.rows[0].label, 5); assert.equal(hidden.columns[0].label, 'C'); assert.equal(hidden.rows[0].cells[0].text, '숨김 시트 값');
 });
 
+test('default text visually spans only empty right cells while source widths, addresses and wrap remain intact', () => {
+  const wb = { SheetNames: ['가상 원본'], Sheets: { '가상 원본': {
+    '!ref': 'A1:F3', '!cols': [{ wpx: 41 }, { wpx: 59 }, { wpx: 164 }, { wpx: 316 }, { wpx: 88 }, { wpx: 59 }],
+    '!rows': [{ hpx: 30 }, { hpx: 35 }],
+    A1: { t: 's', v: '가상 제목: 이 문장은 오른쪽 빈 셀 위로 이어집니다.' }, D1: { t: 's', v: '다음 원본 값' },
+    A2: { t: 's', v: '명시적 줄바꿈', s: { alignment: { wrapText: true } } },
+    A3: { t: 's', v: '병합 앞의 글자' }, '!merges': [{ s: { r: 2, c: 1 }, e: { r: 2, c: 2 } }]
+  } } };
+  const page = Model.sheetPage(wb, Model.describeWorkbook(wb, XLSX), { sheetIndex: 0 }, XLSX);
+  assert.deepEqual(page.columns.map(column => column.width), [41, 59, 164, 316, 88, 59]);
+  assert.equal(page.rows[0].cells[0].displayWidth, 264); // stops before nonempty D1
+  assert.equal(page.rows[0].cells.length, 6); assert.equal(page.rows[0].cells[1].address, 'B1'); assert.equal(page.rows[0].cells[1].text, '');
+  assert.equal(page.rows[0].height, 30); assert.equal(page.rows[1].height, 35);
+  assert.equal(page.rows[1].cells[0].wrap, true); assert.equal(page.rows[1].cells[0].displayWidth, 41);
+  assert.equal(page.rows[2].cells[0].displayWidth, 41); // stops before real merged B3:C3
+  assert.deepEqual(wb.Sheets['가상 원본']['!merges'], [{ s: { r: 2, c: 1 }, e: { r: 2, c: 2 } }]);
+});
+
 test('uncached formulas stay explicitly unresolved and HTML or hyperlinks remain inert text', () => {
   const wb = workbook(), meta = Model.describeWorkbook(wb, XLSX), page = Model.sheetPage(wb, meta, { sheetIndex: 0 }, XLSX);
   assert.equal(page.rows[1].cells[3].cached, false); assert.equal(page.rows[1].cells[3].text, '저장된 계산값 없음');

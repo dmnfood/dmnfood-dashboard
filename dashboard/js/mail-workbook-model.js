@@ -188,7 +188,7 @@
     return { sheets, totalCells, formulaCount: formulas, linkCount: links, hasMacros: Boolean(workbook.vbaraw || metadata.some(s => s?.Type === 'macro')) };
   }
   function displayCell(cell, address, XLSX) {
-    if (!cell) return { address, text: '', formula: '', cached: false, numeric: false, format: '', link: false, fill: '' };
+    if (!cell) return { address, text: '', formula: '', cached: false, numeric: false, textCell: false, wrap: false, format: '', link: false, fill: '' };
     const formula = typeof cell.f === 'string' ? cell.f : '';
     const cached = cell.v !== undefined && cell.v !== null;
     let text;
@@ -198,7 +198,8 @@
       try { text = XLSX.utils.format_cell(cell); } catch (_) { text = String(cell.v); }
     } else text = '';
     const color = cell.s?.fgColor?.rgb || cell.s?.fill?.fgColor?.rgb || '';
-    return { address, text: String(text), formula, cached, numeric: cell.t === 'n',
+    return { address, text: String(text), formula, cached, numeric: cell.t === 'n', textCell: ['s', 'str'].includes(cell.t),
+      wrap: Boolean(cell.s?.alignment?.wrapText || cell.s?.wrapText || /[\r\n]/.test(String(text))),
       format: typeof cell.z === 'string' ? cell.z : '', link: Boolean(cell.l),
       fill: /^[a-f\d]{6}$/i.test(color) ? `#${color}` : /^[a-f\d]{8}$/i.test(color) ? `#${color.slice(2)}` : '' };
   }
@@ -214,7 +215,7 @@
     const sheet = workbook.Sheets[info.name];
     const columns = Array.from({ length: endColumn - startColumn + 1 }, (_, i) => {
       const column = startColumn + i, raw = sheet['!cols']?.[column];
-      return { index: column, label: XLSX.utils.encode_col(column), hidden: Boolean(raw?.hidden), width: Math.max(72, Math.min(320, Number(raw?.wpx) || Number(raw?.wch) * 8 || 120)) };
+      return { index: column, label: XLSX.utils.encode_col(column), hidden: Boolean(raw?.hidden), width: Math.max(24, Math.min(640, Number(raw?.wpx) || Number(raw?.wch) * 8 || 120)) };
     });
     const merges = (sheet['!merges'] || []).filter(m => m.s.r <= endRow && m.e.r >= startRow && m.s.c <= endColumn && m.e.c >= startColumn).map(m => ({
       startRow: Math.max(m.s.r, startRow), endRow: Math.min(m.e.r, endRow), startColumn: Math.max(m.s.c, startColumn), endColumn: Math.min(m.e.c, endColumn),
@@ -224,13 +225,27 @@
     let displayedCharacters = merges.reduce((sum, merge) => sum + merge.cell.text.length + merge.cell.formula.length, 0);
     const rows = Array.from({ length: endRow - startRow + 1 }, (_, i) => {
       const row = startRow + i;
-      return { index: row, label: row + 1, hidden: Boolean(sheet['!rows']?.[row]?.hidden), cells: columns.map(col => {
+      const raw = sheet['!rows']?.[row];
+      const item = { index: row, label: row + 1, hidden: Boolean(raw?.hidden), height: Math.max(28, Math.min(160, Number(raw?.hpx) || Number(raw?.hpt) * 4 / 3 || 30)), cells: columns.map(col => {
         const address = XLSX.utils.encode_cell({ r: row, c: col.index });
         const display = displayCell(sheet[address], address, XLSX);
         displayedCharacters += display.text.length + display.formula.length;
         if (displayedCharacters > 2 * 1024 * 1024) fail('이 셀 구간의 텍스트가 너무 많아 안전한 표시를 중단했습니다. 원본을 내려받아 확인해 주세요.');
         return display;
       }) };
+      const mergedAt = column => merges.some(m => row >= m.startRow && row <= m.endRow && column >= m.startColumn && column <= m.endColumn);
+      // Excel's default text overflows into consecutive empty cells. Preserve all
+      // actual cells/addresses: this is a visual span, never a synthetic merge.
+      for (let i = 0; i < item.cells.length; i++) {
+        const cell = item.cells[i]; cell.displayWidth = columns[i].width;
+        if (!cell.textCell || !cell.text || cell.wrap || cell.formula || mergedAt(columns[i].index)) continue;
+        for (let j = i + 1; j < item.cells.length; j++) {
+          const next = item.cells[j];
+          if (next.text || next.formula || next.fill || columns[j].hidden || mergedAt(columns[j].index)) break;
+          cell.displayWidth += columns[j].width;
+        }
+      }
+      return item;
     });
     return { info, rows, columns, merges, page, columnPage, pageCount, columnPageCount,
       startRow, endRow, startColumn, endColumn, displayedCells: rows.length * columns.length };

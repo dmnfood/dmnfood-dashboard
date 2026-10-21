@@ -103,6 +103,10 @@ OAuth 토큰은 AES-256-GCM으로 암호화하고, 일회성 상태·보안 쿠�
 
 메일 연결 검증: `node --test tests/naverworks-core.test.mjs tests/mail-connection.test.mjs tests/mail-integration-store.test.mjs tests/mail-integration-rules.test.mjs`. 저장·규칙 통합 검증은 `MAIL_FIRESTORE_EMULATOR_HOST=127.0.0.1:8789`를 지정하고 격리된 `demo-mail-integration` 프로젝트에서만 실행합니다. 사용자 역할·전용 수집 계정의 격리, 원문 불변·분할·중복, 일회성 OAuth·만료·쿠키·관리자 권한 회수, 암호화 무결성·갱신 토큰 회전, 읽음 포함 기간 조회·페이지 재개를 검증합니다. 단위 시험은 네이버웍스 가짜 응답을 사용하며 실제 계정 인증 성공을 증명하지 않습니다.
 
+원문·첨부 열람 검증: `node --test tests/mail-source-api.test.mjs tests/mail-source-ui.test.mjs tests/mail-workbook-preview.test.mjs`. 원문 목록·페이지 이동·메일 ID 결합, 읽기 역할, 첨부 크기·Base64·무결성·불변 보관, 실제 압축 해제 한도, 여러 시트·숨김·병합·저장 수식값과 미지원 형식을 확인합니다. 소형 파일에서도 ZIP64 항목 크기 확장 정보를 쓰는 ERP 내보내기 형식은 별도 가상 회귀 자료로 검증합니다. 실제 업무 파일을 테스트 자료나 저장소에 복사하지 않습니다.
+
+운영 화면에서는 실제 거래처 ERP 내보내기 Excel 1종(1개 시트·5행·9열)과 거래처 자체 양식 1종(3개 시트)의 본문 열람·첨부 보관·셀 표시·원본 다운로드 경로를 별도로 확인했습니다. 이 확인은 상품 해석·수량 합산·발주 승인·ERP 전송 검증을 뜻하지 않습니다.
+
 규칙 검증은 `demo-order-notifications` 프로젝트 이름의 격리된 로컬 Firestore 에뮬레이터에서만 수행합니다. 로컬 에뮬레이터를 `127.0.0.1:8788`에 최신 `firestore.rules`로 시작한 뒤 PowerShell에서 `$env:ORDER_FIRESTORE_EMULATOR_HOST='127.0.0.1:8788'; node --test tests/order-requests.test.mjs`를 실행합니다. 이 변수가 없으면 규칙 통합 시험은 건너뜁니다. 통합 시험은 외부 Firebase 호스트를 허용하지 않습니다. Windows에서 에뮬레이터의 한국어 진단 리소스 문제가 발생하면 Java 옵션 `'-Duser.language=en' '-Duser.country=US'`를 사용합니다.
 
 검증 범위: 미확정 상세와 불가능한 날짜, 수량·단위·연락처 누락 차단, 확인 세 항목 강제, 최대 품목 수, 잘못된 역할과 비활성 승인 계정 차단, 원문 변경 금지, 오래된 버전·갱신 시각 차단, 내용 변경 시 승인 초기화, 이전 승인 이력의 원자적 보관·수정 삭제 금지, 오프라인 승인 금지, 캐시와 서버 확인 상태 구분. 실제 수집 서비스·ERP·프린터·메신저 또는 운영 계정에 대한 쓰기는 시험하지 않습니다.

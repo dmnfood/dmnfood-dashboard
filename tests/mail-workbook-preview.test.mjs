@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
-import { deflateRawSync } from 'node:zlib';
+import { deflateRawSync, inflateRawSync, crc32 } from 'node:zlib';
 
 const require = createRequire(import.meta.url);
 const XLSX = require('../dashboard/vendor/sheetjs/xlsx.full.min.js');
@@ -27,10 +27,12 @@ function zip(entries) {
   const locals = [], centrals = []; let offset = 0;
   for (const item of entries) {
     const name = Buffer.from(item.name), data = Buffer.from(item.data || ''), compressed = item.deflate ? deflateRawSync(data) : data;
-    const local = Buffer.alloc(30 + name.length); local.writeUInt32LE(0x04034b50); local.writeUInt16LE(20, 4);
-    local.writeUInt16LE(item.deflate ? 8 : 0, 8); local.writeUInt32LE(compressed.length, 18); local.writeUInt32LE(item.expanded ?? data.length, 22); local.writeUInt16LE(name.length, 26); name.copy(local, 30);
-    const central = Buffer.alloc(46 + name.length); central.writeUInt32LE(0x02014b50); central.writeUInt16LE(20, 4); central.writeUInt16LE(20, 6);
-    central.writeUInt16LE(item.deflate ? 8 : 0, 10); central.writeUInt32LE(compressed.length, 20); central.writeUInt32LE(item.expanded ?? data.length, 24); central.writeUInt16LE(name.length, 28); central.writeUInt32LE(offset, 42); name.copy(central, 46);
+    const extra = item.zip64 ? Buffer.alloc(20) : Buffer.alloc(0);
+    if (item.zip64) { extra.writeUInt16LE(1); extra.writeUInt16LE(16, 2); extra.writeBigUInt64LE(BigInt(item.expanded ?? data.length), 4); extra.writeBigUInt64LE(BigInt(compressed.length), 12); }
+    const local = Buffer.alloc(30 + name.length + extra.length); local.writeUInt32LE(0x04034b50); local.writeUInt16LE(item.zip64 ? 45 : 20, 4);
+    local.writeUInt16LE(item.deflate ? 8 : 0, 8); local.writeUInt32LE(crc32(data), 14); local.writeUInt32LE(item.zip64 ? 0xffffffff : compressed.length, 18); local.writeUInt32LE(item.zip64 ? 0xffffffff : item.expanded ?? data.length, 22); local.writeUInt16LE(name.length, 26); local.writeUInt16LE(extra.length, 28); name.copy(local, 30); extra.copy(local, 30 + name.length);
+    const central = Buffer.alloc(46 + name.length + extra.length); central.writeUInt32LE(0x02014b50); central.writeUInt16LE(item.zip64 ? 45 : 20, 4); central.writeUInt16LE(item.zip64 ? 45 : 20, 6);
+    central.writeUInt16LE(item.deflate ? 8 : 0, 10); central.writeUInt32LE(crc32(data), 16); central.writeUInt32LE(item.zip64 ? 0xffffffff : compressed.length, 20); central.writeUInt32LE(item.zip64 ? 0xffffffff : item.expanded ?? data.length, 24); central.writeUInt16LE(name.length, 28); central.writeUInt16LE(extra.length, 30); central.writeUInt32LE(offset, 42); name.copy(central, 46); extra.copy(central, 46 + name.length);
     locals.push(local, compressed); centrals.push(central); offset += local.length + compressed.length;
   }
   const directory = Buffer.concat(centrals), end = Buffer.alloc(22); end.writeUInt32LE(0x06054b50); end.writeUInt16LE(entries.length, 8); end.writeUInt16LE(entries.length, 10); end.writeUInt32LE(directory.length, 12); end.writeUInt32LE(offset, 16);
@@ -111,6 +113,31 @@ test('ZIP structural checks reject traversal, duplicate names and dishonest expa
   await assert.rejects(Model.verifyInflatedSize(dishonest, Model.inspectZip(dishonest)), /실제 압축 해제 크기/);
   const valid = zip(minimumEntries([{ name: 'xl/sheet.xml', data: 'small deflated test', deflate: true }]));
   assert.ok(await Model.verifyInflatedSize(valid, Model.inspectZip(valid)) > 0);
+});
+
+test('small XLSX with per-entry ZIP64 size extras opens without relaxing size or inflation bounds', async () => {
+  // Fake workbook only: reproduce ERP exporters that use 0xffffffff entry sizes
+  // and ZIP64 extra 0x0001 while retaining an ordinary 32-bit end directory.
+  const regular = Buffer.from(XLSX.write(workbook(), { type: 'buffer', bookType: 'xlsx', compression: true }));
+  const entries = Model.inspectZip(regular).map(entry => ({ name: entry.name,
+    data: entry.method === 8 ? inflateRawSync(regular.subarray(entry.start, entry.start + entry.compressed)) : regular.subarray(entry.start, entry.start + entry.compressed),
+    deflate: true, zip64: true }));
+  const bytes = zip(entries), inspected = Model.inspectZip(bytes);
+  assert.equal(inspected.length, entries.length); assert.ok(inspected.every(entry => entry.expanded < Model.LIMITS.expandedBytes));
+  await Model.verifyInflatedSize(bytes, inspected);
+  const sent = [], context = { self: { postMessage: data => sent.push(data) }, importScripts() {}, MailWorkbookModel: Model, XLSX,
+    TextDecoder, Uint8Array, ArrayBuffer, Blob, DecompressionStream };
+  runInNewContext(workerSource, context);
+  await context.self.onmessage({ data: { id: 1, type: 'open', bytes: new Uint8Array(bytes), fileName: '가상 ZIP64 발주.xlsx' } });
+  assert.equal(sent[0].error, undefined); assert.equal(sent[0].result.sheets.length, 2);
+  await context.self.onmessage({ data: { id: 2, type: 'page', sheetIndex: 0 } });
+  assert.equal(sent[1].result.rows[1].cells[1].text, '1,234.50');
+  assert.throws(() => Model.inspectZip(zip(minimumEntries([{ name: 'xl/huge.xml', data: 'x', zip64: true, expanded: 49 * 1024 * 1024 }]))), /압축 해제/);
+  assert.throws(() => Model.inspectZip(zip(minimumEntries([{ name: 'xl/huge.xml', data: 'x', zip64: true, expanded: 0x100000001 }]))), /ZIP64 크기/);
+  const dishonest = zip(minimumEntries([{ name: 'xl/sheet.xml', data: 'x'.repeat(1000), deflate: true, zip64: true, expanded: 100 }]));
+  await assert.rejects(Model.verifyInflatedSize(dishonest, Model.inspectZip(dishonest)), /실제 압축 해제 크기/);
+  const missingExtra = Buffer.from(bytes), firstNameLength = missingExtra.readUInt16LE(26); missingExtra.writeUInt16LE(2, 30 + firstNameLength);
+  assert.throws(() => Model.inspectZip(missingExtra), /ZIP64 크기 정보가 없습니다/);
 });
 
 test('worker opens one HTML table and raw CSV without executing formula-like strings; multiple tables fail closed', async () => {

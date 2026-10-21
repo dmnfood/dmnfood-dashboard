@@ -35,6 +35,43 @@
   function inspectZip(value) {
     const bytes = inputBytes(value), view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
     const u16 = o => view.getUint16(o, true), u32 = o => view.getUint32(o, true);
+    // Some ERP exporters use ZIP64 entry sizes even for tiny XLSX files. Resolve
+    // their 0xffffffff sentinels from extra field 0x0001 before applying bounds.
+    // Whole-archive ZIP64 / split archives remain unsupported below.
+    function zip64Values(values, extraStart, extraLength, isLocal = false) {
+      const end = extraStart + extraLength;
+      if (extraStart < 0 || end > bytes.length) fail('Excel ZIP64 확장 정보가 손상되었습니다.');
+      let at = extraStart, zip64Start = -1, zip64End = -1;
+      while (at < end) {
+        if (at + 4 > end) fail('Excel 압축 확장 정보가 손상되었습니다.');
+        const tag = u16(at), length = u16(at + 2); at += 4;
+        if (at + length > end) fail('Excel 압축 확장 정보가 손상되었습니다.');
+        if (tag === 1) {
+          if (zip64Start !== -1) fail('Excel ZIP64 확장 정보가 중복되었습니다.');
+          zip64Start = at; zip64End = at + length;
+        }
+        at += length;
+      }
+      const needs = Object.keys(values).filter(key => values[key] === 0xffffffff);
+      if (!needs.length) return values;
+      if (zip64Start < 0) fail('Excel ZIP64 크기 정보가 없습니다.');
+      let cursor = zip64Start;
+      // Local ZIP64 headers store both sizes; central headers store only the
+      // values whose corresponding 32-bit field is the sentinel (APPNOTE 4.5.3).
+      const keys = isLocal ? ['expanded', 'compressed'] : ['expanded', 'compressed', 'local'];
+      const resolved = { ...values };
+      for (const key of keys) {
+        if (!isLocal && values[key] !== 0xffffffff) continue;
+        if (cursor + 8 > zip64End) fail('Excel ZIP64 크기 정보가 잘렸습니다.');
+        const low = u32(cursor), high = u32(cursor + 4); cursor += 8;
+        // All accepted files are <=3 MiB, expanded contents <=48 MiB. A nonzero
+        // high word cannot fit any supported size/offset and is rejected early.
+        if (high !== 0) fail('Excel ZIP64 크기가 미리보기 한도를 넘습니다.');
+        if (values[key] !== 0xffffffff && values[key] !== low) fail('Excel ZIP64 크기 정보가 일치하지 않습니다.');
+        resolved[key] = low;
+      }
+      return resolved;
+    }
     let eocd = -1;
     for (let i = bytes.length - 22, end = Math.max(0, bytes.length - 65557); i >= end; i--) {
       if (u32(i) === 0x06054b50 && i + 22 + u16(i + 20) === bytes.length) { eocd = i; break; }
@@ -47,15 +84,20 @@
     let at = offset, total = 0;
     for (let index = 0; index < count; index++) {
       if (at + 46 > eocd || u32(at) !== 0x02014b50) fail('Excel 압축 목차가 손상되었습니다.');
-      const flags = u16(at + 8), method = u16(at + 10), compressed = u32(at + 20), expanded = u32(at + 24);
-      const nameLength = u16(at + 28), extraLength = u16(at + 30), commentLength = u16(at + 32), local = u32(at + 42);
-      if (at + 46 + nameLength + extraLength + commentLength > eocd || local + 30 > offset || u32(local) !== 0x04034b50) fail('Excel 압축 위치가 손상되었습니다.');
+      const flags = u16(at + 8), method = u16(at + 10);
+      const nameLength = u16(at + 28), extraLength = u16(at + 30), commentLength = u16(at + 32);
+      if (at + 46 + nameLength + extraLength + commentLength > eocd) fail('Excel 압축 위치가 손상되었습니다.');
+      if (u16(at + 34)) fail('분할 Excel 압축 파일은 미리보기에서 지원하지 않습니다.');
+      const { compressed, expanded, local } = zip64Values({ compressed: u32(at + 20), expanded: u32(at + 24), local: u32(at + 42) }, at + 46 + nameLength, extraLength);
+      if (local + 30 > offset || u32(local) !== 0x04034b50) fail('Excel 압축 위치가 손상되었습니다.');
       const name = new TextDecoder().decode(bytes.subarray(at + 46, at + 46 + nameLength));
       if (names.has(name) || name.includes('..') || name.startsWith('/') || name.includes('\\')) fail('Excel 압축 경로가 올바르지 않습니다.');
       names.add(name);
-      const localNameLength = u16(local + 26), start = local + 30 + localNameLength + u16(local + 28);
+      const localNameLength = u16(local + 26), localExtraLength = u16(local + 28), start = local + 30 + localNameLength + localExtraLength;
+      if (start > offset) fail('Excel 압축 위치가 손상되었습니다.');
+      const localSizes = zip64Values({ compressed: u32(local + 18), expanded: u32(local + 22) }, local + 30 + localNameLength, localExtraLength, true);
       if (u16(local + 6) !== flags || new TextDecoder().decode(bytes.subarray(local + 30, local + 30 + localNameLength)) !== name
-        || (u32(local + 18) && u32(local + 18) !== compressed) || (u32(local + 22) && u32(local + 22) !== expanded)) fail('Excel 압축 파일과 목차가 일치하지 않습니다.');
+        || (localSizes.compressed && localSizes.compressed !== compressed) || (localSizes.expanded && localSizes.expanded !== expanded)) fail('Excel 압축 파일과 목차가 일치하지 않습니다.');
       if (flags & 1 || ![0, 8].includes(method) || u16(local + 8) !== method || start + compressed > offset) fail('암호화되었거나 지원하지 않는 Excel 압축 파일입니다.');
       if (compressed === 0xffffffff || expanded === 0xffffffff || expanded > LIMITS.expandedBytes || expanded > Math.max(compressed, 1) * LIMITS.zipRatio) fail('Excel 압축 해제 크기가 미리보기 한도를 넘습니다.');
       total += expanded;

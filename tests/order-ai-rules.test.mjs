@@ -76,8 +76,7 @@ test('AI rules bind source, actor and exact immutable review version; collector 
     const sources = [{ attachmentId: '12', sha256: 'c'.repeat(64), kind: 'workbook', complete: true,
         sheets: [{ sheetIndex: 0, sheetName: '가상', rows: [{ rowIndex: 0, cells: [{ columnIndex: 0, value: '국산 참기름 1L' }, { columnIndex: 1, value: 2 }, { columnIndex: 2, value: '병' }] }] }] }];
     const candidate = { assistantMessage: '원본과 대조해 주세요.', questions: [], customerId: companyId,
-        lines: [{ id: 'line-1', productId: 'oil-kr-1l', unit: '병', imageQuantity: null, issues: [], source: { attachmentId: '12', sheetIndex: 0, rowIndex: 0, productCells: ['A1'], quantityCell: 'B1', unitCell: 'C1', bbox: null } }],
-        coverage: [{ attachmentId: '12', sheetIndex: 0, rowIndex: 0, disposition: 'included', lineIds: ['line-1'], reason: '' }] };
+        rows: [{ r: 0, d: 'included', x: '', l: [{ p: 1, c: [0], q: 1, u: 2, x: [] }] }], excludedRows: [] };
     let charges = 0;
     const actualStore = createOrderAiStore({ token: token('manager'), documentName, documentRoot: base });
     const actualService = createOrderAiService({ store: actualStore, env: { OPENAI_API_KEY: 'fake-test-only' },

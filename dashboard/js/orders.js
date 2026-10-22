@@ -18,7 +18,7 @@ function setExistingView(mode) {
   const manual = mode === 'manual';
   if ($('orderProcessingPanel').hidden !== !manual && !allowNavigation()) return false;
   $('confirmedOrdersPanel').hidden = manual; $('orderProcessingPanel').hidden = !manual;
-  $('showConfirmedOrders').setAttribute('aria-pressed', String(!manual)); $('showManualOrders').setAttribute('aria-pressed', String(manual));
+  $('showConfirmedOrders').setAttribute('aria-pressed', String(!manual));
   if (!manual) void confirmedOrders?.refresh();
   return true;
 }
@@ -31,7 +31,6 @@ function closeExistingOrders() {
 }
 $('openExistingOrders').addEventListener('click', () => openExistingOrders());
 $('showConfirmedOrders').addEventListener('click', () => setExistingView('confirmed'));
-$('showManualOrders').addEventListener('click', () => setExistingView('manual'));
 $('closeExistingOrders').addEventListener('click', closeExistingOrders);
 $('existingOrdersDialog').addEventListener('cancel', event => { event.preventDefault(); closeExistingOrders(); });
 

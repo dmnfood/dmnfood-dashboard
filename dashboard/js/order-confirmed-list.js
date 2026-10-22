@@ -23,10 +23,10 @@ function validRecord(value) {
 export function initConfirmedOrderList(session, mount, { onOpenSource, onRecords, request = requestOrderAi } = {}) {
   let disposed = false, loading = false, loaded = false, generation = 0, controller, nextCursor = null, notice = '', failed = false;
   const records = new Map(), seenCursors = new Set(), opening = new Set();
-  const toolbar = el('div', null, 'order-confirmed-toolbar'), searchLabel = el('label', '거래처 검색', 'order-confirmed-search');
-  const search = el('input'); search.type = 'search'; search.placeholder = '거래처명'; search.maxLength = 200; search.setAttribute('aria-label', '확정 발주 거래처 검색'); searchLabel.append(search);
-  const count = el('span', '', 'order-confirmed-count'), refresh = button('목록 새로고침', () => void load());
-  toolbar.append(searchLabel, count, refresh);
+  const toolbar = el('div', null, 'order-confirmed-toolbar'), searchLabel = el('label', null, 'order-confirmed-search');
+  const search = el('input'); search.type = 'search'; search.placeholder = '거래처명 검색'; search.maxLength = 200; search.setAttribute('aria-label', '확정 발주 거래처 검색'); searchLabel.append(search);
+  const refresh = button('목록 새로고침', () => void load());
+  toolbar.append(searchLabel, refresh);
   const feedback = el('p', '', 'order-confirmed-feedback'); feedback.setAttribute('role', 'status'); feedback.setAttribute('aria-live', 'polite');
   const list = el('div', null, 'order-confirmed-list'); list.setAttribute('aria-label', '확정한 발주 목록');
   const more = button('더 보기', () => void load({ append: true }), 'order-confirmed-more');
@@ -44,7 +44,7 @@ export function initConfirmedOrderList(session, mount, { onOpenSource, onRecords
     const query = search.value.trim().normalize('NFKC').toLocaleLowerCase('ko-KR');
     const visible = [...records.values()].filter(record => !query || matches(record.customer.name, query))
       .sort((a, b) => Date.parse(b.confirmedAt) - Date.parse(a.confirmedAt) || b.intakeId.localeCompare(a.intakeId));
-    count.textContent = `${visible.length}건`; refresh.disabled = loading;
+    refresh.disabled = loading;
     feedback.textContent = notice; feedback.hidden = !notice; feedback.dataset.error = String(failed);
     list.setAttribute('aria-busy', String(loading)); list.replaceChildren();
     if (!visible.length) list.append(el('p', loading ? '확정한 발주를 불러오고 있습니다.' : query ? nextCursor ? '일치하는 거래처가 없습니다. 더 보기를 눌러 확인해 주세요.' : '일치하는 거래처가 없습니다.' : loaded ? '아직 확정한 발주가 없습니다.' : '확정한 발주를 확인할 수 있습니다.', 'order-confirmed-empty'));

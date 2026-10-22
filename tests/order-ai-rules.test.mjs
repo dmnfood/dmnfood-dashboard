@@ -71,7 +71,7 @@ test('AI rules bind source, actor and exact immutable review version; collector 
     // Exercise the actual REST adapter and service together, including timestamp
     // transforms and a version archive; no provider or production service is used.
     const liveId = 'd'.repeat(64), livePath = `orderAiAnalyses/${liveId}`;
-    await remove(livePath); await remove(`${livePath}/versions/1`); await remove(`orderAiLocks/${liveId}`);
+    await remove(livePath); await remove(`${livePath}/versions/1`); await remove(`${livePath}/versions/2`); await remove(`orderAiLocks/${liveId}`);
     await put(`mailIntakes/${liveId}`, { account: 'official@dmnfood.co.kr', rawStorage: { sha256: sourceHash } });
     const sources = [{ attachmentId: '12', sha256: 'c'.repeat(64), kind: 'workbook', complete: true,
         sheets: [{ sheetIndex: 0, sheetName: '가상', rows: [{ rowIndex: 0, cells: [{ columnIndex: 0, value: '국산 참기름 1L' }, { columnIndex: 1, value: 2 }, { columnIndex: 2, value: '병' }] }] }] }];
@@ -87,10 +87,16 @@ test('AI rules bind source, actor and exact immutable review version; collector 
     assert.deepEqual(analyzed.analysis.customer, { id: companyId, name: companyName, revision: 1, source: 'school_meal', erpCode: null });
     assert.equal((await saveCatalog(2)).status, 200);
     await assert.rejects(actualService.confirm({ intakeId: liveId, expectedRevision: 1, reviewedGroupIds: analyzed.analysis.groups.map(group => group.id) }, { uid: 'manager', role: 'manager' }), { code: 'ai_confirmation_blocked' });
-    await put(catalogPath, { schemaVersion: 1, revision: 1, companies: [{ id: companyId, name: companyName }], updatedByUid: 'owner', updatedAt: { $timestamp: new Date().toISOString() } });
-    const completed = await actualService.confirm({ intakeId: liveId, expectedRevision: 1, expectedUpdatedAt: analyzed.analysis.updatedAt, reviewedGroupIds: analyzed.analysis.groups.map(group => group.id) }, { uid: 'manager', role: 'manager' });
-    assert.equal(completed.analysis.status, 'confirmed'); assert.equal(completed.analysis.revision, 2); assert.equal(charges, 1);
+    const refreshed = await actualService.refreshCustomer({ action: 'refresh-customer', intakeId: liveId, expectedRevision: 1, expectedUpdatedAt: analyzed.analysis.updatedAt }, { uid: 'manager', role: 'manager' });
+    assert.equal(refreshed.analysis.revision, 2); assert.equal(refreshed.analysis.customer.revision, 2); assert.equal(refreshed.analysis.status, 'needs_review');
+    assert.deepEqual(refreshed.analysis.groups, analyzed.analysis.groups); assert.deepEqual(refreshed.analysis.sources, analyzed.analysis.sources); assert.equal(charges, 1);
+    assert.equal((await get(livePath, 'collector')).status, 403, 'metadata refresh does not grant collector access');
+    const completed = await actualService.confirm({ intakeId: liveId, expectedRevision: 2, expectedUpdatedAt: refreshed.analysis.updatedAt, reviewedGroupIds: refreshed.analysis.groups.map(group => group.id) }, { uid: 'manager', role: 'manager' });
+    assert.equal(completed.analysis.status, 'confirmed'); assert.equal(completed.analysis.revision, 3); assert.equal(charges, 1);
     const actualArchive = await (await get(`${livePath}/versions/1`)).json();
     assert.equal(actualArchive.fields.record.mapValue.fields.status.stringValue, 'needs_review');
     assert.ok(actualArchive.fields.record.mapValue.fields.createdAt.timestampValue, 'history retains Firestore timestamp type');
+    assert.equal(actualArchive.fields.record.mapValue.fields.analysis.mapValue.fields.customer.mapValue.fields.revision.integerValue, '1');
+    const refreshedArchive = await (await get(`${livePath}/versions/2`)).json();
+    assert.equal(refreshedArchive.fields.record.mapValue.fields.analysis.mapValue.fields.customer.mapValue.fields.revision.integerValue, '2');
 });

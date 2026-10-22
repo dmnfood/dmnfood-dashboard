@@ -84,7 +84,8 @@
 .order-ai-step { cursor: default; }
 .order-workbench.mail-source { overflow: clip; }
 .order-ai-review-card { overflow: clip; border: 1px solid var(--border); border-radius: 16px; background: var(--card-bg,rgba(16,25,41,.28)); }
-.order-ai-review-header { position: sticky; top: 52px; z-index: 8; display: flex; justify-content: space-between; align-items: center; gap: 18px; padding: 18px 24px; border-bottom: 1px solid var(--border); background: #131d2d; }
+.order-ai-review-layout { display: grid; gap: 16px; }
+.order-ai-review-header { display: flex; justify-content: space-between; align-items: center; gap: 18px; padding: 20px 24px; background: #131d2d; }
 .order-ai-review-header h2 { margin: 6px 0 0; font-size: 22px; overflow-wrap: anywhere; }
 .order-ai-customer-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; flex-shrink: 0; }
 .order-ai-checked { color: #7dd3ae; border-color: rgba(125,211,174,.35); font-size: 12px; }
@@ -97,7 +98,7 @@
 .order-ai-editor-actions { display: flex; justify-content: flex-end; margin-top: 12px; }
 .order-ai-editor-actions .order-button { padding: 6px 10px; font-size: 11px; color: var(--t1); }
 .order-ai-review-card > .order-ai-pending { margin: 18px 24px; }
-.order-ai-review-section { padding: 22px 24px; min-width: 0; }
+.order-ai-source-card { padding: 20px 22px; min-width: 0; }
 .order-ai-review-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
 .order-ai-review-heading h3 { margin: 0; font-size: 14px; }
 .order-ai-review-heading .order-ai-review-progress { margin: 0; font-size: 11px; }
@@ -111,8 +112,8 @@
 .order-ai-review-excluded .order-ai-quantity { color: var(--t1); }
 .order-ai-inline-evidence { min-width: 0; }
 .order-ai-review-placeholder { margin: 24px 0; color: var(--t1); font-size: 12px; line-height: 1.8; }
-.order-ai-confirmation { position: sticky; bottom: 0; z-index: 9; padding: 0 24px 14px; background: #131d2d; box-shadow: 0 -8px 18px rgba(7,11,20,.12); }
-.order-ai-confirm-bar { display: flex; align-items: center; justify-content: space-between; gap: 20px; border-top: 1px solid var(--border); padding-top: 20px; }
+.order-ai-confirmation { padding: 20px 24px; background: #131d2d; }
+.order-ai-confirm-bar { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
 .order-ai-confirm-bar > div { display: grid; gap: 6px; }
 .order-ai-confirm-bar strong { font-size: 14px; }
 .order-ai-confirm-bar span { font-size: 11px; color: var(--t1); line-height: 1.6; }
@@ -121,5 +122,7 @@
 .order-ai-confirmation > .order-ai-note { margin: 12px 0 0; font-size: 10px; }
 .order-ai-working,.order-ai-saved-update { margin: 0; padding: 12px 24px; background: rgba(34,211,238,.05); border-bottom: 1px solid var(--border); color: var(--t1); font-size: 12px; }
 .order-ai-saved-update { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.order-ai-company-card > .order-button { margin: 0 24px 18px; font-size: 12px; }
+@media(max-width:720px) { .order-ai-source-card { padding: 16px; } .order-ai-review-layout { gap: 12px; } .order-ai-company-card > .order-button { margin: 0 16px 16px; } }
 @media(max-width:720px) { .order-mail-queue { position: static; top: auto; } .order-ai-review-header { position: static; align-items: flex-start; padding: 18px 16px; } .order-ai-review-header h2 { font-size: 19px; } .order-ai-review-section { padding: 18px 16px; } .order-ai-confirmation { position: static; padding: 0 16px 16px; box-shadow: none; } .order-ai-editor { padding: 16px; } .order-ai-review-card > .order-ai-pending { margin: 16px; } .order-ai-working,.order-ai-saved-update { padding: 12px 16px; } .order-ai-editor-company { align-items: flex-start; flex-direction: column; gap: 8px; } .order-ai-editor-company select { width: 100%; max-width: 100%; font-size: 16px; } }
 @media(max-width:480px) { .order-ai-review-header { flex-direction: column; gap: 14px; } .order-ai-customer-actions { width: 100%; } .order-ai-customer-actions .order-button { flex: 1; } .order-ai-review-heading { flex-wrap: wrap; } .order-ai-review-product { flex-basis: 100%; } .order-ai-confirm-bar { align-items: stretch; flex-direction: column; gap: 14px; } .order-ai-confirm-bar .order-button { width: 100%; } }

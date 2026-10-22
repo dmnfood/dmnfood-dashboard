@@ -38,18 +38,20 @@ function workbook() { return { SheetNames: ['첫 발주', '둘째 발주'], Shee
   '둘째 발주': { '!ref': 'C3:D5', C3: { t: 's', v: '두 번째' }, D5: { t: 'n', v: 4 } },
 } }; }
 async function harness(options = {}) {
-  const wb = workbook(), meta = Model.describeWorkbook(wb, XLSX), document = new UiNode('document'), window = new UiNode('window'), mount = new UiNode('section');
-  document.head = new UiNode('head'); document.createElement = tag => new UiNode(tag); document.querySelector = () => null; document.elementFromPoint = () => document.pointTarget || null;
+  const { fixture = workbook(), width = 0, ...renderOptions } = options;
+  const wb = fixture, meta = Model.describeWorkbook(wb, XLSX), document = new UiNode('document'), window = new UiNode('window'), mount = new UiNode('section'), observers = [];
+  document.head = new UiNode('head'); document.createElement = tag => { const node = new UiNode(tag); node.clientWidth = width; return node; }; document.querySelector = () => null; document.elementFromPoint = () => document.pointTarget || null;
   class FakeWorker { postMessage(message) { queueMicrotask(() => { const result = message.type === 'open' ? meta : message.type === 'page' ? Model.sheetPage(wb, meta, message, XLSX) : Model.selectionInfo(wb, meta, message, XLSX); this.onmessage?.({ data: { id: message.id, result } }); }); } terminate() {} }
-  const changes = [], context = { ...Selection, document, window, Worker: FakeWorker, URL, Uint8Array, setTimeout, clearTimeout,
+  class FakeResizeObserver { constructor(callback) { this.callback = callback; observers.push(this); } observe(target) { this.target = target; } disconnect() { this.disconnected = true; } }
+  const changes = [], context = { ...Selection, document, window, Worker: FakeWorker, ResizeObserver: FakeResizeObserver, URL, Uint8Array, setTimeout, clearTimeout,
     requestAnimationFrame: callback => { queueMicrotask(callback); return 1; }, cancelAnimationFrame() {} };
   runInNewContext(`${source}\nglobalThis.render = renderMailWorkbook;`, context);
-  const cleanup = await context.render({ mount, bytes: new Uint8Array([1]), fileName: '가상.xlsx', onSelectionChange: value => changes.push(value), ...options });
+  const cleanup = await context.render({ mount, bytes: new Uint8Array([1]), fileName: '가상.xlsx', onSelectionChange: value => changes.push(value), ...renderOptions });
   const nodes = () => [mount, ...allNodes(mount)];
   const cell = (row, column) => nodes().find(node => node.tagName === 'TD' && node.dataset.sourceRow === String(row) && node.dataset.sourceColumn === String(column));
   const region = nodes().find(node => node.className.split(' ').includes('mail-workbook-grid-region'));
   const button = label => nodes().find(node => node.tagName === 'BUTTON' && node.textContent === label);
-  return { mount, document, window, cleanup, changes, cell, region, button, nodes };
+  return { mount, document, window, cleanup, changes, cell, region, button, nodes, observers };
 }
 function allNodes(node) { return node.children.flatMap(child => [child, ...allNodes(child)]); }
 function pointer(app, phase, cell, values = {}) {
@@ -57,6 +59,41 @@ function pointer(app, phase, cell, values = {}) {
   const target = phase === 'pointerdown' ? app.region : app.document;
   target.fire(phase, { target: cell || app.region, pointerId: 7, pointerType: 'mouse', button: 0, clientX: 20, clientY: 20, ...values });
 }
+
+test('compact sheet tabs switch real source sheets and notify only after a user initiated load', async () => {
+  const viewed = [], app = await harness({ compact: true, onSheetChange: page => viewed.push(page) });
+  const tabs = () => app.nodes().filter(node => node.getAttribute('role') === 'tab');
+  assert.equal(app.nodes().find(node => node.className === 'mail-workbook-field' && node.textContent.includes('시트 선택')).hidden, true);
+  assert.equal(tabs().length, 2); assert.equal(tabs()[0].getAttribute('aria-selected'), 'true');
+  tabs()[1].fire('click'); await settle();
+  assert.equal(viewed.length, 1); assert.equal(viewed[0].sheetIndex, 1); assert.equal(viewed[0].sheetName, '둘째 발주');
+  assert.equal(app.cell(4, 3).textContent, '4'); assert.equal(tabs()[1].getAttribute('aria-selected'), 'true');
+  await app.cleanup.focusEvidence({ sheetIndex: 0, rowIndexes: [3], quantityCells: [] });
+  assert.equal(viewed.length, 1, 'programmatic highlighting does not count a sheet as newly reviewed');
+  assert.equal(tabs()[0].getAttribute('aria-selected'), 'true');
+  await app.cleanup.selectSheet(1);
+  assert.equal(viewed.length, 1); assert.equal(app.cleanup.getCurrentPage().sheetIndex, 1);
+  app.cleanup();
+});
+
+test('fitted columns adapt to the available region without truncating source text or changing cell coordinates', async () => {
+  const text = '식품설명이 긴 중국산 참기름 발주 원문 '.repeat(8);
+  const fixture = { SheetNames: ['주문'], Sheets: { 주문: { '!ref': 'A1:F3', '!cols': Array.from({ length: 6 }, () => ({ wpx: 450 })),
+    A1: { t: 's', v: '납품일' }, B1: { t: 's', v: '학교명' }, C1: { t: 's', v: '제품명' }, D1: { t: 's', v: '식품설명' }, E1: { t: 's', v: '수량' }, F1: { t: 's', v: '단위' },
+    A2: { t: 's', v: '2026-10-26' }, B2: { t: 's', v: '가상학교' }, C2: { t: 's', v: '참기름' }, D2: { t: 's', v: text }, E2: { t: 'n', v: 11 }, F2: { t: 's', v: '병' },
+    D3: { t: 's', v: '다음 설명' }, E3: { t: 'n', v: 2 }, '!merges': [{ s: { r: 1, c: 2 }, e: { r: 2, c: 2 } }],
+  } } };
+  const app = await harness({ fixture, compact: true, width: 640 }), before = JSON.stringify(fixture);
+  const table = app.nodes().find(node => node.tagName === 'TABLE');
+  assert.ok(parseFloat(table.style.width) <= 640);
+  assert.equal(app.cell(1, 3).textContent, text); assert.equal(app.cell(1, 4).dataset.cell, 'E2');
+  assert.equal(app.cell(1, 4).textContent, '11');
+  assert.ok(app.cell(1, 3).children[0].children[0].className.includes('mail-workbook-wrap'));
+  const wide = parseFloat(table.style.width); app.region.clientWidth = 480; app.observers[0].callback();
+  assert.ok(parseFloat(table.style.width) < wide); assert.ok(parseFloat(table.style.width) <= 480);
+  assert.equal(app.cell(1, 3).textContent, text); assert.equal(JSON.stringify(fixture), before);
+  app.cleanup(); assert.equal(app.observers[0].disconnected, true);
+});
 
 test('drag selection is disabled until enabled and commits only once on pointer release outside the grid', async () => {
   const app = await harness();

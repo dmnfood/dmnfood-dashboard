@@ -40,7 +40,7 @@ function harness({ configured = true, respond, evidence, confirm = () => true, e
     };
     const context = vm.createContext({ document: { createElement: tag => new UiNode(tag) }, navigator,
         window: { addEventListener: (name, callback) => listeners.set(name, callback), removeEventListener: name => listeners.delete(name), confirm },
-        AbortController, encodeURIComponent, requestOrderAi: api,
+        AbortController, encodeURIComponent, queueMicrotask, requestOrderAi: api,
         ensureSchoolMealCompanies: async session => { ensureCalls++; return ensure(session); },
         subscribeSchoolMealCompanies: (next, error) => { catalogCallback = next; catalogError = error; queueMicrotask(() => next([{ ...customer }], { exists: true, revision: 1, fromCache: false, hasPendingWrites: false })); return () => {}; } });
     vm.runInContext(`${source.replace(/^import .*;\r?$/gm, '').replace(/^export /gm, '')}\nglobalThis.start = initOrderAiChat;`, context);
@@ -59,8 +59,7 @@ async function analyzed(options = {}) {
     const app = harness(options); await settle(); await app.app.setMail(mail('mail-A')); app.app.setAutomationState({ intakeId: 'mail-A', state: 'failed' }); app.button('다시 분석').click(); await settle(); return app;
 }
 async function reviewAll(app) {
-    const count = app.evidenceCalls[0]?.analysis.groups.length + (app.evidenceCalls[0]?.analysis.exclusions?.length ? 1 : 0);
-    for (let index = 0; index < count; index++) { app.finishEvidence(true); await settle(); }
+    app.finishEvidence(true); await settle();
 }
 const reviewedCount = app => app.nodes(node => node.dataset.reviewed === 'true').length;
 
@@ -81,12 +80,14 @@ test('older and outside-scope untracked mail keep a manual analysis action inste
     }
 });
 
-test('the single review card displays company, inline source and final action together without navigation', async () => {
+test('three cards separate company, inline source and final action without extra product or exclusion controls', async () => {
     const app = await analyzed(); assert.equal(app.ensureCalls(), 1);
-    assert.equal(app.nodes(node => node.className === 'order-ai-review-card').length, 1);
+    assert.equal(app.nodes(node => node.tagName === 'ARTICLE' && node.className.includes('order-ai-review-card')).length, 3);
+    assert.equal(app.nodes(node => node.className?.includes('order-ai-review-product')).length, 0);
     assert.ok(app.button('맞아요')); assert.ok(app.final()); assert.equal(app.final().disabled, true);
     assert.equal(app.nodes(node => node.className === 'order-ai-inline-evidence').length, 1);
     assert.equal(app.evidenceCalls.length, 1); assert.equal(app.evidenceCalls[0].mount.className, 'order-ai-inline-evidence');
+    assert.equal(app.evidenceCalls[0].reviewAll, true);
     assert.equal(app.button('원본 대조 시작'), undefined); assert.equal(app.button('최종 확인으로'), undefined);
     assert.equal(app.nodes(node => node.tagName === 'BUTTON' && node.className.includes('order-ai-step')).length, 0);
     assert.equal(app.textarea(), undefined); assert.equal(app.nodes(node => node.tagName === 'DETAILS').length, 0); app.app.destroy();
@@ -101,8 +102,7 @@ test('confirming the proposed company is local, keeps the inline viewer and neve
 
 test('all original groups and the company must be checked before the one final action enables', async () => {
     const app = await analyzed(); app.finishEvidence(true); await settle(); assert.equal(reviewedCount(app), 1);
-    assert.equal(app.evidenceCalls.length, 2); assert.equal(app.evidenceCalls[1].group.id, 'group-2'); assert.equal(app.final().disabled, true);
-    app.finishEvidence(true); await settle(); assert.equal(reviewedCount(app), 2); assert.equal(app.final().disabled, true);
+    assert.equal(app.evidenceCalls.length, 1); assert.equal(app.final().disabled, true);
     app.button('맞아요').click(); await settle(); assert.equal(app.final().disabled, false); assert.equal(app.stage(), 'final');
     assert.equal(app.calls.filter(call => call.path === 'confirm').length, 0);
     app.final().click(); await settle(); assert.equal(app.final().disabled, true);
@@ -110,13 +110,13 @@ test('all original groups and the company must be checked before the one final a
     assert.match(app.mount.textContent, /원본 대조와 확정 기록을 저장/); app.app.destroy();
 });
 
-test('excluded rows are a mandatory inline review after the product groups', async () => {
+test('one whole-original review covers included products and excluded context without a separate exclusion action', async () => {
     const app = await analyzed({ respond: (path, options) => {
         if (path === 'analysis') { const value = draft(options.body.intakeId); value.exclusions = [{ attachmentId: '101', sheetIndex: 0, rowIndex: 0, reason: '가상 제목 행' }]; return { ok: true, analysis: value }; }
     } });
-    app.button('맞아요').click(); app.finishEvidence(true); await settle(); app.finishEvidence(true); await settle();
-    assert.equal(app.evidenceCalls.length, 3); assert.equal(app.evidenceCalls[2].exclusions, true); assert.equal(app.final().disabled, true); assert.match(app.mount.textContent, /2 \/ 3 대조 완료/);
-    app.finishEvidence(true); await settle(); assert.equal(app.final().disabled, false); app.final().click(); await settle(); assert.equal(app.calls.find(call => call.path === 'confirm').options.body.reviewedExclusions, true); app.app.destroy();
+    app.button('맞아요').click(); assert.equal(app.final().disabled, true); assert.equal(app.evidenceCalls[0].reviewAll, true);
+    assert.equal(app.button('제외한 행'), undefined); app.finishEvidence(true); await settle();
+    assert.equal(app.evidenceCalls.length, 1); assert.equal(app.final().disabled, false); app.final().click(); await settle(); assert.equal(app.calls.find(call => call.path === 'confirm').options.body.reviewedExclusions, true); app.app.destroy();
 });
 
 test('cancelled source evidence cannot count as a review', async () => {
@@ -156,17 +156,15 @@ test('choosing a different weekly company sends its internal ID and clears check
     const request = app.calls.filter(call => call.path === 'analysis').at(-1); assert.equal(request.options.body.customerId, other.id); assert.equal(Object.hasOwn(request.options.body, 'customerCode'), false); assert.ok(app.button('맞아요')); assert.equal(reviewedCount(app), 0); app.app.destroy();
 });
 
-test('a saved draft with an outdated company revision explains the block and can refresh the same ID only through an explicit action', async () => {
+test('an unrelated catalog revision refreshes the unchanged company metadata without another AI analysis', async () => {
     const latest = { ...customer, revision: 2 }, old = draft('mail-A', 7);
     const app = harness({ respond: (path, options) => path.startsWith('analysis?') ? { ok: true, analysis: old }
         : path === 'analysis' ? { ok: true, analysis: { ...draft(options.body.intakeId, 8), customer: { ...old.customer, revision: latest.revision } } } : undefined });
     await settle(); app.updateCustomers([latest]); await app.app.setMail(mail('mail-A')); await settle();
-    assert.match(app.mount.textContent, /업체 정보가 변경되었습니다/); assert.equal(app.button('맞아요').disabled, true); assert.equal(app.final().disabled, true); assert.equal(app.evidenceCalls.length, 0);
-    assert.equal(app.calls.filter(call => call.path === 'analysis').length, 0, 'a stale saved draft must never trigger paid analysis by itself');
+    assert.doesNotMatch(app.mount.textContent, /업체 정보 확인 필요|업체 정보가 변경되었습니다/); assert.equal(app.button('맞아요').disabled, false); assert.equal(app.final().disabled, true);
+    const requests = app.calls.filter(call => call.path === 'analysis'); assert.equal(requests.length, 1); assert.equal(requests[0].options.body.action, 'refresh-customer');
     app.final().fire('click'); await settle(); assert.equal(app.calls.filter(call => call.path === 'confirm').length, 0);
-    app.button('수정').click(); const select = app.nodes(node => node.tagName === 'SELECT')[0]; assert.equal(select.value, customer.id); select.fire('change'); await settle(); assert.equal(app.calls.filter(call => call.path === 'analysis').length, 0);
-    app.button('최신 업체 정보로 다시 분석').click(); await settle();
-    const request = app.calls.find(call => call.path === 'analysis'); assert.equal(request.options.body.customerId, customer.id); assert.equal(request.options.body.expectedRevision, 7); assert.equal(request.options.body.expectedUpdatedAt, 'fixture-7'); assert.equal(Object.hasOwn(request.options.body, 'customerCode'), false);
+    const request = requests[0]; assert.equal(Object.hasOwn(request.options.body, 'customerId'), false); assert.equal(request.options.body.expectedRevision, 7); assert.equal(request.options.body.expectedUpdatedAt, 'fixture-7'); assert.equal(Object.hasOwn(request.options.body, 'message'), false);
     assert.doesNotMatch(app.mount.textContent, /업체 정보가 변경되었습니다/); assert.equal(app.button('맞아요').disabled, false); assert.equal(reviewedCount(app), 0); assert.equal(app.final().disabled, true);
     app.button('맞아요').click(); await reviewAll(app); assert.equal(app.final().disabled, false); app.app.destroy();
 });
@@ -174,8 +172,30 @@ test('a saved draft with an outdated company revision explains the block and can
 test('a removed company asks for a new selection and cannot offer a same-ID refresh or final confirmation', async () => {
     const app = harness({ respond: path => path.startsWith('analysis?') ? { ok: true, analysis: draft() } : undefined });
     await settle(); app.updateCustomers([{ ...customer, id: 'school-another', name: '다른 가상 업체' }]); await app.app.setMail(mail('mail-A'));
-    assert.match(app.mount.textContent, /현재 학교급식 업체 목록에 없습니다/); assert.equal(app.button('맞아요').disabled, true); assert.equal(app.final().disabled, true);
-    app.button('수정').click(); assert.equal(app.button('최신 업체 정보로 다시 분석'), undefined); assert.equal(app.nodes(node => node.tagName === 'SELECT')[0].value, ''); assert.equal(app.calls.filter(call => call.path === 'analysis').length, 0); app.app.destroy();
+    assert.match(app.mount.textContent, /학교급식 업체를 선택/); assert.equal(app.button('맞아요').disabled, true); assert.equal(app.final().disabled, true);
+    app.button('수정').click(); assert.equal(app.button('업체 정보 새로고침'), undefined); assert.equal(app.nodes(node => node.tagName === 'SELECT')[0].value, ''); assert.equal(app.calls.filter(call => call.path === 'analysis').length, 0); app.app.destroy();
+});
+
+test('renamed company identities need an explicit selection and are never silently refreshed', async () => {
+    const app = harness({ respond: path => path.startsWith('analysis?') ? { ok: true, analysis: draft() } : undefined });
+    await settle(); app.updateCustomers([{ ...customer, name: '별도 등록 업체', revision: 2 }]); await app.app.setMail(mail('mail-A')); await settle();
+    assert.equal(app.calls.filter(call => call.options.body).length, 0); assert.equal(app.button('맞아요').disabled, true);
+    app.button('수정').click(); const select = app.nodes(node => node.tagName === 'SELECT')[0]; assert.equal(select.value, ''); select.value = customer.id; select.fire('change'); await settle();
+    const request = app.calls.find(call => call.options.body); assert.equal(request.options.body.customerId, customer.id); assert.equal(request.options.body.action, undefined); app.app.destroy();
+});
+
+test('uncertain metadata refresh stops automatically and permits only an explicit retry', async () => {
+    const app = harness({ respond: (path, options) => path.startsWith('analysis?') ? { ok: true, analysis: draft() } : path === 'analysis' ? Promise.reject(new Error('가상 목록 연결 실패')) : undefined });
+    await settle(); app.updateCustomers([{ ...customer, revision: 2 }]); await app.app.setMail(mail('mail-A')); await settle(); await settle();
+    assert.equal(app.calls.filter(call => call.options.body?.action === 'refresh-customer').length, 1); assert.equal(app.final().disabled, true); assert.match(app.mount.textContent, /목록 연결 실패/);
+    app.updateCustomers([{ ...customer, revision: 2 }]); await settle(); assert.equal(app.calls.filter(call => call.options.body).length, 1);
+    app.button('업체 정보 새로고침').click(); await settle(); assert.equal(app.calls.filter(call => call.options.body?.action === 'refresh-customer').length, 2); app.app.destroy();
+});
+
+test('an unrelated company addition at the same active identity does not reset current human checks', async () => {
+    const app = await analyzed(); app.button('맞아요').click(); await reviewAll(app); const before = app.evidenceCalls.length;
+    app.updateCustomers([{ ...customer }, { ...customer, id: 'school-other', name: '다른 가상 회사' }]); await settle();
+    assert.ok(app.button('업체 확인 완료')); assert.equal(app.final().disabled, false); assert.equal(app.evidenceCalls.length, before); assert.equal(app.calls.filter(call => call.options.body?.action === 'refresh-customer').length, 0); app.app.destroy();
 });
 
 test('catalog changes invalidate company and source checks, including a reversal during pending evidence', async () => {
@@ -202,7 +222,7 @@ test('late evidence for a former source cannot check the newly selected analysis
 
 test('failed confirmation clears both local gates and leaves the same review card available', async () => {
     const app = await analyzed({ respond: path => path === 'confirm' ? Promise.reject(new Error('최신 분석을 확인하세요.')) : undefined }); app.button('맞아요').click(); await reviewAll(app); app.final().click(); await settle();
-    assert.match(app.mount.textContent, /최신 분석을 확인하세요/); assert.equal(app.nodes(node => node.className === 'order-ai-review-card').length, 1); assert.equal(reviewedCount(app), 0); assert.ok(app.button('맞아요')); assert.equal(app.final().disabled, true); app.app.destroy();
+    assert.match(app.mount.textContent, /최신 분석을 확인하세요/); assert.equal(app.nodes(node => node.tagName === 'ARTICLE' && node.className.includes('order-ai-review-card')).length, 3); assert.equal(reviewedCount(app), 0); assert.ok(app.button('맞아요')); assert.equal(app.final().disabled, true); app.app.destroy();
 });
 
 test('background completion loads an untouched empty view without another paid analysis', async () => {
@@ -237,7 +257,7 @@ test('a stale background result cannot replace a correction saved while it was l
 
 test('confirmed records stay read-only within the same card and never migrate or reanalyze', async () => {
     const app = harness({ respond: path => path.startsWith('analysis?') ? { ok: true, analysis: { ...draft(), customerCatalogSource: 'erp', status: 'confirmed' } } : undefined }); await settle(); await app.app.setMail(mail('mail-A'));
-    assert.equal(app.final().disabled, true); assert.equal(app.button('맞아요'), undefined); assert.equal(app.button('수정'), undefined); assert.equal(app.textarea(), undefined); assert.equal(app.calls.filter(call => call.options.body).length, 0); assert.match(app.mount.textContent, /6 병/); assert.match(app.mount.textContent, /원본 대조와 확정 기록을 저장/); app.app.destroy();
+    assert.equal(app.final().disabled, true); assert.equal(app.button('맞아요'), undefined); assert.equal(app.button('수정'), undefined); assert.equal(app.textarea(), undefined); assert.equal(app.calls.filter(call => call.options.body).length, 0); assert.equal(app.evidenceCalls[0].reviewAll, true); assert.equal(app.evidenceCalls[0].analysis.groups[0].quantity, '6'); assert.match(app.mount.textContent, /원본 대조와 확정 기록을 저장/); app.app.destroy();
 });
 
 test('legacy drafts require an explicit migration and cannot confirm against the obsolete catalog', async () => {

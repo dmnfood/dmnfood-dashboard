@@ -10,7 +10,7 @@ const fileId = source => String(source.attachmentId);
 /** Opens archived bytes and their source positions. A review is valid only for the supplied analysis. */
 export function initOrderAiEvidence(session) {
   const dialog = el('dialog', null, 'order-dialog order-ai-evidence-dialog'); dialog.setAttribute('aria-label', '발주 원본 대조');
-  const panel = el('section', null, 'order-ai-evidence-panel'); panel.setAttribute('aria-label', '상품별 원본 대조');
+  const panel = el('section', null, 'order-ai-evidence-panel'); panel.setAttribute('aria-label', '원본 대조');
   const header = el('div', null, 'order-dialog-header'), heading = el('h2', '원본 대조'), close = button('닫기', () => finish(false)); header.append(heading, close);
   const navigation = el('div', null, 'order-ai-evidence-navigation'), pageTitle = el('p', '', 'order-ai-note');
   const body = el('div', null, 'order-ai-evidence-body'), sourceMount = el('div', null, 'order-ai-evidence-source'), summary = el('aside', null, 'order-ai-evidence-summary'); body.append(sourceMount, summary);
@@ -24,7 +24,7 @@ export function initOrderAiEvidence(session) {
   function finish(accepted) {
     const allowed = accepted && !active?.readOnly && liveMount() && viewReady && parts.length > 0 && visited.size === parts.length;
     const done = resolve; resolve = null;
-    if (allowed && inlineMount) { active = { ...active, readOnly: true, completed: true }; complete.textContent = '대조 완료'; complete.disabled = true; done?.(true); return; }
+    if (allowed && inlineMount) { active.readOnly = true; active.completed = true; complete.textContent = '대조 완료'; complete.disabled = true; done?.(true); return; }
     generation++; cleanupView(); if (dialog.open) dialog.close(); if (inlineMount && panel.parentNode === inlineMount) panel.remove(); inlineMount = null; active = null; viewReady = false; done?.(allowed);
   }
   function currentView(token, value) { if (disposed || token !== generation || active !== value) return false; if (!liveMount()) { finish(false); return false; } return true; }
@@ -116,8 +116,9 @@ export function initOrderAiEvidence(session) {
     navigation.hidden = parts.length < 2;
     complete.disabled = !viewReady || !active?.group || parts.length === 0 || visited.size !== parts.length || !!active?.readOnly;
     complete.hidden = !active?.group || !!active?.readOnly && !active?.completed;
-    progress.textContent = parts.length > 1 ? `원본 근거 ${visited.size}/${parts.length} 열람` : '';
+    progress.textContent = parts.length > 1 ? active?.reviewAll ? `${visited.size} / ${parts.length}` : `원본 근거 ${visited.size}/${parts.length} 열람` : '';
     progress.hidden = parts.length < 2;
+    footer.hidden = complete.hidden && progress.hidden;
   }
   async function show(index) {
     cleanupView(); const token = ++generation, value = active, part = parts[index]; current = index; viewReady = false; controller = new AbortController(); const signal = controller.signal;
@@ -136,7 +137,13 @@ export function initOrderAiEvidence(session) {
         pageTitle.textContent = `${file.fileName}${part.rows.length ? ` · ${part.rows.map(row => row + 1).join(', ')}행` : ''}`;
         showText(file, part, original);
       } else if (!isPastedImage && /\.(xlsx|xls|csv)$/i.test(file.fileName)) {
-        const opened = await renderMailWorkbook({ mount: sourceMount, bytes: new Uint8Array(file.bytes), fileName: file.fileName, signal });
+        const opened = await renderMailWorkbook({ mount: sourceMount, bytes: new Uint8Array(file.bytes), fileName: file.fileName, signal,
+          compact: true, fitWidth: true,
+          onSheetChange: ({ sheetIndex }) => {
+            if (!value.reviewAll || !currentView(token, value)) return;
+            const next = parts.findIndex(candidate => candidate.attachmentId === part.attachmentId && candidate.sheetIndex === sheetIndex);
+            if (next >= 0) void show(next);
+          } });
         if (!currentView(token, value)) { opened?.(); return; }
         workbook = opened;
         if (part.rows.length) {
@@ -155,7 +162,13 @@ export function initOrderAiEvidence(session) {
         }
       } else throw new Error('이 파일은 네이버웍스 원문에서 확인해 주세요.');
       if (!currentView(token, value)) return;
-      if (value.group) {
+      if (value.reviewAll) {
+        for (const group of value.analysis.groups) {
+          const result = el('article', null, 'order-ai-evidence-result');
+          result.append(el('h3', group.label || group.productLabel || group.productId), el('p', `${group.quantity} ${group.unit}`, 'order-ai-evidence-total'));
+          summary.append(result);
+        }
+      } else if (value.group) {
         summary.append(el('h3', value.group.label));
         if (!value.exclusions) summary.append(el('p', `합계 ${value.group.quantity} ${value.group.unit}`, 'order-ai-evidence-total'));
         const list = el('ul'); for (const line of part.lines) list.append(el('li', value.exclusions ? `${line.source.rowIndex == null ? '이미지' : `${line.source.rowIndex + 1}행`} · ${line.reason}` : `${line.source.rowIndex == null ? '이미지' : `${line.source.rowIndex + 1}행`} · ${line.quantity} ${line.unit}${line.source.quantityCell ? ` · ${line.source.quantityCell}` : ''}`)); summary.append(list);
@@ -196,6 +209,9 @@ export function initOrderAiEvidence(session) {
   function open(value, selectedParts) {
     finish(false); if (disposed) return Promise.resolve(false); active = value; parts = selectedParts; visited = new Set(); current = 0; error.hidden = true; error.textContent = ''; heading.textContent = value.group ? `${value.group.label} · 원본 대조` : value.mail?.sourceKind === 'text' ? '붙여넣은 원문' : value.mail?.sourceKind === 'image' ? '받은 이미지 원본' : '첨부 원본'; complete.textContent = value.exclusions ? '제외한 행 원본 확인 완료' : '이 상품 원본 대조 완료';
     const inline = value.group && value.mount;
+    header.hidden = Boolean(inline); pageTitle.hidden = Boolean(inline);
+    summary.className = 'order-ai-evidence-summary' + (value.reviewAll ? ' order-ai-evidence-results' : '');
+    if (value.reviewAll) complete.textContent = '원본 대조 완료';
     if (panel.parentNode) panel.remove();
     if (inline) {
       inlineMount = value.mount; panel.className = 'order-ai-evidence-panel order-ai-evidence-inline'; close.hidden = true;
@@ -208,8 +224,21 @@ export function initOrderAiEvidence(session) {
   return { review: value => {
       const valid = value.analysis?.intakeId === value.mail?.id && value.analysis?.sourceHash === value.mail?.rawStorage?.sha256;
       let selectedParts = [], failure = valid ? '' : '분석과 수신 원본이 다릅니다. 최신 분석을 확인해 주세요.';
-      try { if (valid) selectedParts = buildParts(value.analysis, value.group, value.exclusions); } catch { failure = '원본의 전체 대조 위치를 확인할 수 없습니다. 최신 분석을 불러와 주세요.'; }
-      const result = open({ ...value, readOnly: ['confirmed', 'approved'].includes(value.analysis?.status) }, selectedParts);
+      let reviewedValue = value.reviewAll ? { ...value, group: { id: '__all__', label: '원본 대조', lineIds: [] }, exclusions: false } : value;
+      try {
+        if (valid && value.reviewAll) {
+          const groups = value.analysis.groups, lines = value.analysis.lines;
+          if (!Array.isArray(groups) || !groups.length || !Array.isArray(lines) || !lines.length) throw new Error('Missing product evidence');
+          const ids = groups.flatMap(group => Array.isArray(group.lineIds) && group.lineIds.length ? group.lineIds : [null]);
+          const lineIds = lines.map(line => line.id);
+          if (ids.some(id => typeof id !== 'string' || !id) || new Set(ids).size !== ids.length || new Set(lineIds).size !== lineIds.length
+            || ids.length !== lineIds.length || ids.some(id => !lineIds.includes(id))) throw new Error('Incomplete product evidence');
+          const group = { id: '__all__', label: '원본 대조', lineIds: ids };
+          reviewedValue = { ...value, group, exclusions: false };
+          selectedParts = buildParts(value.analysis, group);
+        } else if (valid) selectedParts = buildParts(value.analysis, value.group, value.exclusions);
+      } catch { failure = '원본의 전체 대조 위치를 확인할 수 없습니다. 최신 분석을 불러와 주세요.'; selectedParts = []; }
+      const result = open({ ...reviewedValue, readOnly: ['confirmed', 'approved'].includes(value.analysis?.status) }, selectedParts);
       if (failure) { error.textContent = failure; error.hidden = false; }
       return result;
     },

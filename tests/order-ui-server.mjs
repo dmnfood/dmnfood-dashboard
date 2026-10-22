@@ -245,6 +245,12 @@ const server = createServer(async (req, res) => {
             if (scenario === 'unconfigured') return reply(res, 503, { ok: false, message: '가상 AI 연결이 꺼져 있습니다.', mode: 'fictional_local_only' });
             const input = await readAction(req), writeKey = `${scenario}:${input.intakeId}`, previous = orderAiAnalyses.get(writeKey);
             if (url.pathname.endsWith('/analysis')) {
+                if (input.action === 'refresh-customer') {
+                    const latest = orderAiCustomers().find(item => item.id === previous?.customer?.id);
+                    if (!previous || latest?.name !== previous.customer.name || previous.revision !== input.expectedRevision || previous.updatedAt !== input.expectedUpdatedAt || previous.status === 'confirmed') return reply(res, 409, { ok: false, message: '가상 업체 정보를 다시 선택해 주세요.' });
+                    const analysis = previous.customer.revision === latest.revision ? previous : { ...previous, revision: previous.revision + 1, updatedAt: new Date().toISOString(), customer: { ...previous.customer, revision: latest.revision } };
+                    orderAiAnalyses.set(writeKey, analysis); return reply(res, 200, { ok: true, analysis, mode: 'fictional_local_only' });
+                }
                 const analysis = createOrderAiFixture(input, scenario, previous); orderAiAnalyses.set(writeKey, analysis);
                 return reply(res, 200, { ok: true, analysis, mode: 'fictional_local_only' });
             }

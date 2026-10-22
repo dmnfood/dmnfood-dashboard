@@ -19,23 +19,45 @@ function localScrollDelta(start, end, viewportStart, viewportEnd) {
   if (end - start > viewportEnd - viewportStart) return end <= viewportStart || start >= viewportEnd ? start - viewportStart : 0;
   return start < viewportStart ? start - viewportStart : end > viewportEnd ? end - viewportEnd : 0;
 }
+function fitColumnWidths(page, available) {
+  const columns = page.columns.map(column => ({ index: column.index, minimum: 28, preferred: 28, text: false }));
+  for (const row of page.rows) for (let index = 0; index < row.cells.length; index++) {
+    const cell = row.cells[index], column = columns[index];
+    if (!column || !String(cell.text || '').trim() || page.merges.some(merge => merge.startColumn !== merge.endColumn && row.index >= merge.startRow && row.index <= merge.endRow && column.index >= merge.startColumn && column.index <= merge.endColumn)) continue;
+    const contentWidth = Math.max(...String(cell.text).split(/\r?\n/).map(line => [...line.slice(0, 45)].reduce((sum, char) => sum + (char.charCodeAt(0) > 255 ? 13 : 7), 0))) + 16;
+    column.minimum = Math.max(column.minimum, cell.numeric ? 44 : 64);
+    column.preferred = Math.max(column.preferred, Math.min(cell.numeric ? 110 : 260, contentWidth));
+    column.text ||= !cell.numeric;
+  }
+  for (const column of columns) column.preferred = Math.max(column.minimum, column.preferred);
+  const minimum = columns.reduce((sum, column) => sum + column.minimum, 0), preferred = columns.reduce((sum, column) => sum + column.preferred, 0);
+  const width = Math.max(minimum, available - 40), extra = width - Math.min(width, preferred);
+  const textCount = columns.filter(column => column.text).length || columns.length;
+  return columns.map(column => {
+    const compressed = preferred > width && preferred > minimum ? column.minimum + (column.preferred - column.minimum) * (width - minimum) / (preferred - minimum) : column.preferred;
+    return compressed + (extra && (column.text || !columns.some(value => value.text)) ? extra / textCount : 0);
+  });
+}
 function ensureStyles() {
   if (document.querySelector('link[data-mail-workbook-styles]')) return;
   const link = document.createElement('link'); link.rel = 'stylesheet'; link.href = CSS_URL.href;
   link.dataset.mailWorkbookStyles = 'true'; document.head.append(link);
 }
 
-export async function renderMailWorkbook({ mount, bytes, fileName = '', signal, onSelectionChange, initialSelection = null, selectionEnabled = false }) {
+export async function renderMailWorkbook({ mount, bytes, fileName = '', signal, onSelectionChange, initialSelection = null, selectionEnabled = false, compact = false, fitWidth = compact, onSheetChange }) {
   if (!mount || typeof mount.replaceChildren !== 'function') throw new Error('Excel을 표시할 위치를 찾을 수 없습니다.');
   if (!(bytes instanceof Uint8Array) || !bytes.byteLength || bytes.byteLength > MAX_BYTES) throw new Error('이 파일은 미리보기로 열 수 없습니다. 원본을 내려받아 확인해 주세요.');
   if (signal?.aborted) return () => {};
   ensureStyles();
   const id = `mail-workbook-${++nextInstance}`, root = element('section', 'mail-workbook');
+  root.classList.toggle('mail-workbook-compact', compact); root.classList.toggle('mail-workbook-fit', fitWidth);
   root.setAttribute('aria-label', 'Excel 읽기 전용 셀 미리보기');
   const status = element('p', 'mail-workbook-status', 'Excel을 여는 중…'); status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
   const notices = element('div', 'mail-workbook-notices'), controls = element('div', 'mail-workbook-controls');
   const sheetLabel = element('label', 'mail-workbook-field', '시트 선택'); sheetLabel.htmlFor = `${id}-sheet`;
   const sheetPicker = element('select', 'mail-workbook-select'); sheetPicker.id = sheetLabel.htmlFor; sheetPicker.disabled = true; sheetLabel.append(sheetPicker);
+  sheetLabel.hidden = compact;
+  const sheetTabs = element('div', 'mail-workbook-sheet-tabs'); sheetTabs.setAttribute('role', 'tablist'); sheetTabs.setAttribute('aria-label', '발주서 시트'); sheetTabs.hidden = !compact;
   const nav = element('div', 'mail-workbook-nav'), columnNav = element('div', 'mail-workbook-nav'); nav.hidden = true; columnNav.hidden = true;
   const pageLabel = element('span', 'mail-workbook-page'), columnLabel = element('span', 'mail-workbook-page');
   const region = element('div', 'mail-workbook-grid-region'); region.tabIndex = 0; region.setAttribute('aria-label', 'Excel 셀 표. 가로와 세로로 스크롤할 수 있습니다.');
@@ -53,15 +75,15 @@ export async function renderMailWorkbook({ mount, bytes, fileName = '', signal, 
   const selectionError = element('p', 'mail-workbook-selection-error'); selectionError.setAttribute('role', 'alert');
   const selectRange = button('범위 표시', () => selectAddresses()), clearRange = button('선택 해제', () => { if (canSelect()) commitSelection(null); });
   selectionControls.append(startLabel, endLabel, selectRange, clearRange, selectionSummary, selectionError);
-  root.append(notices, controls, selectionControls, evidenceStatus, status, region, detail); controls.append(sheetLabel, nav, columnNav); mount.replaceChildren(root);
-  let disposed = false, worker, layoutFrame = 0, requestId = 0, pageRevision = 0, sheetIndex = 0, rowPage = 0, columnPage = 0, currentPage, metadata;
+  root.append(notices, controls, selectionControls, evidenceStatus, status, sheetTabs, region, detail); controls.append(sheetLabel, nav, columnNav); mount.replaceChildren(root);
+  let disposed = false, worker, resizeObserver, activeFit, layoutFrame = 0, requestId = 0, pageRevision = 0, sheetIndex = 0, rowPage = 0, columnPage = 0, currentPage, metadata;
   let selected = null, enabled = Boolean(selectionEnabled), busy = true, selectionRevision = 0, drag = null, touchAnchor = null, keyboardAnchor = null, keyboardFocus = null;
   let evidence = null, evidenceRevision = 0;
   const selectionInfos = new Map();
   const pending = new Map();
   function cleanup() {
     if (disposed) return; cancelDrag(); disposed = true; ++evidenceRevision; evidence = null; worker?.terminate();
-    if (layoutFrame) cancelAnimationFrame(layoutFrame);
+    if (layoutFrame) cancelAnimationFrame(layoutFrame); resizeObserver?.disconnect(); activeFit = null;
     signal?.removeEventListener('abort', cleanup);
     for (const item of pending.values()) { clearTimeout(item.timeout); item.reject(new Error('Excel 미리보기가 닫혔습니다.')); }
     pending.clear();
@@ -96,6 +118,7 @@ export async function renderMailWorkbook({ mount, bytes, fileName = '', signal, 
     setSelectionBusy(busy);
     root.setAttribute('aria-busy', String(busy));
     sheetPicker.disabled = busy;
+    for (const item of sheetTabs.querySelectorAll('button')) item.disabled = busy;
     for (const item of nav.querySelectorAll('button')) item.disabled = busy;
     for (const item of columnNav.querySelectorAll('button')) item.disabled = busy;
   }
@@ -235,13 +258,14 @@ export async function renderMailWorkbook({ mount, bytes, fileName = '', signal, 
   cleanup.getSelection = () => selectionSnapshot(selected);
   cleanup.getMetadata = () => selectionSnapshot(metadata || null);
   cleanup.getEvidence = () => selectionSnapshot(disposed ? null : evidence);
+  cleanup.getCurrentPage = () => selectionSnapshot(disposed || !currentPage ? null : { sheetIndex, sheetName: currentPage.info.name, page: rowPage, columnPage });
   cleanup.focusEvidence = async (value, { local = false } = {}) => {
     if (disposed) return null;
     clearEvidence();
     if (value == null) return null;
     const canonical = workbookEvidence(value, metadata), target = evidencePage(canonical, metadata), revision = evidenceRevision;
     cancelDrag(); touchAnchor = null;
-    evidence = canonical; sheetIndex = target.sheetIndex; sheetPicker.value = String(sheetIndex);
+    evidence = canonical; sheetIndex = target.sheetIndex; sheetPicker.value = String(sheetIndex); paintSheetTabs();
     rowPage = target.rowPage; columnPage = target.columnPage;
     const loaded = await loadPage();
     if (disposed || revision !== evidenceRevision) return null;
@@ -278,7 +302,7 @@ export async function renderMailWorkbook({ mount, bytes, fileName = '', signal, 
     const restored = selectWorkbookRange(value, info, extra);
     if (typeof value === 'object' && value.range !== restored.range) throw new Error('저장된 범위와 원본 셀 주소가 일치하지 않습니다. 범위를 다시 선택해 주세요.');
     selected = restored; keyboardAnchor = { row: restored.startRow, column: restored.startColumn }; keyboardFocus = { row: restored.endRow, column: restored.endColumn };
-    sheetIndex = index; sheetPicker.value = String(index);
+    sheetIndex = index; sheetPicker.value = String(index); paintSheetTabs();
     rowPage = Math.floor((restored.startRow - info.range.s.r) / 100); columnPage = Math.floor((restored.startColumn - info.range.s.c) / 20);
     await loadPage();
     if (disposed || revision !== selectionRevision) return null;
@@ -288,8 +312,8 @@ export async function renderMailWorkbook({ mount, bytes, fileName = '', signal, 
     const table = element('table', 'mail-workbook-grid');
     table.setAttribute('role', 'grid');
     table.style.width = `${48 + page.columns.reduce((sum, col) => sum + col.width, 0)}px`;
-    const colgroup = element('colgroup'), rowNumberCol = element('col'); rowNumberCol.style.width = '48px'; colgroup.append(rowNumberCol);
-    for (const column of page.columns) { const col = element('col'); col.style.width = `${column.width}px`; colgroup.append(col); }
+    const colgroup = element('colgroup'), rowNumberCol = element('col'), dataColumns = []; rowNumberCol.style.width = `${fitWidth ? 40 : 48}px`; colgroup.append(rowNumberCol);
+    for (const column of page.columns) { const col = element('col'); col.style.width = `${column.width}px`; colgroup.append(col); dataColumns.push(col); }
     const caption = element('caption', 'mail-workbook-caption', page.info.name); table.append(caption);
     table.append(colgroup);
     const head = element('thead'), header = element('tr'), corner = element('th', 'mail-workbook-corner', '행'); corner.scope = 'col'; header.append(corner);
@@ -319,7 +343,7 @@ export async function renderMailWorkbook({ mount, bytes, fileName = '', signal, 
         if (cell.fill) { td.style.backgroundColor = cell.fill; td.style.color = '#111827'; }
         const content = element('div', 'mail-workbook-cell-content');
         const value = element('span', 'mail-workbook-cell-value', cell.text); content.append(value); td.append(content);
-        if (cell.wrap) value.classList.add('mail-workbook-wrap');
+        if (cell.wrap || fitWidth) value.classList.add('mail-workbook-wrap');
         else {
           const visualWidth = merge ? page.columns.filter(column => column.index >= merge.startColumn && column.index <= merge.endColumn).reduce((sum, column) => sum + column.width, 0)
             : cell.displayWidth || col.width;
@@ -342,6 +366,13 @@ export async function renderMailWorkbook({ mount, bytes, fileName = '', signal, 
       body.append(tr);
     }
     table.append(body); region.replaceChildren(table); region.scrollTop = 0; region.scrollLeft = 0; paintSelection(); paintEvidence();
+    activeFit = fitWidth ? () => {
+      if (disposed || !table.isConnected || !(region.clientWidth > 0)) return;
+      const widths = fitColumnWidths(page, region.clientWidth - 2);
+      dataColumns.forEach((column, index) => { column.style.width = `${widths[index]}px`; });
+      table.style.width = `${40 + widths.reduce((sum, width) => sum + width, 0)}px`;
+    } : null;
+    activeFit?.();
     if (layoutFrame) cancelAnimationFrame(layoutFrame);
     layoutFrame = requestAnimationFrame(() => {
       layoutFrame = 0; if (disposed || !table.isConnected) return;
@@ -373,6 +404,7 @@ export async function renderMailWorkbook({ mount, bytes, fileName = '', signal, 
       setBusy(false); previous.disabled = page.page === 0; next.disabled = page.page + 1 >= page.pageCount;
       previousColumns.disabled = page.columnPage === 0; nextColumns.disabled = page.columnPage + 1 >= page.columnPageCount;
       nav.hidden = page.pageCount <= 1; columnNav.hidden = page.columnPageCount <= 1;
+      controls.hidden = compact && nav.hidden && columnNav.hidden;
       return true;
     } catch (error) {
       if (disposed || revision !== pageRevision) return false;
@@ -385,11 +417,27 @@ export async function renderMailWorkbook({ mount, bytes, fileName = '', signal, 
   const previousColumns = button('이전 열', () => { columnPage--; void loadPage(); });
   const nextColumns = button('다음 열', () => { columnPage++; void loadPage(); });
   nav.append(previous, pageLabel, next); columnNav.append(previousColumns, columnLabel, nextColumns);
-  sheetPicker.addEventListener('change', () => {
+  function paintSheetTabs() {
+    for (const tab of sheetTabs.querySelectorAll('button')) { const active = Number(tab.dataset.sheetIndex) === sheetIndex; tab.setAttribute('aria-selected', String(active)); tab.tabIndex = active ? 0 : -1; }
+  }
+  async function selectSheet(index, { notify = false } = {}) {
+    if (disposed || busy || !Number.isSafeInteger(index) || !metadata?.sheets[index]) return false;
     clearEvidence();
     ++selectionRevision; cancelDrag(); touchAnchor = null; keyboardAnchor = null; keyboardFocus = null;
-    commitSelection(null); sheetIndex = Number(sheetPicker.value); rowPage = 0; columnPage = 0; void loadPage();
+    commitSelection(null); sheetIndex = index; sheetPicker.value = String(index); paintSheetTabs(); rowPage = 0; columnPage = 0;
+    const loaded = await loadPage();
+    if (loaded && !disposed && sheetIndex === index && notify) onSheetChange?.(cleanup.getCurrentPage());
+    return loaded;
+  }
+  cleanup.selectSheet = selectSheet;
+  sheetPicker.addEventListener('change', () => { void selectSheet(Number(sheetPicker.value), { notify: true }); });
+  sheetTabs.addEventListener('keydown', event => {
+    if (busy || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key) || !metadata) return;
+    event.preventDefault();
+    const count = metadata.sheets.length, index = event.key === 'Home' ? 0 : event.key === 'End' ? count - 1 : (sheetIndex + (event.key === 'ArrowRight' ? 1 : -1) + count) % count;
+    void selectSheet(index, { notify: true }).then(() => sheetTabs.querySelectorAll('button')[index]?.focus?.({ preventScroll: true }));
   });
+  if (fitWidth && typeof ResizeObserver !== 'undefined') { resizeObserver = new ResizeObserver(() => activeFit?.()); resizeObserver.observe(region); }
   try {
     worker = new Worker(WORKER_URL, { name: 'mail-excel-readonly' });
     worker.onmessage = event => {
@@ -413,8 +461,9 @@ export async function renderMailWorkbook({ mount, bytes, fileName = '', signal, 
     for (const sheet of metadata.sheets) {
       const option = element('option', '', `${sheet.name}${sheet.hidden ? sheet.hidden === 2 ? ' · 매우 숨김' : ' · 숨김' : ''}`);
       option.value = String(sheet.index); sheetPicker.append(option);
+      const tab = button(`${sheet.name}${sheet.hidden ? ' · 숨김' : ''}`, () => { void selectSheet(sheet.index, { notify: true }); }); tab.setAttribute('role', 'tab'); tab.dataset.sheetIndex = String(sheet.index); sheetTabs.append(tab);
     }
-    sheetIndex = metadata.sheets.find(sheet => !sheet.hidden)?.index ?? 0; sheetPicker.value = String(sheetIndex);
+    sheetIndex = metadata.sheets.find(sheet => !sheet.hidden)?.index ?? 0; sheetPicker.value = String(sheetIndex); paintSheetTabs();
     if (initialSelection) await cleanup.setSelection(initialSelection); else await loadPage();
     return cleanup;
   } catch (error) {

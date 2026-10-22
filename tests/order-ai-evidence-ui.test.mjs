@@ -34,7 +34,7 @@ function analysisValue({ rows = [100, 199], sources = true, mailId = 'a'.repeat(
     sources: sources ? [{ attachmentId: '2', sha256, kind: 'workbook', complete: true }] : [], lines }, group: { id: 'oil', label: '가상 참기름', quantity: '3', unit: '병', lineIds: lines.map(line => line.id) } };
 }
 function harness({ defer = false, textSource, imageSize = { width: 1, height: 1 }, deferImage = false, sheetRange = { s: { r: 2, c: 2 }, e: { r: 204, c: 24 } } } = {}) {
-  const body = new Node('body'), fetches = [], pending = [], books = [], focuses = [], focusOptions = [], imageDecodes = [];
+  const body = new Node('body'), fetches = [], pending = [], books = [], focuses = [], focusOptions = [], imageDecodes = [], renderOptions = [];
   const metadata = { sheets: [{ index: 0, name: '원본', range: sheetRange }] };
   function book() {
     const cleanup = () => { cleanup.closed = true; }; cleanup.getMetadata = () => metadata;
@@ -43,13 +43,13 @@ function harness({ defer = false, textSource, imageSize = { width: 1, height: 1 
   }
   const createElement = tag => { const node = new Node(tag); if (String(tag).toLowerCase() === 'img') { node.naturalWidth = imageSize.width; node.naturalHeight = imageSize.height; node.decode = () => deferImage ? new Promise(resolve => imageDecodes.push(resolve)) : Promise.resolve(); } return node; };
   const context = vm.createContext({ document: { body, createElement }, parseCellAddress, createOrderAiTextSource, getOrderAiTextRows, validOrderAiTextRange, normalizeOrderAiQuantity, TextEncoder, URL, Uint8Array, Blob, atob, crypto: webcrypto, AbortController,
-    renderMailWorkbook: () => defer ? new Promise(resolve => pending.push(() => resolve(book()))) : Promise.resolve(book()),
+    renderMailWorkbook: options => { renderOptions.push(options); return defer ? new Promise(resolve => pending.push(() => resolve(book()))) : Promise.resolve(book()); },
     fetch: async (path, init) => { fetches.push(init.body ? JSON.parse(init.body) : { path }); if (String(path).includes('/text-sources?')) return { ok: true, json: async () => ({ ok: true, source: textSource }) }; return { ok: true, json: async () => ({ ok: true, attachment: {
       id: '2', fileName: '가상 발주.xlsx', byteLength: originalBytes.length, contentBase64: originalBytes.toString('base64'), sha256,
     } }) }; } });
   vm.runInContext(`${source.replace(/^import .*\r?\n/gm, '').replace(/^export /gm, '')}\nglobalThis.init = initOrderAiEvidence;`, context);
   const ui = context.init({ user: { getIdToken: async () => 'fictional-ui-token' } });
-  return { ui, body, fetches, pending, books, focuses, focusOptions, imageDecodes, mount: () => { const mount = new Node('div'); body.append(mount); return mount; }, complete: () => all(body, node => node.tagName === 'BUTTON' && ['이 상품 원본 대조 완료', '제외한 행 원본 확인 완료', '대조 완료'].includes(node.textContent))[0],
+  return { ui, body, fetches, pending, books, focuses, focusOptions, imageDecodes, renderOptions, mount: () => { const mount = new Node('div'); body.append(mount); return mount; }, complete: () => all(body, node => node.tagName === 'BUTTON' && ['원본 대조 완료', '이 상품 원본 대조 완료', '제외한 행 원본 확인 완료', '대조 완료'].includes(node.textContent))[0],
     navigation: () => all(body, node => node.className === 'order-ai-evidence-navigation')[0] };
 }
 
@@ -305,5 +305,86 @@ test('inline integrity failures stay inside the card and never enable a review c
     await until(() => mount.textContent.includes('실패'));
     assert.equal(app.complete().disabled, true); assert.equal(all(app.body, node => node.tagName === 'DIALOG' && node.open).length, 0);
     app.ui.cancel(); assert.equal(await review, false);
+  } finally { app.ui.destroy(); }
+});
+
+function batchValue(rows = [3, 4]) {
+  const value = analysisValue({ rows });
+  value.analysis.sources[0].sheets = [0, 1, 2].map(sheetIndex => ({ sheetIndex, sheetName: `원본${sheetIndex + 1}`, range: { s: { r: 2, c: 2 }, e: { r: 204, c: 24 } } }));
+  value.analysis.lines.forEach(line => { line.source.quantityCell = `D${line.source.rowIndex + 1}`; line.source.unitCell = `E${line.source.rowIndex + 1}`; });
+  value.analysis.groups = value.analysis.lines.map((line, index) => ({ id: `product-${index}`, label: index ? '국산 참기름 1L' : '중국산 참기름 1.8L', quantity: line.quantity, unit: line.unit, lineIds: [line.id] }));
+  value.analysis.exclusions = [{ attachmentId: '2', sheetIndex: 0, rowIndex: 204, reason: '제목이나 안내' }];
+  delete value.group;
+  return { ...value, reviewAll: true };
+}
+
+test('one batch review highlights every included product together and stacks only names and totals without an excluded-row step', async () => {
+  const app = harness(), mount = app.mount(), review = app.ui.review({ ...batchValue(), mount });
+  try {
+    await until(() => app.complete() && !app.complete().disabled);
+    assert.deepEqual(app.focuses[0].rowIndexes, [3, 4]);
+    assert.deepEqual(app.focuses[0].quantityCells, [{ row: 3, column: 3 }, { row: 4, column: 3 }]);
+    assert.equal(app.renderOptions[0].compact, true); assert.equal(app.renderOptions[0].fitWidth, true);
+    assert.equal(all(mount, node => node.className === 'order-dialog-header')[0].hidden, true);
+    assert.equal(all(mount, node => node.className === 'order-ai-note' && node.textContent.startsWith('가상 발주.xlsx'))[0].hidden, true);
+    const results = all(mount, node => node.className === 'order-ai-evidence-result');
+    assert.deepEqual(results.map(node => node.textContent), ['중국산 참기름 1.8L1 병', '국산 참기름 1L2 병']);
+    assert.equal(results.some(node => /행|셀|대조해/.test(node.textContent)), false);
+    assert.equal(app.navigation().children.length, 1, 'excluded rows do not create a separate review page');
+    assert.equal(all(mount, node => node.tagName === 'BUTTON' && /제외/.test(node.textContent)).length, 0);
+    app.complete().fire('click'); assert.equal(await review, true);
+  } finally { app.ui.destroy(); }
+});
+
+test('batch completion still requires every included page and sheet, with sheet tabs reopening their combined highlights', async () => {
+  const app = harness(), value = batchValue([3, 103, 4]); value.analysis.lines[2].source.sheetIndex = 1;
+  const review = app.ui.review({ ...value, mount: app.mount() });
+  try {
+    await until(() => app.focuses.length === 1);
+    assert.equal(app.complete().disabled, true); assert.equal(app.navigation().children.length, 3);
+    const before = app.focuses.length; app.renderOptions.at(-1).onSheetChange({ sheetIndex: 2 });
+    await new Promise(resolve => setImmediate(resolve)); assert.equal(app.focuses.length, before, 'a sheet without product rows is optional and does not mark required rows reviewed');
+    assert.equal(app.complete().disabled, true);
+    app.renderOptions.at(-1).onSheetChange({ sheetIndex: 1 }); await until(() => app.focuses.length === before + 1);
+    assert.equal(app.focuses.at(-1).sheetIndex, 1); assert.equal(app.complete().disabled, true, 'the other original row page is still required');
+    const missing = app.navigation().children.find(node => !node.textContent.includes('확인')); missing.fire('click');
+    await until(() => !app.complete().disabled);
+    const rendered = app.focuses.length; app.renderOptions.at(-1).onSheetChange({ sheetIndex: 0 });
+    await until(() => app.focuses.length === rendered + 1);
+    assert.equal(app.focuses.at(-1).sheetIndex, 0, 'returning from optional sheets restores source highlights even for the current required part');
+    app.complete().fire('click'); assert.equal(await review, true);
+    const completedRenders = app.focuses.length; app.renderOptions.at(-1).onSheetChange({ sheetIndex: 1 });
+    await until(() => app.focuses.length === completedRenders + 1);
+    assert.equal(app.focuses.at(-1).sheetIndex, 1); assert.equal(app.complete().disabled, true, 'reviewed sheets can still be inspected without another approval action');
+  } finally { app.ui.destroy(); }
+});
+
+test('batch review fails closed for changed original identities or incomplete and duplicated product evidence', async () => {
+  for (const change of ['identity', 'missing', 'duplicate']) {
+    const value = batchValue();
+    if (change === 'identity') value.analysis.sourceHash = 'c'.repeat(64);
+    if (change === 'missing') value.analysis.groups.pop();
+    if (change === 'duplicate') value.analysis.groups[1].lineIds = [...value.analysis.groups[0].lineIds];
+    const app = harness(), mount = app.mount(), review = app.ui.review({ ...value, mount });
+    try {
+      await until(() => mount.textContent.includes('다릅니다') || mount.textContent.includes('전체 대조 위치'));
+      assert.equal(app.fetches.length, 0); assert.equal(app.complete().disabled, true);
+      assert.equal(all(app.body, node => node.tagName === 'DIALOG' && node.open).length, 0);
+      app.ui.close(); assert.equal(await review, false);
+    } finally { app.ui.destroy(); }
+  }
+});
+
+test('batch image review retains all product boxes while showing a compact total for each product', async () => {
+  const { value, record } = imageValue(), first = value.analysis.lines[0];
+  const second = { ...first, id: 'second-image-line', quantity: '2', source: { ...first.source, bbox: { x: 0.2, y: 0.3, width: 0.5, height: 0.2 } } };
+  value.analysis.lines.push(second); value.analysis.groups = [value.group, { id: 'sesame', label: '국산 볶음통깨 1kg', quantity: '2', unit: '병', lineIds: [second.id] }];
+  delete value.group;
+  const app = harness({ textSource: record }), mount = app.mount(), review = app.ui.review({ ...value, reviewAll: true, mount });
+  try {
+    await until(() => app.complete() && !app.complete().disabled);
+    assert.equal(all(mount, node => node.className === 'order-ai-image-evidence').length, 2);
+    assert.deepEqual(all(mount, node => node.className === 'order-ai-evidence-result').map(node => node.textContent), ['중국산 참기름 1.8L11 병', '국산 볶음통깨 1kg2 병']);
+    app.complete().fire('click'); assert.equal(await review, true);
   } finally { app.ui.destroy(); }
 });

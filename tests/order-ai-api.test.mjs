@@ -164,6 +164,61 @@ test('follow-up explicitly invokes one new analysis and archives exact prior rev
     assert.deepEqual(f.history[0], previous);
     assert.equal(f.history[0].revision, 1);
 });
+
+test('an unrelated roster edit refreshes only the same company metadata without AI, preserving exact history and requiring human review', async () => {
+    const f = fixture(), first = await f.service.analyze(start, actor), previous = structuredClone(f.record.data);
+    f.store.customers = async () => [{ ...customers[0], revision: 2 }, { id: 'school-' + 'f'.repeat(24), name: '다른 법인', revision: 2, source: 'school_meal', erpCode: null }];
+    const input = { action: 'refresh-customer', intakeId, expectedRevision: 1, expectedUpdatedAt: first.analysis.updatedAt };
+    const response = await invokeHandler(createHandler('analysis', { authorize: async () => actor, service: f.service }), request('POST', input));
+    assert.equal(response.status, 200); const refreshed = response.body.analysis;
+    assert.equal(refreshed.revision, 2); assert.equal(refreshed.customer.revision, 2); assert.equal(refreshed.customer.id, first.analysis.customer.id);
+    assert.equal(refreshed.status, 'needs_review'); assert.equal(refreshed.canConfirm, false); assert.deepEqual(refreshed.reviewedGroupIds, []); assert.equal(refreshed.reviewedExclusions, false);
+    for (const key of ['sources', 'lines', 'groups', 'coverage', 'exclusions', 'conversation']) assert.deepEqual(refreshed[key], first.analysis[key], key);
+    assert.deepEqual(f.record.data.modelOutput, previous.modelOutput); assert.deepEqual(f.history, [previous]); assert.equal(f.calls.length, 1);
+    await assert.rejects(f.service.confirm({ intakeId, expectedRevision: 1, expectedUpdatedAt: first.analysis.updatedAt, reviewedGroupIds: first.analysis.groups.map(group => group.id) }, actor), { code: 'ai_revision_conflict' });
+    await assert.rejects(f.service.confirm({ intakeId, expectedRevision: 2, reviewedGroupIds: [] }, actor), { code: 'ai_confirmation_blocked' });
+    const completed = await f.service.confirm({ intakeId, expectedRevision: 2, expectedUpdatedAt: refreshed.updatedAt, reviewedGroupIds: refreshed.groups.map(group => group.id) }, actor);
+    assert.equal(completed.analysis.status, 'confirmed'); assert.equal(f.calls.length, 1);
+    await assert.rejects(f.service.refreshCustomer({ ...input, expectedRevision: 3, expectedUpdatedAt: completed.analysis.updatedAt }, actor), { code: 'ai_already_confirmed' });
+});
+
+test('company metadata refresh is idempotent and does not require provider configuration', async () => {
+    const f = fixture(), first = await f.service.analyze(start, actor);
+    const service = createOrderAiService({ store: f.store, env: {}, mailService: { source: async () => ({ mail: f.mail }) }, extract: async () => ({ sources: [structuredClone(source)], images: [] }), fetchImpl: async () => { throw new Error('provider must not run'); } });
+    const input = { action: 'refresh-customer', intakeId, expectedRevision: 1, expectedUpdatedAt: first.analysis.updatedAt };
+    assert.deepEqual((await service.refreshCustomer(input, actor)).analysis, first.analysis); assert.equal(f.history.length, 0);
+    f.store.customers = async () => [{ ...customers[0], revision: 2 }];
+    const refreshed = await service.refreshCustomer(input, actor); assert.equal(refreshed.analysis.customer.revision, 2); assert.equal(f.history.length, 1);
+    const latest = { ...input, expectedRevision: 2, expectedUpdatedAt: refreshed.analysis.updatedAt };
+    assert.deepEqual((await service.refreshCustomer(latest, actor)).analysis, refreshed.analysis); assert.equal(f.history.length, 1); assert.equal(f.calls.length, 1);
+});
+
+test('metadata refresh cannot replace a legal entity or hide changed source evidence and totals', async () => {
+    for (const change of [
+        f => { f.store.customers = async () => []; },
+        f => { f.store.customers = async () => [{ ...customers[0], name: '같은 대표자의 별개 법인', revision: 2 }]; },
+        f => { f.store.customers = async () => [{ ...customers[0], id: 'school-' + 'f'.repeat(24), revision: 2 }]; },
+        f => { f.mail.rawStorage.sha256 = 'e'.repeat(64); },
+        f => { f.mutate(record => record.data.analysis.groups[0].quantity = '999'); },
+        f => { f.mutate(record => record.data.analysis.lines[0].quantity = '999'); },
+        f => { f.mutate(record => record.data.modelOutput.lines[0].source.quantityCell = 'C1'); },
+    ]) {
+        const f = fixture(), first = await f.service.analyze(start, actor); f.store.customers = async () => [{ ...customers[0], revision: 2 }]; change(f);
+        await assert.rejects(f.service.refreshCustomer({ action: 'refresh-customer', intakeId, expectedRevision: 1, expectedUpdatedAt: first.analysis.updatedAt }, actor), { code: 'ai_customer_refresh_blocked' });
+        assert.equal(f.calls.length, 1); assert.equal(f.history.length, 0); assert.equal(f.record.data.revision, 1);
+    }
+});
+
+test('metadata refresh rejects stale or overbroad input and concurrent requests never make a second metadata version', async () => {
+    const f = fixture(), first = await f.service.analyze(start, actor); f.store.customers = async () => [{ ...customers[0], revision: 2 }];
+    const input = { action: 'refresh-customer', intakeId, expectedRevision: 1, expectedUpdatedAt: first.analysis.updatedAt };
+    for (const invalid of [{ ...input, expectedRevision: 0 }, { ...input, expectedUpdatedAt: undefined }, { ...input, expectedUpdatedAt: 'bad' }, { ...input, customerId: companyId }, { ...input, message: '재분석' }, { ...input, sourceKind: 'mail' }]) await assert.rejects(f.service.refreshCustomer(invalid, actor), { code: 'ai_input_invalid' });
+    await assert.rejects(f.service.refreshCustomer({ ...input, expectedUpdatedAt: '2020-01-01T00:00:00Z' }, actor), { code: 'ai_revision_conflict' });
+    await assert.rejects(f.service.refreshCustomer({ ...input, sourceKind: 'image' }, actor), { code: 'ai_source_changed' });
+    const concurrent = await Promise.allSettled([f.service.refreshCustomer(input, actor), f.service.refreshCustomer(input, actor)]);
+    assert.equal(concurrent.filter(result => result.status === 'fulfilled').length, 1); assert.equal(concurrent.filter(result => result.status === 'rejected')[0].reason.code, 'ai_analysis_busy');
+    assert.equal(f.history.length, 1); assert.equal(f.calls.length, 1);
+});
 test('an existing analysis without a company can continue using a selected weekly company without an ERP code', async () => {
     const candidate = { ...output(), customerId: null }, f = fixture({ output: candidate });
     const first = await f.service.analyze(start, actor); assert.equal(first.analysis.customer, null); assert.equal(first.analysis.readyForReview, false);

@@ -52,6 +52,18 @@
 .mail-workbook-grid td.mail-workbook-evidence-row { background-image: linear-gradient(rgba(139, 92, 246, .2), rgba(139, 92, 246, .2)); }
 .mail-workbook-grid tr.mail-workbook-evidence-row > th { color: #ddd6fe; background: #353050; }
 .mail-workbook-grid td.mail-workbook-evidence-quantity { background-image: linear-gradient(rgba(251, 191, 36, .24), rgba(251, 191, 36, .24)); box-shadow: inset 0 0 0 2px #fbbf24; }
+.mail-workbook-field[hidden], .mail-workbook-controls[hidden], .mail-workbook-sheet-tabs[hidden] { display: none; }
+.mail-workbook-sheet-tabs { display: flex; gap: 3px; padding: 5px 6px 0; overflow-x: auto; border: 1px solid var(--border, #374151); border-bottom: 0; border-radius: 8px 8px 0 0; background: #182130; }
+.mail-workbook-sheet-tabs .mail-workbook-button { flex: 0 0 auto; min-height: 30px; padding: 5px 11px; border: 0; border-bottom: 2px solid transparent; border-radius: 5px 5px 0 0; background: transparent; color: #94a3b8; font-size: 11px; }
+.mail-workbook-sheet-tabs .mail-workbook-button[aria-selected="true"] { border-bottom-color: var(--brand-a, #22d3ee); background: #101824; color: var(--brand-a, #22d3ee); }
+.mail-workbook-compact .mail-workbook-grid-region { border-radius: 0 0 8px 8px; }
+.mail-workbook-compact .mail-workbook-caption, .mail-workbook-compact .mail-workbook-evidence-status, .mail-workbook-compact .mail-workbook-status:not([data-error="true"]) { display: none; }
+.mail-workbook-compact .mail-workbook-controls { padding: 0 0 8px; gap: 6px; }
+.mail-workbook-compact .mail-workbook-nav { gap: 5px; }
+.mail-workbook-compact .mail-workbook-nav .mail-workbook-button { min-height: 28px; padding: 4px 8px; font-size: 10px; }
+.mail-workbook-compact .mail-workbook-page { font-size: 10px; }
+.mail-workbook-fit .mail-workbook-cell-value { position: static; width: auto; white-space: pre-wrap; overflow-wrap: anywhere; text-overflow: clip; }
+.mail-workbook-fit .mail-workbook-cell-content { min-width: 0; }
 @media (max-width: 600px) {
   .mail-workbook-controls { align-items: stretch; }
   .mail-workbook-field { flex-basis: 100%; }

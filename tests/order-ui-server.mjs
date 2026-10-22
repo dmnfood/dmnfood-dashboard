@@ -18,7 +18,7 @@ const HOST = '127.0.0.1', PORT = 4175;
 const require = createRequire(import.meta.url);
 const { extractWorkbook, imageDimensions } = require('../lib/server/order-ai-extraction.cjs');
 const { createOrderAiWire } = require('../lib/server/order-ai-wire.cjs');
-const { buildTextSource } = require('../lib/server/order-text-source.cjs');
+const { buildTextSource, SOURCE_RETENTION_MS } = require('../lib/server/order-text-source.cjs');
 const base = new URL('../', import.meta.url);
 const orders = new Map(), streams = new Set(), orderAiAnalyses = new Map(), textSourceFixtures = new Map();
 const actor = { uid: 'fictional-local-manager', name: '가상 검증 담당자' };
@@ -211,12 +211,14 @@ const server = createServer(async (req, res) => {
             if (url.pathname.endsWith('/text-sources')) {
                 if (req.method === 'GET') {
                     const id = url.searchParams.get('id');
-                    if (id) return reply(res, textSourceFixtures.has(id) ? 200 : 404, textSourceFixtures.has(id) ? { ok: true, source: textSourceFixtures.get(id) } : { ok: false, message: '가상 원문 없음' });
-                    return reply(res, 200, { ok: true, sources: [...textSourceFixtures.values()].toReversed().map(({ text, contentBase64, ...summary }) => summary) });
+                    if (id) { const source = textSourceFixtures.get(id); return reply(res, source && Date.parse(source.expiresAt) > Date.now() ? 200 : 404, source && Date.parse(source.expiresAt) > Date.now() ? { ok: true, source } : { ok: false, message: '가상 원문의 보관 기간이 끝났거나 원문이 없습니다.' }); }
+                    return reply(res, 200, { ok: true, sources: [...textSourceFixtures.values()].filter(source => Date.parse(source.expiresAt) > Date.now()).toReversed().map(({ text, contentBase64, ...summary }) => summary) });
                 }
                 if (req.method !== 'POST' || req.headers.origin !== localOrigin) return reply(res, 405, { ok: false });
-                const built = buildTextSource(await readAction(req), actor.uid), existed = textSourceFixtures.get(built.id);
-                const source = existed || { id: built.id, ...built.data, createdAt: new Date().toISOString() };
+                const sourceInput = await readAction(req);
+                if (sourceInput.action === 'cleanupExpired') { let deletedCount = 0; for (const [id, source] of textSourceFixtures) { if (deletedCount < 50 && Date.parse(source.expiresAt) <= Date.now()) { textSourceFixtures.delete(id); deletedCount++; } } return reply(res, 200, { ok: true, deletedCount, mode: 'fictional_local_only' }); }
+                const built = buildTextSource(sourceInput, actor.uid), existed = textSourceFixtures.get(built.id), createdMs = Date.now();
+                const source = existed || { id: built.id, ...built.data, createdAt: new Date(createdMs).toISOString(), expiresAt: new Date(createdMs + SOURCE_RETENTION_MS).toISOString() };
                 if (existed && existed.sha256 !== built.data.sha256) throw new Error('가상 요청 ID 충돌');
                 textSourceFixtures.set(built.id, source); return reply(res, 200, { ok: true, source, created: !existed, mode: 'fictional_local_only' });
             }

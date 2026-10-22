@@ -363,17 +363,18 @@
         let mailPath = /databases/$(database)/documents/mailIntakes/$(intakeId);
         return exists(textPath)
           ? (get(textPath).data.schemaVersion == 1 && get(textPath).data.scope == 'school_meal'
+            && get(textPath).data.expiresAt is timestamp && get(textPath).data.expiresAt > request.time
             && data.sourceHash == get(textPath).data.sha256)
           : (exists(mailPath) && data.sourceHash == get(mailPath).data.rawStorage.sha256
             && get(mailPath).data.account == 'official@dmnfood.co.kr');
       }
       match /orderTextSources/{sourceId} {
         function validPastedText(data) {
-          return data.keys().hasOnly(['schemaVersion', 'channel', 'scope', 'text', 'sha256', 'title', 'createdByUid', 'createdAt'])
+          return data.keys().hasOnly(['schemaVersion', 'channel', 'scope', 'text', 'sha256', 'title', 'createdByUid', 'createdAt', 'expiresAt'])
             && data.text is string && data.text.size() > 0 && data.text.size() <= 20000;
         }
         function validPastedImage(data) {
-          return data.keys().hasOnly(['schemaVersion', 'kind', 'channel', 'scope', 'sha256', 'title', 'fileName', 'mimeType', 'byteLength', 'contentBase64', 'createdByUid', 'createdAt'])
+          return data.keys().hasOnly(['schemaVersion', 'kind', 'channel', 'scope', 'sha256', 'title', 'fileName', 'mimeType', 'byteLength', 'contentBase64', 'createdByUid', 'createdAt', 'expiresAt'])
             && data.kind == 'image' && data.fileName is string && data.fileName.size() > 0 && data.fileName.size() <= 250
             && data.mimeType in ['image/png', 'image/jpeg']
             && data.byteLength is int && data.byteLength > 0 && data.byteLength <= 614400
@@ -381,17 +382,46 @@
             && data.contentBase64.matches('^[A-Za-z0-9+/]*={0,2}$');
         }
         function validTextSource(data) {
+          let metadataPath = /databases/$(database)/documents/orderSourceExpirations/$(sourceId);
           return sourceId.matches('^[a-f0-9]{64}$')
             && !exists(/databases/$(database)/documents/mailIntakes/$(sourceId))
+            && !exists(metadataPath)
             && (data.get('kind', '') == 'image' ? validPastedImage(data) : validPastedText(data))
             && data.schemaVersion == 1 && data.channel in ['kakao', 'sms'] && data.scope == 'school_meal'
             && data.sha256 is string && data.sha256.matches('^[a-f0-9]{64}$')
             && data.title is string && data.title.size() > 0 && data.title.size() <= 80
-            && data.createdByUid == request.auth.uid && data.createdAt == request.time;
+            && data.createdByUid == request.auth.uid && data.createdAt is timestamp && data.expiresAt is timestamp
+            && data.createdAt >= request.time - duration.value(1, 'm') && data.createdAt <= request.time + duration.value(1, 'm')
+            && data.expiresAt == data.createdAt + duration.value(30, 'd')
+            && getAfter(metadataPath).data.createdAt == data.createdAt && getAfter(metadataPath).data.expiresAt == data.expiresAt
+            && getAfter(metadataPath).data.sha256 == data.sha256 && getAfter(metadataPath).data.createdByUid == data.createdByUid;
         }
-        allow read: if approvedManagerOrAdmin();
+        allow get: if approvedManagerOrAdmin() && (!exists(/databases/$(database)/documents/orderTextSources/$(sourceId))
+          || resource.data.expiresAt is timestamp && resource.data.expiresAt > request.time);
+        allow list: if approvedManagerOrAdmin() && request.query.limit <= 50
+          && resource.data.expiresAt > request.time;
         allow create: if approvedManagerOrAdmin() && validTextSource(request.resource.data);
-        // Original pasted messages are immutable. A correction is a new intake.
+        allow delete: if approvedManagerOrAdmin() && resource.data.expiresAt is timestamp && resource.data.expiresAt <= request.time
+          && !existsAfter(/databases/$(database)/documents/orderSourceExpirations/$(sourceId));
+        // Original content cannot change; deletion is only allowed after expiry.
+      }
+      match /orderSourceExpirations/{sourceId} {
+        function validSourceExpiration(data) {
+          let sourcePath = /databases/$(database)/documents/orderTextSources/$(sourceId);
+          return sourceId.matches('^[a-f0-9]{64}$') && !exists(sourcePath)
+            && data.keys().hasOnly(['schemaVersion', 'createdAt', 'expiresAt', 'sha256', 'createdByUid'])
+            && data.schemaVersion == 1 && data.createdByUid == request.auth.uid
+            && data.createdAt is timestamp && data.expiresAt is timestamp
+            && data.sha256 is string && data.sha256.matches('^[a-f0-9]{64}$')
+            && getAfter(sourcePath).data.scope == 'school_meal'
+            && getAfter(sourcePath).data.createdAt == data.createdAt && getAfter(sourcePath).data.expiresAt == data.expiresAt
+            && getAfter(sourcePath).data.sha256 == data.sha256 && getAfter(sourcePath).data.createdByUid == data.createdByUid;
+        }
+        allow get: if approvedManagerOrAdmin();
+        allow list: if approvedManagerOrAdmin() && request.query.limit <= 8;
+        allow create: if approvedManagerOrAdmin() && validSourceExpiration(request.resource.data);
+        allow delete: if approvedManagerOrAdmin() && resource.data.expiresAt is timestamp && resource.data.expiresAt <= request.time
+          && !existsAfter(/databases/$(database)/documents/orderTextSources/$(sourceId));
       }
       function validOrderAiRecord(data, intakeId) {
         return data.keys().hasOnly(['schemaVersion', 'intakeId', 'sourceHash', 'revision', 'status', 'analysis', 'modelOutput', 'groupIds', 'conversation', 'createdByUid', 'updatedByUid', 'createdAt', 'updatedAt', 'reviewedGroupIds', 'reviewedExclusions', 'confirmedRevision', 'confirmedAt', 'confirmedByUid'])

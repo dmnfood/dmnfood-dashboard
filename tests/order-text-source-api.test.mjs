@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { buildTextSource, buildTextSourceId, publicTextSource, textSourceMail, MAX_IMAGE_BYTES } from '../lib/server/order-text-source.cjs';
+import { buildTextSource, buildTextSourceId, publicTextSource, publicTextSourceSummary, textSourceMail, MAX_IMAGE_BYTES, SOURCE_RETENTION_MS, SOURCE_LIST_MARGIN_MS } from '../lib/server/order-text-source.cjs';
 import { createOrderTextSourceStore } from '../lib/server/order-text-source-store.cjs';
 import { createHandler } from '../lib/server/order-text-source-service.cjs';
 import { createOrderAiService } from '../lib/server/order-ai-service.cjs';
@@ -11,29 +11,51 @@ import { createOrderAiTextSource } from '../dashboard/js/order-text-source-model
 const actor = { uid: 'manager', role: 'manager' }, requestId = '6b8d8c9a-c917-43e4-a514-0af9b3819a6d';
 const raw = '  가상 급식업체\r\n국산 참기름 1L 2병\r\n국산 참기름 1L 3병  ';
 const input = { requestId, channel: 'kakao', text: raw };
-const createdAt = '2026-10-22T00:00:00.123Z';
+const createdAt = new Date().toISOString(), createdMs = Date.parse(createdAt), expiresAt = new Date(createdMs + SOURCE_RETENTION_MS).toISOString();
 const pngBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aM1EAAAAASUVORK5CYII=';
 // A deterministic 1x1 JPEG fixture; original bytes must never be re-encoded.
 const jpegBase64 = '/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoHBwYIDAoMDAsKCwsNDhIQDQ4RDgsLEBYQERMUFRUVDA8XGBYUGBIUFRT/2wBDAQMEBAUEBQkFBQkUDQsNFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBT/wAARCAABAAEDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD8qqKKKAP/2Q==';
 const imageInput = () => ({ requestId, channel: 'kakao', image: { fileName: '가상 발주.png', mimeType: 'image/png', contentBase64: pngBase64 } });
-const full = () => { const built = buildTextSource(input, actor.uid); return { id: built.id, ...built.data, createdAt }; };
+const full = () => { const built = buildTextSource(input, actor.uid); return { id: built.id, ...built.data, createdAt, expiresAt }; };
 const toRecord = source => { const { id, ...data } = source; return data; };
 function restFixture(options = {}) {
-    const records = new Map(), calls = [];
-    const store = createOrderTextSourceStore({ token: 'fictional-user-token', fetchImpl: async (url, init = {}) => {
+    const records = new Map(), expirations = new Map(), calls = [];
+    const store = createOrderTextSourceStore({ token: 'fictional-user-token', now: () => options.now ?? createdMs, documentName: 'test', fetchImpl: async (url, init = {}) => {
         calls.push({ url, init });
         if (String(url).endsWith(':runQuery')) {
-            const fields = JSON.parse(init.body).structuredQuery.select.fields.map(item => item.fieldPath);
+            const query = JSON.parse(init.body).structuredQuery, fields = query.select.fields.map(item => item.fieldPath);
             assert.equal(fields.includes('text'), false); assert.equal(fields.includes('contentBase64'), false);
-            return new Response(JSON.stringify([...records].map(([id, data]) => ({ document: { name: `test/orderTextSources/${id}`, fields: encodeFields(Object.fromEntries(Object.entries(data).filter(([name]) => fields.includes(name)))) } }))));
+            const filter = query.where.fieldFilter, cutoff = Date.parse(filter.value.timestampValue);
+            const collection = query.from[0].collectionId, cleanup = collection === 'orderSourceExpirations';
+            assert.equal(filter.field.fieldPath, 'expiresAt'); assert.equal(query.limit, cleanup ? 8 : 50);
+            const selected = [...(cleanup ? expirations : records)].filter(([, data]) => filter.op === 'GREATER_THAN' ? Date.parse(data.expiresAt) > cutoff : Date.parse(data.expiresAt) <= cutoff)
+                .sort((a, b) => (Date.parse(a[1].expiresAt) - Date.parse(b[1].expiresAt)) * (query.orderBy[0].direction === 'DESCENDING' ? -1 : 1)).slice(0, query.limit);
+            return new Response(JSON.stringify(selected.map(([id, data]) => ({ document: { name: `test/${collection}/${id}`, updateTime: createdAt, fields: Object.fromEntries(Object.entries(encodeFields(data)).filter(([name]) => fields.includes(name)).map(([name, value]) => [name, name === 'expiresAt' ? { timestampValue: data.expiresAt } : value])) } }))));
         }
         if (String(url).endsWith(':commit')) {
-            const write = JSON.parse(init.body).writes[0], id = write.update.name.split('/').at(-1);
+            const writes = JSON.parse(init.body).writes;
+            if (writes[0]?.delete) {
+                if (options.failDelete) throw new TypeError('simulated uncertain deletion');
+                assert.equal(writes.length % 2, 0);
+                for (let index = 0; index < writes.length; index += 2) {
+                    const rawWrite = writes[index], metaWrite = writes[index + 1], id = rawWrite.delete.split('/').at(-1);
+                    assert.equal(rawWrite.delete, `test/orderTextSources/${id}`); assert.deepEqual(rawWrite.currentDocument, { exists: true });
+                    assert.equal(metaWrite.delete, `test/orderSourceExpirations/${id}`); assert.deepEqual(metaWrite.currentDocument, { updateTime: createdAt });
+                    records.delete(id); expirations.delete(id);
+                }
+                return new Response(JSON.stringify({ commitTime: createdAt }));
+            }
+            const write = writes[0], id = write.update.name.split('/').at(-1);
             assert.deepEqual(write.currentDocument, { exists: false });
-            assert.deepEqual(write.updateTransforms, [{ fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' }]);
-            assert.equal('createdAt' in write.update.fields, false);
+            assert.equal(write.updateTransforms, undefined);
+            assert.equal(typeof write.update.fields.createdAt.timestampValue, 'string');
+            assert.equal(Date.parse(write.update.fields.expiresAt.timestampValue) - Date.parse(write.update.fields.createdAt.timestampValue), SOURCE_RETENTION_MS);
+            assert.equal(writes.length, 2); assert.equal(writes[1].update.name, `test/orderSourceExpirations/${id}`); assert.deepEqual(writes[1].currentDocument, { exists: false });
+            assert.deepEqual(Object.keys(writes[1].update.fields).sort(), ['schemaVersion', 'createdAt', 'expiresAt', 'sha256', 'createdByUid'].sort());
+            for (const [key, value] of Object.entries(writes[1].update.fields)) assert.deepEqual(value, write.update.fields[key]);
             if (records.has(id)) return new Response(JSON.stringify({ error: { status: 'ALREADY_EXISTS' } }), { status: 409 });
-            records.set(id, { ...decodeFields(write.update.fields), createdAt });
+            records.set(id, decodeFields(write.update.fields));
+            expirations.set(id, decodeFields(writes[1].update.fields));
             if (options.loseCommitResponse) { options.loseCommitResponse = false; throw new TypeError('simulated lost response'); }
             if (options.concurrent) return new Response(JSON.stringify({ error: { status: 'ALREADY_EXISTS' } }), { status: 409 });
             return new Response(JSON.stringify({ commitTime: createdAt }));
@@ -41,7 +63,7 @@ function restFixture(options = {}) {
         const id = String(url).split('/').at(-1), record = records.get(id);
         return record ? new Response(JSON.stringify({ fields: encodeFields(record) })) : new Response('{}', { status: 404 });
     } });
-    return { store, calls, records };
+    return { store, calls, records, expirations };
 }
 const req = (method = 'POST', body = input, extra = {}) => ({ method, url: '/api/order-ai/text-sources', headers: { authorization: 'Bearer fictional-test', origin: 'https://dashboard.dmnfood.co.kr', 'content-type': 'application/json' }, body, ...extra });
 async function invoke(handler, request) { let value; const headers = {}; const response = { setHeader: (name, item) => headers[name] = item, end: item => value = JSON.parse(item) }; await handler(request, response); return { status: response.statusCode, body: value, headers }; }
@@ -64,7 +86,7 @@ test('invalid raw text, forged identity/hash/title and unsupported channels cann
     for (const change of [{ text: raw + ' ' }, { sha256: 'a'.repeat(64) }, { title: 'forged title' }, { scope: 'all' }, { createdAt: 'invalid-date' }, { erpCode: 'invented' }]) assert.throws(() => publicTextSource(source.id, { ...toRecord(source), ...change }));
     const mail = textSourceMail(source); assert.equal(mail.sourceKind, 'text'); assert.equal(mail.rawStorage.sha256, source.sha256); assert.equal(mail.textSource.text, raw);
 });
-test('REST create uses the employee token and server timestamp; same request is idempotent while changed text conflicts', async () => {
+test('REST create uses the employee token and fixed 30-day timestamp pair; same request is idempotent while changed text conflicts', async () => {
     const f = restFixture(), first = await f.store.create(input, actor.uid);
     assert.equal(first.created, true); assert.deepEqual(first.source, full());
     const second = await f.store.create(input, actor.uid); assert.equal(second.created, false); assert.deepEqual(second.source, first.source);
@@ -82,6 +104,62 @@ test('concurrent create and uncertain write outcomes recover the original reques
     assert.equal(lost.calls.filter(call => call.url.endsWith(':commit')).length, 1, 'a failed request never automatically repeats a write');
     const recovered = await lost.store.create(input, actor.uid); assert.equal(recovered.created, false); assert.equal(lost.records.size, 1);
     assert.equal(lost.calls.filter(call => call.url.endsWith(':commit')).length, 1);
+});
+
+test('original retention expires at exactly 30 days and retries cannot extend the fixed deadline', async () => {
+    const options = {}, f = restFixture(options), first = await f.store.create(input, actor.uid);
+    assert.equal(Date.parse(first.source.expiresAt) - Date.parse(first.source.createdAt), SOURCE_RETENTION_MS);
+    options.now = createdMs + 10000;
+    assert.equal((await f.store.create(input, actor.uid)).source.expiresAt, first.source.expiresAt);
+    const record = toRecord(first.source), deadline = Date.parse(first.source.expiresAt);
+    assert.equal(publicTextSource(first.source.id, record, { now: deadline - 1 }).text, raw);
+    for (const now of [deadline, deadline + 1]) {
+        assert.throws(() => publicTextSource(first.source.id, record, { now }), { status: 410, code: 'text_source_expired' });
+        const { text, ...summary } = record;
+        assert.throws(() => publicTextSourceSummary(first.source.id, summary, { now }), { code: 'text_source_expired' });
+    }
+    assert.throws(() => publicTextSource(first.source.id, { ...record, expiresAt: new Date(deadline + 1).toISOString() }), { code: 'text_source_invalid' });
+    for (const extra of [{ expiresAt }, { createdAt }, { action: 'cleanupExpired' }]) assert.throws(() => buildTextSource({ ...input, ...extra }, actor.uid));
+    options.now = deadline;
+    await assert.rejects(f.store.get(first.source.id), { code: 'text_source_expired' });
+    await assert.rejects(f.store.create(input, actor.uid), { code: 'text_source_expired' });
+    assert.equal(f.calls.filter(call => call.url.endsWith(':commit')).length, 1);
+    assert.deepEqual(await f.store.list(), []);
+    const listCall = f.calls.filter(call => call.url.endsWith(':runQuery')).at(-1);
+    assert.equal(JSON.parse(listCall.init.body).structuredQuery.where.fieldFilter.value.timestampValue, new Date(deadline + SOURCE_LIST_MARGIN_MS).toISOString());
+});
+
+test('cleanup API only deletes expired originals in bounded conditional batches and repeated cleanup is harmless', async () => {
+    const f = restFixture(), handler = createHandler({ authorize: async () => actor, store: f.store });
+    const active = await f.store.create(input, actor.uid);
+    for (let index = 1; index <= 51; index++) { const id = index.toString(16).padStart(64, '0'), data = { ...toRecord(active.source), createdAt: new Date(createdMs - SOURCE_RETENTION_MS - index).toISOString(), expiresAt: new Date(createdMs - index).toISOString() }; f.records.set(id, data); f.expirations.set(id, { expiresAt: data.expiresAt }); }
+    const first = await invoke(handler, req('POST', { action: 'cleanupExpired' })); assert.equal(first.status, 200); assert.equal(first.body.deletedCount, 8);
+    let deleted = first.body.deletedCount; for (let index = 0; index < 6; index++) deleted += (await invoke(handler, req('POST', { action: 'cleanupExpired' }))).body.deletedCount; assert.equal(deleted, 51);
+    assert.equal((await invoke(handler, req('POST', { action: 'cleanupExpired' }))).body.deletedCount, 0);
+    assert.equal(f.records.size, 1); assert.equal(f.records.has(active.source.id), true);
+    for (const body of [{ action: 'cleanupExpired', cutoff: '2099-01-01' }, { action: 'deleteAll' }, { action: 'cleanupExpired', text: raw }]) assert.equal((await invoke(handler, req('POST', body))).status, 400);
+    const worker = createHandler({ authorize: async () => ({ uid: 'worker', role: 'worker' }), store: f.store });
+    assert.equal((await invoke(worker, req('POST', { action: 'cleanupExpired' }))).status, 403);
+});
+
+test('cleanup rejects malformed or future query metadata before deletion and does not retry uncertain writes', async () => {
+    let writes = 0;
+    for (const document of [
+        { name: 'test/orderSourceExpirations/' + 'a'.repeat(64), updateTime: createdAt, fields: { expiresAt: { timestampValue: new Date(createdMs + 1).toISOString() } } },
+        { name: 'test/orderSourceExpirations/' + 'a'.repeat(64), fields: { expiresAt: { timestampValue: createdAt } } },
+        { name: 'test/other/' + 'a'.repeat(64), updateTime: createdAt, fields: { expiresAt: { timestampValue: createdAt } } },
+        { name: 'test/orderSourceExpirations/' + 'a'.repeat(64), updateTime: createdAt, fields: { expiresAt: { timestampValue: createdAt }, text: { stringValue: 'not a projection' } } },
+    ]) {
+        const store = createOrderTextSourceStore({ documentName: 'test', now: () => createdMs, fetchImpl: async url => {
+            if (String(url).endsWith(':commit')) writes++;
+            return new Response(JSON.stringify([{ document }]));
+        } });
+        await assert.rejects(store.cleanupExpired(), { code: 'text_source_store_unavailable' });
+    }
+    assert.equal(writes, 0);
+    const f = restFixture({ failDelete: true }); f.records.set('a'.repeat(64), { ...toRecord(full()), createdAt: new Date(createdMs - SOURCE_RETENTION_MS).toISOString(), expiresAt: createdAt }); f.expirations.set('a'.repeat(64), { expiresAt: createdAt });
+    await assert.rejects(f.store.cleanupExpired(), { code: 'text_source_store_unavailable' });
+    assert.equal(f.calls.filter(call => call.url.endsWith(':commit')).length, 1);
 });
 test('API supports authorized save/list/detail and never analyzes or sends the pasted message during storage', async () => {
     const f = restFixture(), handler = createHandler({ authorize: async () => actor, store: f.store });
@@ -114,8 +192,8 @@ test('manual image storage preserves original bytes and hash and never exposes b
     const request = imageInput(), built = buildTextSource(request, actor.uid), bytes = Buffer.from(pngBase64, 'base64');
     assert.equal(built.data.kind, 'image'); assert.equal(built.data.byteLength, bytes.length); assert.equal(built.data.sha256, createHash('sha256').update(bytes).digest('hex'));
     assert.equal(built.data.contentBase64, pngBase64); assert.equal('text' in built.data, false);
-    const dto = publicTextSource(built.id, { ...built.data, createdAt }); assert.equal(textSourceMail(dto).sourceKind, 'image');
-    assert.equal('contentBase64' in publicTextSource(built.id, { ...built.data, createdAt }, { summary: true }), false);
+    const dto = publicTextSource(built.id, { ...built.data, createdAt, expiresAt }); assert.equal(textSourceMail(dto).sourceKind, 'image');
+    assert.equal('contentBase64' in publicTextSource(built.id, { ...built.data, createdAt, expiresAt }, { summary: true }), false);
     const f = restFixture(), handler = createHandler({ authorize: async () => actor, store: f.store });
     const saved = await invoke(handler, req('POST', request)); assert.equal(saved.status, 200); assert.equal(saved.body.source.contentBase64, pngBase64);
     const listed = await f.store.list(); assert.equal(listed[0].kind, 'image'); assert.equal(listed[0].byteLength, bytes.length); assert.equal('contentBase64' in listed[0], false);
@@ -126,7 +204,7 @@ test('manual image storage preserves original bytes and hash and never exposes b
     for (const fileName of ['가상 캡처.jpg', '가상 캡처.JPEG']) {
         const jpeg = buildTextSource({ ...request, image: { fileName, mimeType: 'image/jpeg', contentBase64: jpegBase64 } }, actor.uid);
         assert.equal(jpeg.data.contentBase64, jpegBase64); assert.equal(jpeg.data.sha256, createHash('sha256').update(Buffer.from(jpegBase64, 'base64')).digest('hex'));
-        assert.equal(publicTextSource(jpeg.id, { ...jpeg.data, createdAt }).mimeType, 'image/jpeg');
+        assert.equal(publicTextSource(jpeg.id, { ...jpeg.data, createdAt, expiresAt }).mimeType, 'image/jpeg');
     }
 });
 test('image intake rejects noncanonical base64, mismatched MIME/extension, unsafe names, oversized pixels/bytes and mutated archive metadata', () => {
@@ -144,11 +222,11 @@ test('image intake rejects noncanonical base64, mismatched MIME/extension, unsaf
     assert.equal(buildTextSource({ ...request, image: { ...request.image, contentBase64: maximum.toString('base64') } }, actor.uid).data.byteLength, MAX_IMAGE_BYTES);
     assert.throws(() => buildTextSource({ ...request, image: { ...request.image, contentBase64: Buffer.concat([maximum, Buffer.from([0])]).toString('base64') } }, actor.uid));
     const built = buildTextSource(request, actor.uid);
-    for (const change of [{ byteLength: 1 }, { sha256: 'f'.repeat(64) }, { mimeType: 'image/jpeg' }, { contentBase64: pngBase64.slice(0, -4) }, { text: 'extra field' }, { title: 'forged' }]) assert.throws(() => publicTextSource(built.id, { ...built.data, ...change, createdAt }));
+    for (const change of [{ byteLength: 1 }, { sha256: 'f'.repeat(64) }, { mimeType: 'image/jpeg' }, { contentBase64: pngBase64.slice(0, -4) }, { text: 'extra field' }, { title: 'forged' }]) assert.throws(() => publicTextSource(built.id, { ...built.data, ...change, createdAt, expiresAt }));
 });
 
 test('manual image analysis sends original bytes once and preserves image evidence through source-bound human confirmation', async () => {
-    const built = buildTextSource(imageInput(), actor.uid); let original = { ...built.data, createdAt }, record = null, providerCalls = 0, mailCalls = 0;
+    const built = buildTextSource(imageInput(), actor.uid); let original = { ...built.data, createdAt, expiresAt }, record = null, providerCalls = 0, mailCalls = 0;
     const customerId = 'school-' + 'c'.repeat(24), customers = [{ id: customerId, name: '가상 급식업체', revision: 1, source: 'school_meal', erpCode: null }];
     const store = { get: async () => structuredClone(record), textSource: async () => structuredClone(original), customers: async () => structuredClone(customers), acquire: async () => ({}), release: async () => {},
         save: async (id, data) => { record = { data: { ...structuredClone(data), createdAt, updatedAt: `${createdAt}:${data.revision}` }, fields: {}, version: 'fake' }; return structuredClone(record); } };
@@ -169,7 +247,7 @@ test('manual image analysis sends original bytes once and preserves image eviden
 });
 
 function aiFixture() {
-    let source = full(), record = null, providerCalls = 0, mailCalls = 0, sourceCalls = 0;
+    let source = full(), record = null, providerCalls = 0, mailCalls = 0, sourceCalls = 0, clock = createdMs;
     const customerId = 'school-' + 'c'.repeat(24), customers = [{ id: customerId, name: '가상 급식업체', revision: 1, source: 'school_meal', erpCode: null }];
     const original = createOrderAiTextSource({ text: source.text, sha256: source.sha256, channel: source.channel });
     const tokenAt = (row, value) => original.rows[row].tokens.find(token => token.text === value).index;
@@ -177,11 +255,11 @@ function aiFixture() {
         c: [{ s: 0, e: tokenAt(r, 'L') }], q: { s: tokenAt(r, String(index + 2)), e: tokenAt(r, String(index + 2)) }, u: { s: tokenAt(r, '병'), e: tokenAt(r, '병') }, x: [] }] })), excludedRows: [{ r: [0], x: '거래처 이름' }] };
     const store = { get: async () => structuredClone(record), textSource: async () => { sourceCalls++; return toRecord(source); }, customers: async () => structuredClone(customers), acquire: async () => ({}), release: async () => {},
         save: async (id, data) => { record = { data: { ...structuredClone(data), createdAt, updatedAt: `${createdAt}:${data.revision}` }, fields: {}, version: 'fake' }; return structuredClone(record); } };
-    const service = createOrderAiService({ store, mailService: { source: async () => { mailCalls++; throw new Error('mail source must not be used'); } }, env: { OPENAI_API_KEY: 'fictional-only' },
+    const service = createOrderAiService({ store, now: () => clock, mailService: { source: async () => { mailCalls++; throw new Error('mail source must not be used'); } }, env: { OPENAI_API_KEY: 'fictional-only' },
         fetchImpl: async (url, init) => { providerCalls++; const request = JSON.parse(init.body), context = JSON.parse(request.input[0].content[0].text);
             assert.equal(context.sourceContext.kind, 'text'); assert.equal(context.sourceContext.channel, 'kakao'); assert.equal(context.sources[0].text, raw);
             return new Response(JSON.stringify({ status: 'completed', output: [{ type: 'message', content: [{ type: 'output_text', text: JSON.stringify(candidate) }] }] })); } });
-    return { service, source, setSource: value => source = value, mutateRecord: action => action(record), get record() { return record; }, get counts() { return { providerCalls, mailCalls, sourceCalls }; } };
+    return { service, source, setNow: value => clock = value, setSource: value => source = value, mutateRecord: action => action(record), get record() { return record; }, get counts() { return { providerCalls, mailCalls, sourceCalls }; } };
 }
 test('text analysis reuses original evidence and exact quantities, and human confirmation re-reads the immutable source without AI or mail access', async () => {
     const f = aiFixture(), first = await f.service.analyze({ intakeId: f.source.id, sourceKind: 'text', expectedRevision: 0 }, actor);
@@ -201,4 +279,15 @@ test('changed raw text or persisted totals cannot be confirmed, and source-kind 
     await assert.rejects(f.service.analyze({ intakeId: f.source.id, expectedRevision: 1 }, actor), { code: 'ai_source_changed' });
     await assert.rejects(f.service.confirm({ ...review, sourceKind: 'mail' }, actor), { code: 'ai_confirmation_invalid' });
     assert.equal(f.counts.providerCalls, 1); assert.equal(f.counts.mailCalls, 0);
+});
+
+test('expired original blocks fresh analysis and human confirmation while saved business history remains readable', async () => {
+    const first = aiFixture(); first.setNow(Date.parse(first.source.expiresAt));
+    await assert.rejects(first.service.analyze({ intakeId: first.source.id, sourceKind: 'text', expectedRevision: 0 }, actor), { code: 'text_source_expired' });
+    assert.equal(first.counts.providerCalls, 0); assert.equal(first.record, null);
+    const f = aiFixture(), analyzed = await f.service.analyze({ intakeId: f.source.id, sourceKind: 'text', expectedRevision: 0 }, actor);
+    f.setNow(Date.parse(f.source.expiresAt));
+    await assert.rejects(f.service.confirm({ intakeId: f.source.id, sourceKind: 'text', expectedRevision: 1, reviewedGroupIds: analyzed.analysis.groups.map(group => group.id), reviewedExclusions: true }, actor), { code: 'text_source_expired' });
+    assert.equal(f.record.data.status, 'needs_review'); assert.equal(f.counts.providerCalls, 1);
+    assert.equal((await f.service.read(f.source.id)).analysis.revision, 1);
 });

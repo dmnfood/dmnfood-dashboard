@@ -3,6 +3,8 @@ import { requestOrderAi } from './order-ai-client.js';
 const validId = value => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
 const MAX_IMAGE_BYTES = 600 * 1024;
 const hasOriginal = source => source?.kind === 'image' ? typeof source.contentBase64 === 'string' && source.contentBase64.length > 0 : typeof source?.text === 'string';
+const sourceMetadata = source => Object.fromEntries(['id', 'kind', 'channel', 'scope', 'sha256', 'title', 'fileName', 'mimeType', 'byteLength', 'createdByUid', 'createdAt', 'expiresAt'].filter(key => Object.hasOwn(source, key)).map(key => [key, source[key]]));
+const sourceExpired = source => source.expiresAt != null && (!Number.isFinite(Date.parse(source.expiresAt)) || Date.parse(source.expiresAt) <= Date.now());
 const channelLabel = value => value === 'sms' ? '문자' : '카카오톡';
 const timeLabel = value => {
   const date = new Date(value);
@@ -14,17 +16,17 @@ function button(text, action, cls = '') { const node = el('button', text, `order
 /** Adapt a preserved source to the existing source-independent review controller. */
 export function textSourceForAnalysis(source) {
   return { id: source.id, sourceKind: source.kind === 'image' ? 'image' : 'text', sourceChannel: source.channel, subject: source.title, receivedAt: source.createdAt,
-    rawStorage: { sha256: source.sha256 }, textSource: source };
+    rawStorage: { sha256: source.sha256 }, textSource: sourceMetadata(source) };
 }
 
 export function initOrderTextSources(session, { mount, dialog, form, addButton, canLeave = () => true, onSelectStart, onSelect, onPreview } = {}) {
   let disposed = false, sources = [], selectedId = '', listBusy = false, sourceBusy = false, saving = false, notice = '', failed = false, listGeneration = 0, generation = 0;
-  let listController, sourceController, saveController, requestId = '';
+  let listController, sourceController, saveController, cleanupController, requestId = '', cleanupBusy = false, cleanupGeneration = 0;
   let inputMode = 'text', imageDraft = null, imageBusy = false, imageVersion = 0, imageUrl = '';
   const list = el('div', null, 'order-text-source-list'), feedback = el('p', '', 'order-text-source-feedback');
   feedback.setAttribute('role', 'status'); feedback.setAttribute('aria-live', 'polite');
-  const toolbar = el('div', null, 'order-text-source-toolbar'), refresh = button('목록 새로고침', () => void loadList());
-  toolbar.append(el('span', '직접 추가한 발주'), refresh); mount.replaceChildren(toolbar, feedback, list);
+  const toolbar = el('div', null, 'order-text-source-toolbar'), refresh = button('목록 새로고침', () => void loadList()), cleanup = button('오래된 원본 정리', () => void cleanupExpired());
+  toolbar.setAttribute('aria-label', '직접 추가한 발주 도구'); toolbar.append(refresh, cleanup); mount.replaceChildren(toolbar, feedback, list);
   const input = form.elements.namedItem('text'), channel = form.elements.namedItem('channel'), submit = form.querySelector('[type="submit"]');
   const formError = form.querySelector('[role="alert"]'), close = form.querySelector('[data-close]'), cancel = form.querySelector('[data-cancel]');
   const fileInput = form.elements.namedItem('imageFile'), textPanel = form.querySelector('[data-text-panel]'), imagePanel = form.querySelector('[data-image-panel]');
@@ -84,7 +86,8 @@ export function initOrderTextSources(session, { mount, dialog, form, addButton, 
   fileInput.addEventListener('change', fileChanged); form.addEventListener('paste', pasted); renderInput();
 
   function render() {
-    addButton.disabled = saving; refresh.disabled = listBusy;
+    sources = sources.filter(source => !sourceExpired(source));
+    addButton.disabled = saving || cleanupBusy; refresh.disabled = listBusy || cleanupBusy; cleanup.disabled = cleanupBusy || saving;
     feedback.textContent = notice; feedback.hidden = !notice; feedback.dataset.error = String(failed); list.replaceChildren();
     if (!sources.length) list.append(el('p', listBusy ? '발주를 불러오고 있습니다.' : '카톡·문자로 받은 발주를 추가해 주세요.', 'mail-source-empty'));
     for (const source of sources) {
@@ -95,16 +98,35 @@ export function initOrderTextSources(session, { mount, dialog, form, addButton, 
       original.setAttribute('aria-label', `${source.title || '붙여넣은 발주'} 원문 보기`); actions.append(original); row.append(select, actions); list.append(row);
     }
   }
-  async function loadList() {
+  async function loadList({ completionNotice = '', completionFailed = false } = {}) {
+    if (disposed) return;
     const version = ++listGeneration; listController?.abort(); listController = new AbortController(); listBusy = true; render();
     try {
       const data = await requestOrderAi(session, 'text-sources', { signal: listController.signal });
       if (disposed || version !== listGeneration) return;
       if (!Array.isArray(data.sources) || data.sources.some(source => !validId(source.id))) throw new Error('발주 목록을 확인하지 못했습니다.');
-      const selected = sources.find(source => source.id === selectedId);
-      sources = selected && !data.sources.some(source => source.id === selectedId) ? [selected, ...data.sources] : data.sources; notice = ''; failed = false;
+      const selected = sources.find(source => source.id === selectedId && !sourceExpired(source)), available = data.sources.map(sourceMetadata).filter(source => !sourceExpired(source));
+      sources = selected && !available.some(source => source.id === selectedId) ? [selected, ...available] : available; notice = completionNotice; failed = completionFailed;
     } catch (error) { if (!disposed && version === listGeneration && error.name !== 'AbortError') { notice = error.message; failed = true; } }
     finally { if (!disposed && version === listGeneration) { listBusy = false; render(); } }
+  }
+  async function cleanupExpired() {
+    if (disposed || cleanupBusy || saving) return false;
+    const version = ++cleanupGeneration; cleanupController = new AbortController(); cleanupBusy = true; notice = '오래된 원본을 정리하고 있습니다.'; failed = false; render();
+    let completionNotice = '', completionFailed = false;
+    try {
+      try {
+        const data = await requestOrderAi(session, 'text-sources', { body: { action: 'cleanupExpired' }, signal: cleanupController.signal });
+        if (disposed || version !== cleanupGeneration) return false;
+        if (!Number.isSafeInteger(data.deletedCount) || data.deletedCount < 0 || data.deletedCount > 50) throw new Error('오래된 원본의 정리 결과를 확인하지 못했습니다.');
+        completionNotice = `오래된 원본 ${data.deletedCount}건을 정리했습니다.`;
+      } catch (error) {
+        if (disposed || version !== cleanupGeneration) return false;
+        completionNotice = error.message || '오래된 원본을 정리하지 못했습니다.'; completionFailed = true;
+      }
+      await loadList({ completionNotice, completionFailed });
+      return !disposed && version === cleanupGeneration && !completionFailed;
+    } finally { if (!disposed && version === cleanupGeneration) { cleanupBusy = false; render(); } }
   }
   async function selectSource(id, { history = 'push', analyze = false, source: loadedSource, checkedNavigation = false } = {}) {
     if (disposed || !validId(id) || !checkedNavigation && !canLeave()) return false;
@@ -114,7 +136,7 @@ export function initOrderTextSources(session, { mount, dialog, form, addButton, 
       const source = loadedSource || (await requestOrderAi(session, `text-sources?id=${encodeURIComponent(id)}`, { signal: controller.signal })).source;
       if (disposed || version !== generation) return false;
       if (!source || source.id !== id || !hasOriginal(source) || !/^[a-f0-9]{64}$/.test(source.sha256 || '')) throw new Error('보관된 발주 원문을 확인하지 못했습니다.');
-      if (!sources.some(item => item.id === id)) sources.unshift(source);
+      if (!sources.some(item => item.id === id)) sources.unshift(sourceMetadata(source));
       sourceBusy = false; render();
       await onSelect?.(textSourceForAnalysis(source), { analyze });
       return !disposed && version === generation;
@@ -149,7 +171,7 @@ export function initOrderTextSources(session, { mount, dialog, form, addButton, 
       if (!validId(data.source?.id) || !matches || data.source.channel !== selectedChannel || !/^[a-f0-9]{64}$/.test(data.source.sha256 || '')) throw new Error('보관된 발주 원문이 입력 내용과 일치하지 않습니다. 다시 확인해 주세요.');
       const source = data.source; dialog.close(); resetDraft();
       listController?.abort(); listGeneration++; listBusy = false;
-      sources = [source, ...sources.filter(item => item.id !== source.id)]; render();
+      sources = [sourceMetadata(source), ...sources.filter(item => item.id !== source.id)]; render();
       await selectSource(source.id, { source, analyze: true, checkedNavigation: true });
     } catch (error) { if (!disposed && error.name !== 'AbortError') { formError.textContent = error.message; formError.hidden = false; } }
     finally { if (!disposed) { saving = false; renderInput(); render(); } }
@@ -157,13 +179,13 @@ export function initOrderTextSources(session, { mount, dialog, form, addButton, 
   form.addEventListener('submit', submitForm);
   // A changed draft must not reuse an idempotency key for different source text.
   const editDraft = () => { if (!saving) requestId = ''; }; input.addEventListener('input', editDraft); channel.addEventListener('change', editDraft);
-  void loadList();
+  void cleanupExpired();
   return {
     selectSource, loadList,
-    canLeave() { if (saving) { notice = '발주 원문을 저장하고 분석을 시작하고 있습니다.'; render(); return false; } return true; },
+    canLeave() { if (saving || cleanupBusy) { notice = saving ? '발주 원문을 저장하고 분석을 시작하고 있습니다.' : '오래된 원본을 정리하고 있습니다.'; render(); return false; } return true; },
     clearSelection() { generation++; sourceController?.abort(); selectedId = ''; sourceBusy = false; render(); },
     open: openDialog,
-    destroy() { disposed = true; generation++; listGeneration++; listController?.abort(); sourceController?.abort(); saveController?.abort(); releaseImage();
+    destroy() { disposed = true; generation++; listGeneration++; cleanupGeneration++; listController?.abort(); sourceController?.abort(); saveController?.abort(); cleanupController?.abort(); releaseImage();
       addButton.removeEventListener('click', openClick); close.removeEventListener('click', closeClick); cancel.removeEventListener('click', closeClick); dialog.removeEventListener('cancel', cancelDialog); form.removeEventListener('submit', submitForm); form.removeEventListener('paste', pasted); fileInput.removeEventListener('change', fileChanged); for (const [control, action] of modeClicks) control.removeEventListener('click', action); input.removeEventListener('input', editDraft); channel.removeEventListener('change', editDraft); if (dialog.open) dialog.close(); }
   };
 }

@@ -324,6 +324,7 @@ export function initMailSourceViewer(session, mount, options = {}) {
       const records = data.mails.filter(mail => mail && SOURCE_ID.test(mail.id));
       mails = [...new Map([...(append ? mails : []), ...records].map(mail => [mail.id, mail])).values()];
       nextCursor = typeof data.nextCursor === 'string' && data.nextCursor ? data.nextCursor : null;
+      try { Promise.resolve(options.onListLoaded?.(records)).catch(() => {}); } catch { /* Supplementary status loading must not block the mail list. */ }
     } catch (error) { if (!disposed && version === listVersion && error.name !== 'AbortError') listError = errorText(error); }
     finally { if (!disposed && version === listVersion) { listBusy = false; renderList(); } }
   }

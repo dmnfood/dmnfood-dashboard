@@ -320,7 +320,7 @@ requireApprovedActiveUser().then(approvedSession => {
       activeMailId = '';
       if (value.id) { textSources?.clearSelection(); setQueueMode('mail'); setSourceRoute('mail', value.id, 'replace'); }
       closeEvidence(); preparation.setSource(null);
-    }, onMailLoaded: async mail => {
+    }, onListLoaded: mails => { void background?.refreshSavedStates(mails); }, onMailLoaded: async mail => {
       activeMailId = mail.id;
       const loaded = preparation.setSource(mail); preparation.setAutomationState(background?.stateFor(mail.id)); await loaded;
       const state = background?.stateFor(mail.id); if (activeMailId === mail.id && ['ready', 'confirmed'].includes(state?.state)) await preparation.refreshAnalysis({ revision: state.revision });
@@ -361,7 +361,7 @@ requireApprovedActiveUser().then(approvedSession => {
   confirmedOrders = initConfirmedOrderList(session, $('confirmedOrdersPanel'), {
     onRecords: records => { for (const record of records) if (record.sourceKind === 'mail') background.markConfirmed({ intakeId: record.intakeId, revision: record.revision, confirmedAt: record.confirmedAt }); },
     onOpenSource: async record => {
-      if (!canChangeSource() || !allowNavigation()) return;
+      if (!allowNavigation() || !canChangeSource()) return;
       $('existingOrdersDialog').close();
       const url = new URL(location.href); url.searchParams.delete('order'); url.searchParams.delete('tab'); window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
       if (record.sourceKind === 'mail') { textSources.clearSelection(); setQueueMode('mail'); await mailViewer.selectMail(record.intakeId, { checkedNavigation: true }); }

@@ -303,7 +303,7 @@ const server = createServer(async (req, res) => {
                 if (cursor && cursor !== nextToken) return reply(res, 400, { ok: false });
                 const records = referer.searchParams.get('mailSourceScenario') === 'empty' ? [] : folderId ? mailFixtures.filter(mail => mail.id !== TITLE_MAIL_ID) : mailFixtures;
                 const offset = cursor ? 2 : 0;
-                return reply(res, 200, { ok: true, mails: records.slice(offset, offset + 2).map(({ raw, ...summary }) => ({ ...summary, ...(folderId ? { folderId, observedAt: '2026-10-21T02:00:00.000Z' } : {}) })), nextCursor: records.length > offset + 2 ? nextToken : null, scope: { folderId }, schoolScope });
+                return reply(res, 200, { ok: true, mails: records.slice(offset, offset + 2).map(({ raw, ...summary }) => ({ ...summary, sourceHash: summary.rawStorage.sha256, ...(folderId ? { folderId, observedAt: '2026-10-21T02:00:00.000Z' } : {}) })), nextCursor: records.length > offset + 2 ? nextToken : null, scope: { folderId }, schoolScope });
             }
             if (url.pathname.endsWith('/attachment') && req.method === 'POST' && req.headers.origin === localOrigin && req.headers['content-type']?.startsWith('application/json')) {
                 const input = await readAction(req);

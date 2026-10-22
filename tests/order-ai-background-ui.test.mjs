@@ -147,3 +147,74 @@ test('another staff confirmation found by polling upgrades ready status and refr
   await h.tick(); assert.equal(h.app.stateFor(A).state, 'confirmed'); assert.equal(h.ready.length, 2); assert.equal(h.calls.some(call => call.body?.action === 'analyze'), false);
   assert.equal(h.app.markConfirmed({ intakeId: '../invalid', revision: 1 }), false); assert.equal(h.app.markConfirmed({ intakeId: A, revision: 0 }), false); h.app.destroy();
 });
+
+test('visible older mail restores only saved analysis matching its original ID and hash without starting AI work', async () => {
+  const hash = 'e'.repeat(64), confirmedAt = '2026-10-01T03:00:00.000Z';
+  const h = harness(call => {
+    if (!call.path.startsWith('analysis?')) return;
+    const id = new URLSearchParams(call.path.split('?')[1]).get('intakeId');
+    return { ok: true, analysis: id === C ? null : { intakeId: id, sourceHash: hash, status: id === A ? 'confirmed' : 'needs_review', revision: 3, confirmedAt } };
+  });
+  await settle();
+  await h.app.refreshSavedStates([{ id: A, sourceHash: hash }, { id: B, sourceHash: hash }, { id: C, sourceHash: hash }, { id: 'invalid', sourceHash: hash }]);
+  assert.deepEqual(h.app.stateFor(A), { intakeId: A, state: 'confirmed', revision: 3, confirmedAt });
+  assert.equal(h.app.stateFor(B).state, 'ready'); assert.equal(h.app.stateFor(C), null);
+  assert.deepEqual(h.ready.map(item => item.intakeId), [A, B]);
+  await h.app.refreshSavedStates([{ id: A, sourceHash: hash }, { id: B, sourceHash: hash }, { id: C, sourceHash: hash }]);
+  assert.equal(h.calls.filter(call => call.path.startsWith('analysis?')).length, 5);
+  assert.equal(h.calls.some(call => call.body?.action === 'analyze'), false); h.app.destroy();
+});
+
+test('saved-state restoration rejects unrelated, changed, or incomplete analysis and preserves a newer confirmation', async () => {
+  const hash = 'e'.repeat(64), held = deferred(); let reads = 0;
+  const h = harness(call => call.path.startsWith('analysis?') ? ++reads === 1 ? { analysis: { intakeId: B, sourceHash: hash, status: 'confirmed', revision: 2 } }
+    : reads === 2 ? { analysis: { intakeId: B, sourceHash: A, status: 'confirmed', revision: 2 } }
+      : reads === 3 ? { analysis: { intakeId: C, sourceHash: hash, status: 'confirmed', revision: 0 } } : held.promise : undefined);
+  await settle(); await h.app.refreshSavedStates([{ id: A, sourceHash: hash }, { id: B, sourceHash: hash }, { id: C, sourceHash: hash }, { id: A }, { id: B, sourceHash: 'invalid' }]);
+  assert.equal(h.states.length, 0);
+  const reading = h.app.refreshSavedStates([{ id: A, sourceHash: hash }]); await settle();
+  h.app.markConfirmed({ intakeId: A, revision: 5 });
+  held.resolve({ analysis: { intakeId: A, sourceHash: hash, status: 'needs_review', revision: 1 } }); await reading;
+  assert.equal(h.app.stateFor(A).state, 'confirmed'); assert.equal(h.app.stateFor(A).revision, 5); h.app.destroy();
+});
+
+test('saved-state reads cap a page at twenty, share repeated page requests, and run at most four at once', async () => {
+  const hash = 'e'.repeat(64), jobs = [], sources = Array.from({ length: 21 }, (_, index) => ({ id: (index + 1).toString(16).padStart(64, '0'), sourceHash: hash }));
+  let active = 0, peak = 0;
+  const h = harness(call => {
+    if (!call.path.startsWith('analysis?')) return;
+    const job = deferred(); jobs.push(job); active++; peak = Math.max(peak, active);
+    return job.promise.finally(() => active--);
+  });
+  await settle();
+  const first = h.app.refreshSavedStates(sources), repeated = h.app.refreshSavedStates(sources);
+  await settle(); assert.equal(jobs.length, 4);
+  for (let offset = 0; offset < 20; offset += 4) { for (const job of jobs.slice(offset, offset + 4)) job.resolve({ analysis: null }); await settle(); }
+  await Promise.all([first, repeated]); assert.equal(peak, 4); assert.equal(jobs.length, 20);
+  assert.equal(h.calls.some(call => call.body?.action === 'analyze'), false); h.app.destroy();
+});
+
+test('reloading an old page rereads ready analysis and discovers another staff confirmation', async () => {
+  const hash = 'e'.repeat(64); let reads = 0;
+  const h = harness(call => call.path.startsWith('analysis?') ? { analysis: { intakeId: A, sourceHash: hash, status: ++reads === 1 ? 'needs_review' : 'confirmed', revision: reads } } : undefined);
+  await settle();
+  await h.app.refreshSavedStates([{ id: A, sourceHash: hash }]); assert.equal(h.app.stateFor(A).state, 'ready');
+  await h.app.refreshSavedStates([{ id: A, sourceHash: hash }]); assert.equal(h.app.stateFor(A).state, 'confirmed');
+  await h.app.refreshSavedStates([{ id: A, sourceHash: hash }]); assert.equal(reads, 2); h.app.destroy();
+});
+
+test('optional saved-state failures stay silent and destroying aborts active reads and settles queued requests', async () => {
+  const hash = 'e'.repeat(64), held = deferred(); let reads = 0;
+  const h = harness(call => {
+    if (!call.path.startsWith('analysis?')) return;
+    if (++reads === 1) throw new Error('일시적인 연결 오류');
+    return held.promise;
+  });
+  await settle(); await h.app.refreshSavedStates([{ id: A, sourceHash: hash }]);
+  assert.equal(h.app.stateFor(A), null); assert.equal(h.statuses.at(-1).state, 'idle');
+  const reading = h.app.refreshSavedStates([A, B, C, 'd'.repeat(64), 'f'.repeat(64)].map(id => ({ id, sourceHash: hash })));
+  await settle(); const active = h.calls.filter(call => call.path.startsWith('analysis?')).slice(1); assert.equal(active.length, 4);
+  h.app.destroy(); await reading; assert.ok(active.every(call => call.signal.aborted));
+  held.resolve({ analysis: { intakeId: A, sourceHash: hash, status: 'confirmed', revision: 3 } }); await settle();
+  assert.equal(h.states.length, 0); assert.equal(reads, 5);
+});

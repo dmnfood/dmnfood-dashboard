@@ -58,7 +58,7 @@ class UiNode {
 }
 function uiNodes(node, predicate) { return [...(predicate(node) ? [node] : []), ...node.children.flatMap(child => uiNodes(child, predicate))]; }
 const settleUi = async () => { await new Promise(resolve => setImmediate(resolve)); await new Promise(resolve => setImmediate(resolve)); };
-function viewerHarness(respond, href = 'https://dashboard.dmnfood.co.kr/orders', { split = false, summaryOnly = false, manageHistory = false, omitDetailMount = false, onSelectMail, onBeforeSelectMail, onWorkbookClosed, onMailLoaded, onPreviewAttachment, onHistoryChange } = {}) {
+function viewerHarness(respond, href = 'https://dashboard.dmnfood.co.kr/orders', { split = false, summaryOnly = false, manageHistory = false, omitDetailMount = false, onSelectMail, onBeforeSelectMail, onWorkbookClosed, onMailLoaded, onPreviewAttachment, onHistoryChange, onListLoaded } = {}) {
     const calls = [], listeners = new Map(), mount = new UiNode('section'), body = new UiNode('body'), location = { href, get search() { return new URL(this.href).search; } };
     const history = { state: {}, pushState(state, title, path) { location.href = new URL(path, location.href).href; }, replaceState(state, title, path) { location.href = new URL(path, location.href).href; } };
     const context = vm.createContext({ document: { body, createElement: tag => new UiNode(tag), createTextNode: value => { const node = new UiNode('#text'); node.nodeType = 3; node.textContent = value; return node; } }, Node: UiNode,
@@ -70,7 +70,7 @@ function viewerHarness(respond, href = 'https://dashboard.dmnfood.co.kr/orders',
     const listMount = new UiNode('aside'), detailMount = new UiNode('section'), toolbarMount = new UiNode('div'), staticHeader = new UiNode('h2');
     staticHeader.textContent = '발주함'; detailMount.setAttribute('role', 'tabpanel'); detailMount.setAttribute('aria-labelledby', 'mailOriginalTab');
     if (split) mount.append(staticHeader, toolbarMount, listMount, ...(omitDetailMount ? [] : [detailMount]));
-    const cleanup = context.startViewer({ user: { getIdToken: async () => 'fictional-ui-token' } }, mount, { ...(split ? { listMount, ...(omitDetailMount ? {} : { detailMount }), toolbarMount } : {}), summaryOnly, manageHistory, onSelectMail, onBeforeSelectMail, onWorkbookClosed, onMailLoaded, onPreviewAttachment, onHistoryChange });
+    const cleanup = context.startViewer({ user: { getIdToken: async () => 'fictional-ui-token' } }, mount, { ...(split ? { listMount, ...(omitDetailMount ? {} : { detailMount }), toolbarMount } : {}), summaryOnly, manageHistory, onSelectMail, onBeforeSelectMail, onWorkbookClosed, onMailLoaded, onPreviewAttachment, onHistoryChange, onListLoaded });
     return { calls, mount, body, listMount, detailMount, toolbarMount, staticHeader, cleanup, location, listeners, select: () => uiNodes(mount, node => node.tagName === 'SELECT')[0] };
 }
 const scoped = (folderId, mails, nextCursor = null) => ({ ok: true, scope: { folderId }, mails, nextCursor });
@@ -120,6 +120,28 @@ test('school list rejects an unscoped or wrong-folder response instead of showin
         assert.doesNotMatch(app.mount.textContent, /unrelated-inbox/);
         app.cleanup();
     }
+});
+
+test('mail pages report only their validated page records without delaying the visible inbox', async () => {
+    const pages = [];
+    const app = viewerHarness(url => scoped('106', [mailSummary(url.searchParams.has('cursor') ? 'second-mail' : 'first-mail')], url.searchParams.has('cursor') ? null : 'next-page'),
+        'https://dashboard.dmnfood.co.kr/orders', { onListLoaded: records => { pages.push(Array.from(records, mail => mail.id)); return new Promise(() => {}); } });
+    await settleUi(); assert.deepEqual(pages, [['first-mail']]); assert.match(app.mount.textContent, /first-mail/);
+    uiNodes(app.mount, node => node.tagName === 'BUTTON' && node.textContent === '메일 더 불러오기')[0].fire('click'); await settleUi();
+    assert.deepEqual(pages, [['first-mail'], ['second-mail']]); assert.match(app.mount.textContent, /first-mail/); assert.match(app.mount.textContent, /second-mail/); app.cleanup();
+});
+
+test('saved-state callbacks do not receive stale or invalid pages and their errors cannot fail the inbox', async () => {
+    let finishSchool; const pages = [];
+    const app = viewerHarness(url => url.searchParams.has('folderId') ? new Promise(resolve => { finishSchool = resolve; }) : scoped(null, [mailSummary('active-mail', '0')]),
+        'https://dashboard.dmnfood.co.kr/orders', { onListLoaded: records => { pages.push(Array.from(records, mail => mail.id)); return Promise.reject(new Error('Optional status read failed')); } });
+    await settleUi(); app.select().value = 'all'; app.select().fire('change'); await settleUi();
+    finishSchool(scoped('106', [mailSummary('stale-mail')])); await settleUi();
+    assert.deepEqual(pages, [['active-mail']]); assert.match(app.mount.textContent, /active-mail/); assert.doesNotMatch(app.mount.textContent, /메일 목록 확인이 필요합니다/); app.cleanup();
+    const invalid = viewerHarness(() => scoped(null, [mailSummary('wrong-mail', '0')]), 'https://dashboard.dmnfood.co.kr/orders', { onListLoaded: () => pages.push(['invalid']) });
+    await settleUi(); assert.deepEqual(pages, [['active-mail']]); invalid.cleanup();
+    const throwing = viewerHarness(() => scoped('106', [mailSummary('valid-mail')]), 'https://dashboard.dmnfood.co.kr/orders', { onListLoaded: () => { throw new Error('Optional status read failed'); } });
+    await settleUi(); assert.match(throwing.mount.textContent, /valid-mail/); assert.doesNotMatch(throwing.mount.textContent, /메일 목록 확인이 필요합니다/); throwing.cleanup();
 });
 
 

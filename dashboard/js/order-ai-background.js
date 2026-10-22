@@ -13,6 +13,8 @@ export function initOrderBackground(session, {
   let disposed = false, scanning = false, draining = false, scanAgain = false, timer, scanController, workerController;
   let continuation = null, firstSync = true, collectedCount = 0, activeId = '';
   const states = new Map(), queue = [], queued = new Set(), attempted = new Set();
+  const savedQueue = [], savedLookups = new Map();
+  let savedReading = 0;
 
   function notify(callback, value) { if (!disposed) callback?.(value); }
   function publish(items) {
@@ -40,6 +42,43 @@ export function initOrderBackground(session, {
     if (disposed) return;
     if (timer !== undefined) unschedule(timer);
     timer = schedule(() => { timer = undefined; void scan(); }, intervalMs);
+  }
+  function drainSavedStates() {
+    while (!disposed && isOnline() && savedReading < 4 && savedQueue.length) {
+      const job = savedQueue.shift();
+      if (states.get(job.id)?.state === 'confirmed') { savedLookups.delete(job.key); job.resolve(); continue; }
+      savedReading++; job.controller = new AbortController();
+      void (async () => {
+        try {
+          const result = await request(session, `analysis?intakeId=${encodeURIComponent(job.id)}`, { signal: job.controller.signal });
+          if (disposed || job.controller.signal.aborted) return;
+          const analysis = result.analysis;
+          if (analysis == null) return;
+          if (analysis.intakeId !== job.id || analysis.sourceHash !== job.hash
+            || !['needs_review', 'confirmed'].includes(analysis.status)
+            || !Number.isSafeInteger(analysis.revision) || analysis.revision < 1) return;
+          publish([{ intakeId: job.id, state: analysis.status === 'confirmed' ? 'confirmed' : 'ready', revision: analysis.revision, confirmedAt: analysis.confirmedAt }]);
+        } catch { /* An optional saved-state read must not interrupt the inbox or start AI work. */ }
+        finally { savedReading--; savedLookups.delete(job.key); job.resolve(); drainSavedStates(); }
+      })();
+    }
+  }
+  function refreshSavedStates(sources) {
+    if (disposed || !isOnline() || !Array.isArray(sources)) return Promise.resolve();
+    const reads = [];
+    for (const source of sources.slice(0, 20)) {
+      const id = source?.id, hash = source?.sourceHash;
+      if (!validId(id) || !validId(hash) || states.get(id)?.state === 'confirmed') continue;
+      const key = `${id}:${hash}`;
+      let job = savedLookups.get(key);
+      if (!job) {
+        let resolve; const promise = new Promise(done => { resolve = done; });
+        job = { id, hash, key, promise, resolve }; savedLookups.set(key, job); savedQueue.push(job);
+      }
+      reads.push(job.promise);
+    }
+    drainSavedStates();
+    return Promise.all(reads).then(() => undefined);
   }
   function enqueue(items) {
     for (const item of items) {
@@ -122,18 +161,19 @@ export function initOrderBackground(session, {
       }
     }
   }
-  const online = () => { void scan(); void drain(); };
+  const online = () => { void scan(); void drain(); drainSavedStates(); };
   const mailUpdated = event => { if (event?.detail?.origin !== 'background') void scan({ collectMail: false }); };
   events.addEventListener('online', online); events.addEventListener('mail-intakes-updated', mailUpdated);
   void scan();
   return {
     refresh: scan,
+    refreshSavedStates,
     stateFor: id => states.get(id) || null,
     markConfirmed(value) {
       if (disposed || !validId(value?.intakeId) || !Number.isSafeInteger(value.revision) || value.revision < 1) return false;
       publish([{ intakeId: value.intakeId, state: 'confirmed', revision: value.revision, confirmedAt: value.confirmedAt }]);
       return true;
     },
-    destroy() { disposed = true; scanAgain = false; if (timer !== undefined) unschedule(timer); scanController?.abort(); workerController?.abort(); queue.length = 0; queued.clear(); attempted.clear(); states.clear(); events.removeEventListener('online', online); events.removeEventListener('mail-intakes-updated', mailUpdated); },
+    destroy() { disposed = true; scanAgain = false; if (timer !== undefined) unschedule(timer); scanController?.abort(); workerController?.abort(); for (const job of savedLookups.values()) { job.controller?.abort(); job.resolve(); } savedQueue.length = 0; savedLookups.clear(); queue.length = 0; queued.clear(); attempted.clear(); states.clear(); events.removeEventListener('online', online); events.removeEventListener('mail-intakes-updated', mailUpdated); },
   };
 }

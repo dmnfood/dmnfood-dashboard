@@ -36,6 +36,7 @@ const schoolFolders = folders => ({ ok: true, folders, schoolScope: { folderId: 
 
 function panel({ role = 'admin', responses, url = 'https://dashboard.dmnfood.co.kr/orders' } = {}) {
   const calls = [], navigations = [], historyReplacements = [];
+  const retryTimers = new Map(); let nextRetryTimer = 0;
   const documentEvents = new Map();
   const document = { activeElement: null, createElement: tag => new Node(tag, document),
     addEventListener: (name, handler) => documentEvents.set(name, handler),
@@ -51,8 +52,11 @@ function panel({ role = 'admin', responses, url = 'https://dashboard.dmnfood.co.
     },
   });
   vm.runInContext(`${source.replace(/^export /gm, '')}\nglobalThis.startPanel = initMailConnection;`, context);
-  const cleanup = context.startPanel({ profile: { role }, user: { getIdToken: async () => 'firebase-user-token' } }, mount);
-  return { mount, calls, navigations, historyReplacements, cleanup, document, documentEvents };
+  const cleanup = context.startPanel({ profile: { role }, user: { getIdToken: async () => 'firebase-user-token' } }, mount, {
+    schedule: (work, delay) => { const id = ++nextRetryTimer; retryTimers.set(id, { work, delay }); return id; }, unschedule: id => retryTimers.delete(id),
+  });
+  return { mount, calls, navigations, historyReplacements, cleanup, document, documentEvents, retryTimers,
+    retry: async () => { const next = retryTimers.entries().next().value; assert.ok(next, 'a folder-only retry is scheduled'); retryTimers.delete(next[0]); await next[1].work(); await settled(); } };
 }
 
 test('manager panel stays compact without asserting unknown status, exposing setup details or calling APIs', async () => {
@@ -314,6 +318,82 @@ test('connection failure shows a concise status with details in the dropdown and
   assert.match(strip.textContent, /연결 상태를 확인하지 못했습니다/);
   assert.match(dialog.textContent, /연결 상태를 확인하지 못했습니다/);
   app.cleanup();
+});
+
+test('a shared mail-operation lease is transient and only folder reads retry while the verified connection stays normal', async () => {
+  let folders = 0;
+  const app = panel({ responses: path => path.endsWith('/status') ? configured() : ++folders === 1 ? { status: 409, body: { ok: false, code: 'MAIL_SYNC_BUSY' } } : schoolFolders([{ id: '106', name: '학교급식 발주' }]) });
+  await settled();
+  assert.equal(findToggle(app.mount).textContent, '네이버웍스 연결 정상⌄');
+  assert.match(app.mount.textContent, /다른 메일 작업이 진행 중/);
+  assert.doesNotMatch(app.mount.textContent, /연결 상태 또는 수집 범위가 변경/);
+  assert.equal(findButton(app.mount, '메일 가져오기').disabled, true);
+  assert.equal([...app.retryTimers.values()][0].delay, 2000);
+  await findButton(app.mount, '메일 가져오기').fire('click');
+  assert.equal(app.calls.length, 2, 'an unverified folder cannot be collected through a synthetic click');
+  await app.retry();
+  assert.equal(findButton(app.mount, '메일 가져오기').disabled, false); assert.equal(app.retryTimers.size, 0);
+  assert.equal(findAll(app.mount, node => node.tagName === 'select')[0].value, '106');
+  assert.doesNotMatch(app.mount.textContent, /다른 메일 작업이 진행 중/);
+  assert.deepEqual(app.calls.map(call => call.path), ['/api/naverworks/status', '/api/naverworks/folders', '/api/naverworks/folders']);
+  app.cleanup();
+});
+
+test('temporary folder contention preserves a signed collection continuation and never retries a sync operation', async () => {
+  let folders = 0;
+  const app = panel({ responses: path => path.endsWith('/status') ? configured() : path.endsWith('/folders') ? ++folders === 2 ? { status: 409, body: { ok: false, code: 'MAIL_SYNC_BUSY' } } : schoolFolders([{ id: '106', name: '학교급식 발주' }]) : { ok: true, sync: { status: 'partial', continuation: 'original-signed-next' } } });
+  await settled(); await findButton(app.mount, '메일 가져오기').fire('click');
+  await findButton(app.mount, '연결 상태 새로 확인').fire('click');
+  assert.equal(findAll(app.mount, node => node.tagName === 'select')[0].value, '106');
+  assert.equal(findButton(app.mount, '이어서 수집').disabled, true);
+  await app.retry();
+  assert.equal(findButton(app.mount, '이어서 수집').disabled, false);
+  assert.equal(app.calls.filter(call => call.path.endsWith('/sync')).length, 1);
+  await findButton(app.mount, '이어서 수집').fire('click');
+  assert.deepEqual(JSON.parse(app.calls.at(-1).settings.body), { folderId: '106', scope: 'school', continuation: 'original-signed-next' });
+  app.cleanup();
+});
+
+test('a manual sync meeting an existing mail operation stays neutral and is never automatically repeated', async () => {
+  const app = panel({ responses: path => path.endsWith('/status') ? configured() : path.endsWith('/folders') ? schoolFolders([{ id: '106', name: '학교급식 발주' }]) : { status: 409, body: { ok: false, code: 'MAIL_SYNC_BUSY' } } });
+  await settled(); await findButton(app.mount, '메일 가져오기').fire('click');
+  assert.equal(findToggle(app.mount).textContent, '네이버웍스 연결 정상⌄'); assert.match(app.mount.textContent, /다른 메일 작업이 진행 중/);
+  assert.equal(app.retryTimers.size, 0); assert.equal(app.calls.filter(call => call.path.endsWith('/sync')).length, 1);
+  app.cleanup();
+});
+
+test('actual folder or connection conflicts remain errors and are never treated as operation contention', async () => {
+  for (const code of ['school_mail_folder_unavailable', 'naverworks_reconnect_required', 'unknown_conflict']) {
+    const app = panel({ responses: path => path.endsWith('/status') ? configured() : { status: 409, body: { ok: false, code } } });
+    await settled();
+    assert.equal(findToggle(app.mount).textContent, '네이버웍스 확인 필요⌄');
+    assert.equal(findButton(app.mount, '메일 가져오기').disabled, true); assert.equal(app.retryTimers.size, 0);
+    app.cleanup();
+  }
+});
+
+test('folder-only retries are bounded and cleanup cancels pending or already-queued retry callbacks', async () => {
+  const busy = () => ({ status: 409, body: { ok: false, code: 'MAIL_SYNC_BUSY' } });
+  const app = panel({ responses: path => path.endsWith('/status') ? configured() : busy() });
+  await settled();
+  for (let count = 0; count < 8; count++) await app.retry();
+  assert.equal(app.retryTimers.size, 0); assert.equal(app.calls.filter(call => call.path.endsWith('/folders')).length, 9);
+  assert.equal(findToggle(app.mount).textContent, '네이버웍스 연결 정상⌄');
+  assert.equal(app.calls.some(call => call.path.endsWith('/sync') || call.path.endsWith('/start')), false);
+  app.cleanup();
+  const disposed = panel({ responses: path => path.endsWith('/status') ? configured() : busy() });
+  await settled(); const queued = [...disposed.retryTimers.values()][0].work, calls = disposed.calls.length;
+  disposed.cleanup(); assert.equal(disposed.retryTimers.size, 0); const before = disposed.mount.textContent;
+  await queued(); assert.equal(disposed.calls.length, calls); assert.equal(disposed.mount.textContent, before);
+});
+
+test('an explicit successful refresh invalidates an older queued folder retry', async () => {
+  let folders = 0;
+  const app = panel({ responses: path => path.endsWith('/status') ? configured() : ++folders === 1 ? { status: 409, body: { ok: false, code: 'MAIL_SYNC_BUSY' } } : schoolFolders([{ id: '106', name: '학교급식 발주' }]) });
+  await settled(); const queued = [...app.retryTimers.values()][0].work;
+  await findButton(app.mount, '연결 상태 새로 확인').fire('click'); const calls = app.calls.length;
+  assert.equal(app.retryTimers.size, 0); await queued(); assert.equal(app.calls.length, calls);
+  assert.equal(findButton(app.mount, '메일 가져오기').disabled, false); app.cleanup();
 });
 
 test('keyboard focus stays on the collection action across busy, continuation and completion without duplicate requests', async () => {

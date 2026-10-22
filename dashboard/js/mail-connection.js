@@ -12,6 +12,8 @@ const CONFIGURATION_LABELS = {
   MAIL_COLLECTOR_EMAIL: '메일 수집 전용 저장 계정',
   MAIL_COLLECTOR_PASSWORD: '메일 수집 전용 저장 계정 비밀 설정',
 };
+const FOLDER_RETRY_DELAYS = [2000, 5000, 10000, 20000, 30000, 60000, 90000, 90000];
+const MAIL_OPERATION_BUSY = '다른 메일 작업이 진행 중입니다. 메일함 정보를 잠시 후 다시 확인합니다.';
 
 function element(tag, text, className) {
   const node = document.createElement(tag);
@@ -35,6 +37,7 @@ function safeError(error) {
   if (error?.code === 'school_mail_folder_unavailable' || error?.code === 'school_mail_folder_required') return '학교급식 발주 메일함의 이름이나 위치를 확인하지 못해 수집을 중단했습니다. 연결 상태를 새로 확인해 주세요.';
   if (error?.code === 'mail_configuration_required') return '서버 연결 설정이 아직 준비되지 않았습니다. 설정 항목을 저장한 뒤 연결 상태를 다시 확인해 주세요.';
   if (error?.code === 'naverworks_reconnect_required' || error?.code === 'mail_connection_required') return '메일 계정 연결을 다시 확인해야 합니다. 네이버웍스 계정 연결을 진행해 주세요.';
+  if (error?.code === 'MAIL_SYNC_BUSY') return '다른 메일 작업이 진행 중입니다. 잠시 후 다시 시도해 주세요.';
   if (error?.status === 409) return '연결 상태 또는 수집 범위가 변경되었습니다. 연결 상태를 새로 확인해 주세요.';
   if (error?.status === 429) return '요청이 많아 잠시 기다려야 합니다. 잠시 후 다시 시도해 주세요.';
   return '메일 연결 상태를 확인하지 못했습니다. 인터넷 연결과 서버 설정을 확인한 뒤 다시 시도해 주세요.';
@@ -47,12 +50,13 @@ export function findSchoolMailFolder(folders) {
 }
 
 /** Connection settings and an optional manual collection action for the open inbox. */
-export function initMailConnection(session, mount) {
+export function initMailConnection(session, mount, { schedule = (work, delay) => setTimeout(work, delay), unschedule = timer => clearTimeout(timer) } = {}) {
   if (!mount) return () => {};
   const abortController = new AbortController();
   const isAdmin = session?.profile?.role === 'admin';
   let state = null, folders = [], selectedFolder = '', continuation = null, syncResult = null, busy = false, disposed = false;
   let statusError = '', actionMessage = '', actionFailed = false, folderError = '';
+  let folderPending = false, folderRetryTimer = null, folderRetryAttempt = 0, folderRetryGeneration = 0;
   let callbackStatus = '', callbackMessage = '', callbackFailed = false;
   let settingsTrigger = null, dropdownTrigger = null, dropdown = null, dropdownOpen = false;
   const strip = element('div', undefined, 'mail-connection-strip');
@@ -192,13 +196,14 @@ export function initMailConnection(session, mount) {
     const sync = button(busy ? '처리 중…' : continuation ? '이어서 수집' : '메일 가져오기', syncMail, true);
     sync.dataset.mailAction = 'sync';
     // Keep the active action focusable while busy; syncMail's guard prevents repeat requests.
-    sync.disabled = !connected() || selectedFolder !== SCHOOL_FOLDER_ID || Boolean(folderError);
+    sync.disabled = !connected() || selectedFolder !== SCHOOL_FOLDER_ID || Boolean(folderError) || folderPending;
     sync.setAttribute('aria-disabled', String(busy || sync.disabled));
     settingsTrigger = button('연결 설정', openSettings);
     settingsTrigger.dataset.mailAction = 'open-settings';
     settingsTrigger.setAttribute('aria-haspopup', 'dialog');
     actions.append(sync, settingsTrigger); dropdown.append(actions); strip.append(dropdown);
-    const feedbacks = [callbackMessage && { text: callbackMessage, error: callbackFailed }, (statusError || folderError || actionMessage) && { text: statusError || folderError || actionMessage, error: Boolean(statusError || folderError || actionFailed) }].filter(Boolean);
+    const feedbackText = statusError || folderError || actionMessage || (folderPending ? MAIL_OPERATION_BUSY : '');
+    const feedbacks = [callbackMessage && { text: callbackMessage, error: callbackFailed }, feedbackText && { text: feedbackText, error: Boolean(statusError || folderError || actionFailed) }].filter(Boolean);
     for (const feedback of feedbacks) {
       const message = element('div', feedback.text, 'mail-strip-feedback');
       message.setAttribute('role', feedback.error ? 'alert' : 'status'); message.dataset.error = String(feedback.error); dropdown.append(message);
@@ -244,7 +249,7 @@ export function initMailConnection(session, mount) {
     syncArea.append(element('h3', '메일 가져오기 범위'), element('p', '발주함이 열려 있는 동안 학교급식 메일을 자동 확인합니다. 닫으면 자동 처리가 멈춥니다. 필요한 경우 ‘메일 가져오기’로 최근 7일 자료를 다시 확인할 수 있습니다.', 'mail-description'));
     const label = element('label', '학교급식 수집 메일함 · 고정', 'mail-folder');
     const select = element('select'); select.setAttribute('aria-label', '학교급식 수집 메일함');
-    const option = element('option', selectedFolder ? SCHOOL_FOLDER_NAME : !connected() ? '계정 연결 후 확인합니다' : folderError ? '학교급식 메일함 확인 필요' : '학교급식 메일함 확인 중'); option.value = selectedFolder; select.append(option);
+    const option = element('option', selectedFolder ? SCHOOL_FOLDER_NAME : !connected() ? '계정 연결 후 확인합니다' : folderError ? '학교급식 메일함 확인 필요' : folderPending ? '다른 메일 작업 후 확인합니다' : '학교급식 메일함 확인 중'); option.value = selectedFolder; select.append(option);
     select.value = selectedFolder; select.disabled = true;
     label.append(select); syncArea.append(label);
     if (folderError) { const warning = element('p', folderError, 'mail-message'); warning.setAttribute('role', 'alert'); syncArea.append(warning); }
@@ -257,6 +262,19 @@ export function initMailConnection(session, mount) {
     }
   }
 
+  function clearFolderRetry() { folderRetryGeneration++; if (folderRetryTimer !== null) unschedule(folderRetryTimer); folderRetryTimer = null; }
+  function scheduleFolderRetry() {
+    if (disposed || folderRetryTimer !== null || folderRetryAttempt >= FOLDER_RETRY_DELAYS.length) return;
+    const generation = folderRetryGeneration;
+    folderRetryTimer = schedule(async () => {
+      if (disposed || generation !== folderRetryGeneration) return;
+      folderRetryTimer = null;
+      if (!connected()) return;
+      if (busy) { scheduleFolderRetry(); return; }
+      busy = true; render();
+      try { await loadFolders(); } finally { busy = false; render(); }
+    }, FOLDER_RETRY_DELAYS[folderRetryAttempt++]);
+  }
   async function loadFolders() {
     try {
       const data = await request('folders');
@@ -266,11 +284,15 @@ export function initMailConnection(session, mount) {
       folderError = verified ? '' : '‘학교급식 발주’ 메일함의 이름과 위치를 확인하지 못했습니다. 이름 변경·중복 여부를 확인해 주세요. 다른 메일함으로 대신 수집하지 않습니다.';
       selectedFolder = verified ? SCHOOL_FOLDER_ID : '';
       if (!verified) continuation = null;
-    } catch (error) { folderError = safeError(error); folders = []; selectedFolder = ''; continuation = null; }
+      folderPending = false; folderRetryAttempt = 0; clearFolderRetry();
+    } catch (error) {
+      if (error.code === 'MAIL_SYNC_BUSY') { folderPending = true; scheduleFolderRetry(); return; }
+      folderPending = false; clearFolderRetry(); folderError = safeError(error); folders = []; selectedFolder = ''; continuation = null;
+    }
   }
   async function refreshStatus() {
     if (busy || !isAdmin || disposed) return;
-    busy = true; statusError = ''; render();
+    clearFolderRetry(); folderRetryAttempt = 0; busy = true; statusError = ''; render();
     try {
       state = await request('status');
       if (callbackStatus === 'connected') {
@@ -278,9 +300,9 @@ export function initMailConnection(session, mount) {
         callbackMessage = connected() ? '지정된 수신 계정의 메일 읽기 연결을 확인했습니다.' : '메일 계정 연결 완료를 확인하지 못했습니다. 지정 계정과 서버 설정을 확인한 뒤 다시 연결해 주세요.';
       }
       if (connected()) await loadFolders();
-      else { folders = []; selectedFolder = ''; continuation = null; folderError = ''; }
+      else { folders = []; selectedFolder = ''; continuation = null; folderError = ''; folderPending = false; }
     } catch (error) {
-      state = null; folders = []; selectedFolder = ''; continuation = null; statusError = safeError(error);
+      state = null; folders = []; selectedFolder = ''; continuation = null; folderPending = false; clearFolderRetry(); statusError = safeError(error);
       if (callbackStatus === 'connected') { callbackMessage = '메일 계정 연결 완료를 확인하지 못했습니다. 연결 상태를 새로 확인해 주세요.'; callbackFailed = true; }
     }
     finally { busy = false; render(); }
@@ -297,7 +319,7 @@ export function initMailConnection(session, mount) {
     finally { busy = false; render(); }
   }
   async function syncMail() {
-    if (busy || !isAdmin || !connected() || selectedFolder !== SCHOOL_FOLDER_ID || folderError || disposed) return;
+    if (busy || !isAdmin || !connected() || selectedFolder !== SCHOOL_FOLDER_ID || folderError || folderPending || disposed) return;
     busy = true; actionMessage = ''; actionFailed = false; render();
     try {
       const data = await request('sync', { method: 'POST', body: { folderId: selectedFolder, scope: 'school', ...(continuation ? { continuation } : {}) } });
@@ -306,14 +328,14 @@ export function initMailConnection(session, mount) {
       continuation = data.sync.status === 'partial' && typeof data.sync.continuation === 'string' && data.sync.continuation ? data.sync.continuation : null;
       actionMessage = data.sync.status === 'partial' ? '메일을 일부 가져왔습니다. ‘이어서 수집’을 눌러 나머지를 가져오세요.' : '학교급식 메일을 가져왔습니다. 목록에서 첨부 원본을 확인하세요.';
       window.dispatchEvent?.(new CustomEvent('mail-intakes-updated'));
-    } catch (error) { actionMessage = safeError(error); actionFailed = true; }
+    } catch (error) { actionMessage = safeError(error); actionFailed = error.code !== 'MAIL_SYNC_BUSY'; }
     finally { busy = false; render(); }
   }
 
   render();
   if (isAdmin) void refreshStatus();
   return () => {
-    disposed = true; abortController.abort();
+    disposed = true; clearFolderRetry(); abortController.abort();
     document.removeEventListener('pointerdown', outsideDropdown);
     document.removeEventListener('focusin', outsideDropdown);
     document.removeEventListener('keydown', escapeDropdown);

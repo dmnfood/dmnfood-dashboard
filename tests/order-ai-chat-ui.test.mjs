@@ -64,13 +64,21 @@ async function reviewAll(app) {
 }
 const reviewedCount = app => app.nodes(node => node.dataset.reviewed === 'true').length;
 
-test('mail selection waits for background analysis; only a failed automatic job offers explicit retry', async () => {
+test('only tracked mail waits for background analysis, and failed automatic jobs offer explicit retry', async () => {
     const app = harness(); await settle(); assert.equal(app.button('발주 분석 시작'), undefined);
-    await app.app.setMail(mail('mail-A')); assert.equal(app.button('발주 분석 시작'), undefined); assert.match(app.mount.textContent, /자동 분석을 준비/);
+    await app.app.setMail(mail('mail-A')); assert.ok(app.button('발주 분석 시작'));
+    app.app.setAutomationState({ intakeId: 'mail-A', state: 'pending' }); assert.equal(app.button('발주 분석 시작'), undefined); assert.match(app.mount.textContent, /자동 분석을 준비/);
     app.app.setAutomationState({ intakeId: 'mail-A', state: 'running' }); assert.match(app.mount.textContent, /자동 분석하고/);
     app.app.setAutomationState({ intakeId: 'mail-B', state: 'failed' }); assert.equal(app.button('다시 분석'), undefined);
     app.app.setAutomationState({ intakeId: 'mail-A', state: 'failed', message: '가상 분석 오류' }); assert.match(app.mount.textContent, /가상 분석 오류/); assert.ok(app.button('다시 분석'));
     assert.equal(app.calls.filter(call => call.path === 'analysis').length, 0); app.app.destroy();
+});
+
+test('older and outside-scope untracked mail keep a manual analysis action instead of waiting forever', async () => {
+    for (const source of [{ ...mail('old-mail'), receivedAt: '2025-01-01T00:00:00Z', folderId: '106' }, { ...mail('outside-mail'), folderId: '1' }]) {
+        const app = harness(); await settle(); await app.app.setMail(source); assert.equal(app.button('발주 분석 시작').disabled, false); assert.doesNotMatch(app.mount.textContent, /자동 분석을 준비/);
+        assert.equal(app.calls.filter(call => call.path === 'analysis').length, 0); app.button('발주 분석 시작').click(); await settle(); assert.equal(app.calls.find(call => call.path === 'analysis').options.body.intakeId, source.id); app.app.destroy();
+    }
 });
 
 test('the single review card displays company, inline source and final action together without navigation', async () => {
@@ -146,6 +154,28 @@ test('choosing a different weekly company sends its internal ID and clears check
     let select = app.nodes(node => node.tagName === 'SELECT')[0], before = app.calls.filter(call => call.path === 'analysis').length; select.value = customer.id; select.fire('change'); await settle(); assert.equal(app.calls.filter(call => call.path === 'analysis').length, before);
     select = app.nodes(node => node.tagName === 'SELECT')[0]; select.value = other.id; select.fire('change'); await settle();
     const request = app.calls.filter(call => call.path === 'analysis').at(-1); assert.equal(request.options.body.customerId, other.id); assert.equal(Object.hasOwn(request.options.body, 'customerCode'), false); assert.ok(app.button('맞아요')); assert.equal(reviewedCount(app), 0); app.app.destroy();
+});
+
+test('a saved draft with an outdated company revision explains the block and can refresh the same ID only through an explicit action', async () => {
+    const latest = { ...customer, revision: 2 }, old = draft('mail-A', 7);
+    const app = harness({ respond: (path, options) => path.startsWith('analysis?') ? { ok: true, analysis: old }
+        : path === 'analysis' ? { ok: true, analysis: { ...draft(options.body.intakeId, 8), customer: { ...old.customer, revision: latest.revision } } } : undefined });
+    await settle(); app.updateCustomers([latest]); await app.app.setMail(mail('mail-A')); await settle();
+    assert.match(app.mount.textContent, /업체 정보가 변경되었습니다/); assert.equal(app.button('맞아요').disabled, true); assert.equal(app.final().disabled, true); assert.equal(app.evidenceCalls.length, 0);
+    assert.equal(app.calls.filter(call => call.path === 'analysis').length, 0, 'a stale saved draft must never trigger paid analysis by itself');
+    app.final().fire('click'); await settle(); assert.equal(app.calls.filter(call => call.path === 'confirm').length, 0);
+    app.button('수정').click(); const select = app.nodes(node => node.tagName === 'SELECT')[0]; assert.equal(select.value, customer.id); select.fire('change'); await settle(); assert.equal(app.calls.filter(call => call.path === 'analysis').length, 0);
+    app.button('최신 업체 정보로 다시 분석').click(); await settle();
+    const request = app.calls.find(call => call.path === 'analysis'); assert.equal(request.options.body.customerId, customer.id); assert.equal(request.options.body.expectedRevision, 7); assert.equal(request.options.body.expectedUpdatedAt, 'fixture-7'); assert.equal(Object.hasOwn(request.options.body, 'customerCode'), false);
+    assert.doesNotMatch(app.mount.textContent, /업체 정보가 변경되었습니다/); assert.equal(app.button('맞아요').disabled, false); assert.equal(reviewedCount(app), 0); assert.equal(app.final().disabled, true);
+    app.button('맞아요').click(); await reviewAll(app); assert.equal(app.final().disabled, false); app.app.destroy();
+});
+
+test('a removed company asks for a new selection and cannot offer a same-ID refresh or final confirmation', async () => {
+    const app = harness({ respond: path => path.startsWith('analysis?') ? { ok: true, analysis: draft() } : undefined });
+    await settle(); app.updateCustomers([{ ...customer, id: 'school-another', name: '다른 가상 업체' }]); await app.app.setMail(mail('mail-A'));
+    assert.match(app.mount.textContent, /현재 학교급식 업체 목록에 없습니다/); assert.equal(app.button('맞아요').disabled, true); assert.equal(app.final().disabled, true);
+    app.button('수정').click(); assert.equal(app.button('최신 업체 정보로 다시 분석'), undefined); assert.equal(app.nodes(node => node.tagName === 'SELECT')[0].value, ''); assert.equal(app.calls.filter(call => call.path === 'analysis').length, 0); app.app.destroy();
 });
 
 test('catalog changes invalidate company and source checks, including a reversal during pending evidence', async () => {
@@ -233,7 +263,7 @@ test('reopening an analyzed manual source never silently incurs another analysis
 test('delayed readiness and stored responses cannot overwrite a later source selection', async () => {
     let finishStatus; const app = harness({ respond: path => path === 'status' ? new Promise(resolve => { finishStatus = resolve; }) : undefined });
     const first = app.app.setSource({ id: 'text-A', sourceKind: 'text' }, { analyze: true }); const second = app.app.setMail(mail('mail-B')); finishStatus({ ok: true, configured: true }); await first; await second; await settle();
-    assert.equal(app.calls.filter(call => call.path === 'analysis').length, 0); assert.equal(app.calls.some(call => call.path === 'analysis?intakeId=text-A'), false); assert.match(app.mount.textContent, /자동 분석을 준비/); app.app.destroy();
+    assert.equal(app.calls.filter(call => call.path === 'analysis').length, 0); assert.equal(app.calls.some(call => call.path === 'analysis?intakeId=text-A'), false); assert.ok(app.button('발주 분석 시작')); app.app.destroy();
 });
 
 test('missing server configuration disables manual analysis and does not fake connection readiness', async () => {

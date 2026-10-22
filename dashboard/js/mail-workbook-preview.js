@@ -60,6 +60,7 @@ export async function renderMailWorkbook({ mount, bytes, fileName = '', signal, 
   const sheetTabs = element('div', 'mail-workbook-sheet-tabs'); sheetTabs.setAttribute('role', 'tablist'); sheetTabs.setAttribute('aria-label', '발주서 시트'); sheetTabs.hidden = !compact;
   const nav = element('div', 'mail-workbook-nav'), columnNav = element('div', 'mail-workbook-nav'); nav.hidden = true; columnNav.hidden = true;
   const pageLabel = element('span', 'mail-workbook-page'), columnLabel = element('span', 'mail-workbook-page');
+  pageLabel.hidden = compact; columnLabel.hidden = compact;
   const region = element('div', 'mail-workbook-grid-region'); region.tabIndex = 0; region.setAttribute('aria-label', 'Excel 셀 표. 가로와 세로로 스크롤할 수 있습니다.');
   const detail = element('p', 'mail-workbook-cell-detail'); detail.setAttribute('role', 'status');
   const evidenceStatus = element('p', 'mail-workbook-evidence-status'); evidenceStatus.setAttribute('role', 'status'); evidenceStatus.setAttribute('aria-live', 'polite');
@@ -75,7 +76,12 @@ export async function renderMailWorkbook({ mount, bytes, fileName = '', signal, 
   const selectionError = element('p', 'mail-workbook-selection-error'); selectionError.setAttribute('role', 'alert');
   const selectRange = button('범위 표시', () => selectAddresses()), clearRange = button('선택 해제', () => { if (canSelect()) commitSelection(null); });
   selectionControls.append(startLabel, endLabel, selectRange, clearRange, selectionSummary, selectionError);
-  root.append(notices, controls, selectionControls, evidenceStatus, status, sheetTabs, region, detail); controls.append(sheetLabel, nav, columnNav); mount.replaceChildren(root);
+  controls.append(sheetLabel, nav, columnNav);
+  if (compact) {
+    const sheetBar = element('div', 'mail-workbook-sheet-bar'); sheetBar.append(sheetTabs, controls);
+    root.append(notices, selectionControls, evidenceStatus, status, sheetBar, region, detail);
+  } else root.append(notices, controls, selectionControls, evidenceStatus, status, sheetTabs, region, detail);
+  mount.replaceChildren(root);
   let disposed = false, worker, resizeObserver, activeFit, layoutFrame = 0, requestId = 0, pageRevision = 0, sheetIndex = 0, rowPage = 0, columnPage = 0, currentPage, metadata;
   let selected = null, enabled = Boolean(selectionEnabled), busy = true, selectionRevision = 0, drag = null, touchAnchor = null, keyboardAnchor = null, keyboardFocus = null;
   let evidence = null, evidenceRevision = 0;
@@ -457,7 +463,7 @@ export async function renderMailWorkbook({ mount, bytes, fileName = '', signal, 
     if (hidden.length) warn(`숨김 시트 ${hidden.length}개 · 시트 목록에서 확인`);
     const hiddenRows = metadata.sheets.reduce((sum, sheet) => sum + sheet.hiddenRows, 0), hiddenCols = metadata.sheets.reduce((sum, sheet) => sum + sheet.hiddenColumns, 0);
     if (hiddenRows || hiddenCols) warn(`숨김 행 ${hiddenRows}개 · 숨김 열 ${hiddenCols}개 포함`);
-    if (metadata.formulaCount) warn(`수식 ${metadata.formulaCount}개 · 계산값이 최신인지 확인해 주세요.`);
+    if (metadata.formulaCount && !compact) warn(`수식 ${metadata.formulaCount}개 · 계산값이 최신인지 확인해 주세요.`);
     for (const sheet of metadata.sheets) {
       const option = element('option', '', `${sheet.name}${sheet.hidden ? sheet.hidden === 2 ? ' · 매우 숨김' : ' · 숨김' : ''}`);
       option.value = String(sheet.index); sheetPicker.append(option);

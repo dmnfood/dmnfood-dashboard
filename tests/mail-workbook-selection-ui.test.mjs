@@ -95,6 +95,26 @@ test('fitted columns adapt to the available region without truncating source tex
   app.cleanup(); assert.equal(app.observers[0].disconnected, true);
 });
 
+test('compact view keeps sheet tabs and page actions in one bar and suppresses only the generic formula notice', async () => {
+  const fixture = { SheetNames: ['발주'], Sheets: { 발주: { '!ref': 'A1:B205', A1: { t: 's', v: '원본' }, B2: { t: 'n', f: 'SUM(B3:B4)', v: 3 },
+    B3: { t: 'n', f: 'SUM(B5:B6)' }, B205: { t: 'n', v: 1 }, '!rows': [{ hidden: true }] } } };
+  const app = await harness({ fixture, compact: true });
+  const bar = app.nodes().find(node => node.className === 'mail-workbook-sheet-bar');
+  assert.deepEqual(bar.children.map(node => node.className), ['mail-workbook-sheet-tabs', 'mail-workbook-controls']);
+  assert.ok(bar.contains(app.button('다음 행'))); assert.equal(app.button('다음 행').disabled, false);
+  assert.ok(app.nodes().filter(node => node.className === 'mail-workbook-page').every(node => node.hidden));
+  const notices = app.nodes().find(node => node.className === 'mail-workbook-notices');
+  assert.match(notices.textContent, /숨김 행 1개/); assert.doesNotMatch(notices.textContent, /수식.*개/);
+  assert.match(app.cell(1, 1).textContent, /수식 저장값/); assert.match(app.cell(2, 1).textContent, /계산값 없음/);
+  app.button('다음 행').fire('click'); await settle(); assert.equal(app.cleanup.getCurrentPage().page, 1);
+  app.cleanup();
+  const legacy = await harness({ fixture });
+  assert.equal(legacy.nodes().some(node => node.className === 'mail-workbook-sheet-bar'), false);
+  assert.match(legacy.nodes().find(node => node.className === 'mail-workbook-notices').textContent, /수식 2개/);
+  assert.ok(legacy.nodes().filter(node => node.className === 'mail-workbook-page').every(node => !node.hidden));
+  legacy.cleanup();
+});
+
 test('drag selection is disabled until enabled and commits only once on pointer release outside the grid', async () => {
   const app = await harness();
   pointer(app, 'pointerdown', app.cell(3, 3)); pointer(app, 'pointerup', app.cell(4, 4));

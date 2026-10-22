@@ -58,10 +58,12 @@
 .mail-workbook-sheet-tabs .mail-workbook-button[aria-selected="true"] { border-bottom-color: var(--brand-a, #22d3ee); background: #101824; color: var(--brand-a, #22d3ee); }
 .mail-workbook-compact .mail-workbook-grid-region { border-radius: 0 0 8px 8px; }
 .mail-workbook-compact .mail-workbook-caption, .mail-workbook-compact .mail-workbook-evidence-status, .mail-workbook-compact .mail-workbook-status:not([data-error="true"]) { display: none; }
-.mail-workbook-compact .mail-workbook-controls { padding: 0 0 8px; gap: 6px; }
+.mail-workbook-sheet-bar { display: flex; align-items: center; gap: 10px; min-width: 0; border: 1px solid var(--border, #374151); border-bottom: 0; border-radius: 8px 8px 0 0; background: #182130; }
+.mail-workbook-sheet-bar .mail-workbook-sheet-tabs { flex: 1 1 auto; min-width: 0; border: 0; border-radius: 8px 0 0 0; }
+.mail-workbook-compact .mail-workbook-controls { flex: 0 0 auto; justify-content: flex-end; padding: 3px 6px; gap: 6px; }
 .mail-workbook-compact .mail-workbook-nav { gap: 5px; }
 .mail-workbook-compact .mail-workbook-nav .mail-workbook-button { min-height: 28px; padding: 4px 8px; font-size: 10px; }
-.mail-workbook-compact .mail-workbook-page { font-size: 10px; }
+.mail-workbook-compact .mail-workbook-page { display: none; }
 .mail-workbook-fit .mail-workbook-cell-value { position: static; width: auto; white-space: pre-wrap; overflow-wrap: anywhere; text-overflow: clip; }
 .mail-workbook-fit .mail-workbook-cell-content { min-width: 0; }
 @media (max-width: 600px) {

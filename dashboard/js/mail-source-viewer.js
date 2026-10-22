@@ -3,6 +3,7 @@ const ATTACHMENT_PATH = '/api/naverworks/attachment';
 const SCHOOL_FOLDER_ID = '106';
 const MAX_ATTACHMENT_BYTES = 3 * 1024 * 1024;
 const SOURCE_ID = /^[A-Za-z0-9_-]{1,128}$/;
+const ANALYSIS_STATES = { pending: '분석 대기', running: '분석 중', ready: '확인 준비', failed: '다시 확인 필요' };
 
 function element(tag, text, className) {
   const node = document.createElement(tag);
@@ -80,6 +81,7 @@ export function initMailSourceViewer(session, mount, options = {}) {
   let listScope = new URLSearchParams(location.search).get('mail_scope') === 'all' ? 'all' : 'school';
   const splitMode = Boolean(options.listMount && options.toolbarMount && (options.detailMount || options.summaryOnly));
   const blobUrls = new Set();
+  const analysisStates = new Map(), analysisStatusNodes = new Map();
   const heading = element('div', undefined, 'mail-source-heading'), intro = element('div');
   intro.append(element('h2', '첨부 원본 확인'));
   heading.append(intro);
@@ -170,18 +172,36 @@ export function initMailSourceViewer(session, mount, options = {}) {
       if (!disposed) { trigger.disabled = false; trigger.setAttribute('aria-busy', 'false'); }
     }
   }
+  function updateAnalysisStatus(id, node) {
+    const status = analysisStates.get(id);
+    node.hidden = !status;
+    if (!status) return;
+    node.textContent = ANALYSIS_STATES[status.state]; node.dataset.state = status.state;
+    node.title = status.message || node.textContent;
+  }
+  function setAnalysisStates(items) {
+    if (disposed || !Array.isArray(items)) return;
+    for (const item of items) {
+      if (!item || typeof item.intakeId !== 'string' || !SOURCE_ID.test(item.intakeId) || !Object.hasOwn(ANALYSIS_STATES, item.state)) continue;
+      analysisStates.set(item.intakeId, { state: item.state, message: typeof item.message === 'string' ? item.message.trim().slice(0, 240) : '' });
+      const node = analysisStatusNodes.get(item.intakeId);
+      if (node) updateAnalysisStatus(item.intakeId, node);
+    }
+  }
   function renderList() {
     scopeSelect.value = listScope;
     scopeSelect.title = listScope === 'school' ? '수집 당시 학교급식 발주 메일함에서 확인한 자료' : '전체 보관 메일';
     refresh.disabled = listBusy; more.disabled = listBusy; more.hidden = !nextCursor;
-    listSection.setAttribute('aria-busy', String(listBusy)); list.replaceChildren();
+    listSection.setAttribute('aria-busy', String(listBusy)); list.replaceChildren(); analysisStatusNodes.clear();
     if (!mails.length) list.append(element('p', listBusy ? '수집한 메일을 불러오고 있습니다.' : listError ? '메일 목록 확인이 필요합니다.' : listScope === 'school' ? '아직 수집한 메일이 없습니다. 메일을 가져온 뒤 확인해 주세요.' : '아직 보관된 메일이 없습니다. 메일 수집 후 목록을 새로고침해 주세요.', 'mail-source-empty'));
     const outsideMail = currentMail && !mails.some(mail => mail.id === currentMail.id) ? currentMail : null;
     for (const mail of [...(outsideMail ? [outsideMail] : []), ...mails]) {
-      const item = element('article', undefined, 'mail-source-item'); item.setAttribute('aria-current', String(mail.id === selectedId));
+      const item = element('article', undefined, 'mail-source-item'); item.setAttribute('aria-current', String(mail.id === selectedId)); item.dataset.intakeId = mail.id;
       if (mail === outsideMail) item.append(element('p', listBusy ? '현재 선택한 메일' : '현재 선택한 메일 · 목록 범위 밖', 'mail-source-outside-scope'));
       const select = element('button', undefined, 'mail-source-select'); select.type = 'button'; select.setAttribute('aria-current', String(mail.id === selectedId));
       select.append(element('strong', mail.subject || '(제목 없음)'), element('span', sender(mail.from) || '발신자 확인 필요', 'mail-source-sender'), element('span', formatTime(mail.receivedAt), 'mail-source-time'));
+      const analysisStatus = element('span', undefined, 'mail-source-analysis-status');
+      analysisStatusNodes.set(mail.id, analysisStatus); updateAnalysisStatus(mail.id, analysisStatus); select.append(analysisStatus);
       select.addEventListener('click', () => void selectMail(mail.id)); item.append(select);
       if (options.summaryOnly || options.onPreviewAttachment) {
         const actions = element('div', undefined, 'mail-source-item-actions'), mailUrl = getNaverworksMailUrl(mail.mailId ?? (currentMail?.id === mail.id ? currentMail.raw?.mail?.mailId : null));
@@ -334,9 +354,10 @@ export function initMailSourceViewer(session, mount, options = {}) {
   renderList(); renderDetail(); void loadList();
   const requested = new URLSearchParams(location.search).get('mail');
   if (requested) void selectMail(requested, { history: false });
-  const dispose = () => { disposed = true; listVersion += 1; detailVersion += 1; listController?.abort(); detailController?.abort(); cancelFilePreview(); cleanupAttachment(); filePicker?.remove(); window.removeEventListener('popstate', onPopState); window.removeEventListener('mail-intakes-updated', onMailCollected); };
+  const dispose = () => { disposed = true; analysisStates.clear(); analysisStatusNodes.clear(); listVersion += 1; detailVersion += 1; listController?.abort(); detailController?.abort(); cancelFilePreview(); cleanupAttachment(); filePicker?.remove(); window.removeEventListener('popstate', onPopState); window.removeEventListener('mail-intakes-updated', onMailCollected); };
   dispose.clearSelection = clearSelection;
   dispose.selectMail = selectMail;
   dispose.syncHistory = onPopState;
+  dispose.setAnalysisStates = setAnalysisStates;
   return dispose;
 }

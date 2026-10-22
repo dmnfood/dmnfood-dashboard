@@ -46,7 +46,7 @@ export function findSchoolMailFolder(folders) {
   return named.length === 1 && String(named[0].id) === SCHOOL_FOLDER_ID && folders.filter(folder => String(folder?.id) === SCHOOL_FOLDER_ID).length === 1 ? named[0] : null;
 }
 
-/** Connection metadata is read on load; collection always requires a manual click. */
+/** Connection settings and an optional manual collection action for the open inbox. */
 export function initMailConnection(session, mount) {
   if (!mount) return () => {};
   const abortController = new AbortController();
@@ -54,7 +54,7 @@ export function initMailConnection(session, mount) {
   let state = null, folders = [], selectedFolder = '', continuation = null, syncResult = null, busy = false, disposed = false;
   let statusError = '', actionMessage = '', actionFailed = false, folderError = '';
   let callbackStatus = '', callbackMessage = '', callbackFailed = false;
-  let settingsTrigger = null;
+  let settingsTrigger = null, dropdownTrigger = null, dropdown = null, dropdownOpen = false;
   const strip = element('div', undefined, 'mail-connection-strip');
   const dialog = isAdmin ? element('dialog', undefined, 'mail-connection-dialog') : null;
   const dialogBody = isAdmin ? element('div', undefined, 'mail-dialog-body') : null;
@@ -62,13 +62,26 @@ export function initMailConnection(session, mount) {
   function closeSettings() {
     if (!dialog?.open) return;
     dialog.close();
-    if (!disposed) settingsTrigger?.focus();
+    if (!disposed) dropdownTrigger?.focus();
+  }
+  function setDropdown(open, restoreFocus = false) {
+    if (disposed || !isAdmin) return;
+    dropdownOpen = open;
+    if (dropdown) dropdown.hidden = !open;
+    dropdownTrigger?.setAttribute('aria-expanded', String(open));
+    if (restoreFocus) dropdownTrigger?.focus();
   }
   function openSettings() {
     if (disposed || !isAdmin || dialog.open) return;
+    setDropdown(false);
     dialog.showModal();
     dialogClose.focus();
   }
+  const outsideDropdown = event => { if (dropdownOpen && !strip.contains(event.target)) setDropdown(false); };
+  const escapeDropdown = event => {
+    if (event.key !== 'Escape' || !dropdownOpen) return;
+    event.preventDefault(); setDropdown(false, true);
+  };
   const cancelSettings = event => { event.preventDefault(); closeSettings(); };
   const backdropSettings = event => { if (event.target === dialog) closeSettings(); };
   if (dialog) {
@@ -84,6 +97,12 @@ export function initMailConnection(session, mount) {
     dialog.addEventListener('click', backdropSettings);
   }
   mount.replaceChildren(strip, ...(dialog ? [dialog] : []));
+  mount.hidden = false;
+  if (isAdmin) {
+    document.addEventListener('pointerdown', outsideDropdown);
+    document.addEventListener('focusin', outsideDropdown);
+    document.addEventListener('keydown', escapeDropdown);
+  }
   try {
     const url = new URL(window.location.href);
     const values = url.searchParams.getAll('mail_connection');
@@ -141,29 +160,34 @@ export function initMailConnection(session, mount) {
     const focusAction = focusRegion ? document.activeElement?.dataset?.mailAction : null;
     strip.replaceChildren(); mount.setAttribute('aria-busy', String(busy));
     mount.dataset.mode = 'compact';
-    const summary = element('div', undefined, 'mail-strip-summary');
-    const identity = element('div', undefined, 'mail-strip-identity');
-    identity.append(element('span', '네이버웍스', 'mail-strip-provider'), element('strong', SCHOOL_FOLDER_NAME));
-    summary.append(identity);
-    strip.append(summary);
     if (!isAdmin) {
-      summary.append(element('p', '수집한 메일의 첨부 원본을 확인하세요. 메일 가져오기와 연결 설정은 관리자가 진행합니다.', 'mail-strip-note'));
-      if (callbackMessage) {
-        const message = element('p', callbackMessage, 'mail-strip-feedback'); message.setAttribute('role', callbackFailed ? 'alert' : 'status'); summary.append(message);
-      }
+      const note = element('span', '네이버웍스 · 관리자 관리', 'mail-connection-readonly');
+      note.title = `${SCHOOL_FOLDER_NAME} · 메일 가져오기와 연결 설정은 관리자가 진행합니다.${callbackMessage ? ` ${callbackMessage}` : ''}`;
+      note.setAttribute('aria-label', note.title); strip.append(note);
       return;
     }
 
-    const attention = Boolean(statusError || folderError);
-    const badge = element('span', attention ? '확인 필요' : !state ? '연결 확인 중' : connected() ? '연결 정상' : ready() ? '연결 필요' : '설정 필요', 'mail-badge');
-    badge.dataset.state = connected() && !attention ? 'ready' : !state && !statusError ? 'neutral' : 'attention'; identity.append(badge);
+    const attention = Boolean(statusError || folderError || callbackFailed || actionFailed);
+    const status = attention ? '확인 필요' : !state ? '연결 확인 중' : connected() ? '연결 정상' : ready() ? '연결 필요' : '설정 필요';
+    dropdownTrigger = button(`네이버웍스 ${status}`, () => setDropdown(!dropdownOpen));
+    dropdownTrigger.className = 'order-button mail-connection-trigger';
+    dropdownTrigger.dataset.mailAction = 'toggle';
+    dropdownTrigger.dataset.state = connected() && !attention ? 'ready' : !state && !statusError ? 'neutral' : 'attention';
+    dropdownTrigger.setAttribute('aria-expanded', String(dropdownOpen));
+    dropdownTrigger.setAttribute('aria-controls', 'mailConnectionMenu');
+    const chevron = element('span', '⌄', 'mail-connection-chevron'); chevron.setAttribute('aria-hidden', 'true');
+    dropdownTrigger.append(chevron); strip.append(dropdownTrigger);
+    dropdown = element('div', undefined, 'mail-connection-dropdown');
+    dropdown.id = 'mailConnectionMenu'; dropdown.hidden = !dropdownOpen;
+    dropdown.setAttribute('role', 'region'); dropdown.setAttribute('aria-label', '네이버웍스 메일 연결과 수집');
+    dropdown.append(element('strong', SCHOOL_FOLDER_NAME, 'mail-dropdown-title'));
     const schoolSync = syncResult || (state?.lastSync?.folderId === SCHOOL_FOLDER_ID ? state.lastSync : null);
-    let recent = '최근 7일 · 버튼을 눌러 메일을 가져옵니다';
+    let recent = '발주함을 열어 두면 학교급식 메일을 자동 확인합니다.';
     if (schoolSync) {
       const through = formatTime(schoolSync.to);
       recent = schoolSync.status === 'complete' ? `최근 수집 범위 ${through ? `${through}까지` : '확인됨'} · 해석 대기` : continuation ? '일부 수집 · 이어서 가져오기가 필요합니다' : '일부 수집 · 수집 범위 확인이 필요합니다';
     }
-    summary.append(element('p', recent, 'mail-strip-note'));
+    dropdown.append(element('p', recent, 'mail-strip-note'));
     const actions = element('div', undefined, 'mail-strip-actions');
     const sync = button(busy ? '처리 중…' : continuation ? '이어서 수집' : '메일 가져오기', syncMail, true);
     sync.dataset.mailAction = 'sync';
@@ -173,11 +197,11 @@ export function initMailConnection(session, mount) {
     settingsTrigger = button('연결 설정', openSettings);
     settingsTrigger.dataset.mailAction = 'open-settings';
     settingsTrigger.setAttribute('aria-haspopup', 'dialog');
-    actions.append(sync, settingsTrigger); strip.append(actions);
+    actions.append(sync, settingsTrigger); dropdown.append(actions); strip.append(dropdown);
     const feedbacks = [callbackMessage && { text: callbackMessage, error: callbackFailed }, (statusError || folderError || actionMessage) && { text: statusError || folderError || actionMessage, error: Boolean(statusError || folderError || actionFailed) }].filter(Boolean);
     for (const feedback of feedbacks) {
       const message = element('div', feedback.text, 'mail-strip-feedback');
-      message.setAttribute('role', feedback.error ? 'alert' : 'status'); message.dataset.error = String(feedback.error); strip.append(message);
+      message.setAttribute('role', feedback.error ? 'alert' : 'status'); message.dataset.error = String(feedback.error); dropdown.append(message);
     }
 
     dialogBody.replaceChildren();
@@ -190,7 +214,7 @@ export function initMailConnection(session, mount) {
     const details = element('details', undefined, 'mail-settings');
     details.open = !ready(); details.append(element('summary', '연결 계정과 서버 설정 확인'));
     const content = element('div', undefined, 'mail-settings-content'), account = element('dl', undefined, 'mail-account');
-    for (const [label, value, code] of [['수집 계정', MAILBOX], ['Client ID', CLIENT_ID, true], ['학교급식 수집 범위', '학교급식 발주 메일함 · 최근 7일'], ['수집 실행 방식', '담당자가 수집 버튼으로 시작 · 상시 자동 수집 미가동'], ['발주 해석·상품 연결', '규칙 설정 전 · 자동 확정하지 않음']]) {
+    for (const [label, value, code] of [['수집 계정', MAILBOX], ['Client ID', CLIENT_ID, true], ['학교급식 수집 범위', '학교급식 발주 메일함 · 최근 7일'], ['수집 실행 방식', '발주함이 열려 있는 동안 자동 확인 · 닫으면 자동 처리 중지'], ['발주 확인', '분석 결과를 원본과 대조한 뒤 담당자가 최종 확정']]) {
       account.append(element('dt', label), element('dd', value, code ? 'mail-code' : undefined));
     }
     content.append(account);
@@ -217,7 +241,7 @@ export function initMailConnection(session, mount) {
     }
 
     const syncArea = element('div', undefined, 'mail-sync-area');
-    syncArea.append(element('h3', '메일 가져오기 범위'), element('p', '‘학교급식 발주’ 메일함에서 최근 7일 자료를 가져옵니다. 버튼을 눌러야 실행되며, 상시 자동 수집은 아직 가동하지 않습니다. 수집이 발주 확인 완료를 뜻하지 않습니다.', 'mail-description'));
+    syncArea.append(element('h3', '메일 가져오기 범위'), element('p', '발주함이 열려 있는 동안 학교급식 메일을 자동 확인합니다. 닫으면 자동 처리가 멈춥니다. 필요한 경우 ‘메일 가져오기’로 최근 7일 자료를 다시 확인할 수 있습니다.', 'mail-description'));
     const label = element('label', '학교급식 수집 메일함 · 고정', 'mail-folder');
     const select = element('select'); select.setAttribute('aria-label', '학교급식 수집 메일함');
     const option = element('option', selectedFolder ? SCHOOL_FOLDER_NAME : !connected() ? '계정 연결 후 확인합니다' : folderError ? '학교급식 메일함 확인 필요' : '학교급식 메일함 확인 중'); option.value = selectedFolder; select.append(option);
@@ -227,9 +251,9 @@ export function initMailConnection(session, mount) {
     renderResult(syncArea); dialogBody.append(syncArea);
     if (focusAction) {
       const nextFocus = focusRegion.querySelector(`[data-mail-action="${focusAction}"]`);
-      if (nextFocus && !nextFocus.disabled) nextFocus.focus();
+      if (nextFocus && !nextFocus.disabled && (focusRegion !== strip || dropdownOpen || focusAction === 'toggle')) nextFocus.focus();
       else if (focusRegion === dialogBody) dialogClose.focus();
-      else settingsTrigger.focus();
+      else dropdownTrigger.focus();
     }
   }
 
@@ -290,6 +314,12 @@ export function initMailConnection(session, mount) {
   if (isAdmin) void refreshStatus();
   return () => {
     disposed = true; abortController.abort();
+    document.removeEventListener('pointerdown', outsideDropdown);
+    document.removeEventListener('focusin', outsideDropdown);
+    document.removeEventListener('keydown', escapeDropdown);
+    dropdownOpen = false;
+    if (dropdown) dropdown.hidden = true;
+    mount.hidden = true;
     if (dialog) {
       dialog.removeEventListener('cancel', cancelSettings);
       dialog.removeEventListener('click', backdropSettings);

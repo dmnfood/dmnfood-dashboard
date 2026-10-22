@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="/dashboard/css/mail-source-viewer.css">
   <link rel="stylesheet" href="/dashboard/css/mail-workbook-preview.css">
   <link rel="stylesheet" href="/dashboard/css/order-ai-chat.css">
+  <link rel="stylesheet" href="/dashboard/css/order-ai-evidence.css">
 </head>
 <body>
   <div class="blobs" aria-hidden="true"><div class="b1"></div><div class="b2"></div></div>
@@ -32,11 +33,10 @@
     <main class="order-main">
       <div class="order-page-heading">
         <div><p class="order-eyebrow">일반 사무</p><h1>발주 확인·승인</h1><p class="order-muted">발주를 분석하고 원본과 대조한 뒤 최종 확정하세요.</p></div>
-        <div class="order-heading-actions"><a class="order-button" href="/school-meal-weekly" target="_blank" rel="noopener noreferrer">학교급식 업체 관리 ↗</a><button id="openExistingOrders" class="order-button order-text-button" type="button">등록된 발주</button></div>
+        <div class="order-heading-actions"><div id="mailConnectionMount" class="mail-connection" aria-label="메일 연결 상태" hidden></div><a class="order-button" href="/school-meal-weekly" target="_blank" rel="noopener noreferrer">학교급식 업체 관리 ↗</a><button id="openExistingOrders" class="order-button order-text-button" type="button">등록된 발주</button></div>
       </div>
       <div id="orderAccessDenied" class="order-message order-warning" hidden>발주함은 발주 확인 권한이 있는 관리자·매니저 계정으로 이용할 수 있습니다.</div>
       <section id="orderWorkspace" aria-label="발주 목록과 확인 화면">
-        <section id="mailConnectionMount" class="mail-connection" aria-label="메일 수집 상태"><p class="mail-loading" role="status">메일 수집 상태 확인 중</p></section>
         <div id="orderMessage" class="order-message" role="status" aria-live="polite" hidden></div>
         <section id="mailSourceMount" class="mail-source order-workbench" aria-labelledby="orderWorkbenchTitle">
           <div class="order-workbench-heading"><div><h2 id="orderWorkbenchTitle">발주함</h2><p class="order-muted">받은 발주를 선택하거나 카톡·문자 내용을 추가하세요.</p></div><div class="order-workbench-tools"><div id="mailSourceToolbar" class="mail-source-toolbar"></div><button id="addTextOrder" class="order-button order-primary" type="button">＋ 발주 추가</button></div></div>

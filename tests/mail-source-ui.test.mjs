@@ -358,3 +358,63 @@ test('scope, selection and clear URL changes notify the parent after the resulti
     assert.equal(changed.length, 3, 'parent-owned navigation does not create duplicate history notifications');
     app.cleanup();
 });
+
+test('analysis states merge per mail and update only existing status nodes without selection or history effects', async () => {
+    const selected = [], loaded = [], changes = [], closed = [], summaries = ['first-mail', 'second-mail'].map(id => ({ ...mailSummary(id), mailId: '5928', attachmentCount: 1 }));
+    const app = viewerHarness(url => url.searchParams.has('intakeId') ? { ok: true, mail: { ...summaries[0], raw: { mail: {}, attachments: [ordinary] } } } : scoped('106', summaries),
+        'https://dashboard.dmnfood.co.kr/orders?mail=first-mail', { split: true, summaryOnly: true, onSelectMail: value => selected.push(value.id), onMailLoaded: value => loaded.push(value.id), onHistoryChange: () => changes.push(true), onWorkbookClosed: () => closed.push(true) });
+    await settleUi();
+    const cards = uiNodes(app.listMount, node => node.className === 'mail-source-item');
+    const firstStatus = uiNodes(cards[0], node => node.className === 'mail-source-analysis-status')[0];
+    const secondStatus = uiNodes(cards[1], node => node.className === 'mail-source-analysis-status')[0];
+    const select = uiNodes(cards[0], node => node.className === 'mail-source-select')[0]; select.focus();
+    const before = { url: app.location.href, calls: app.calls.length, selected: selected.length, loaded: loaded.length, changes: changes.length, closed: closed.length };
+    assert.equal(firstStatus.hidden, true); assert.equal(secondStatus.hidden, true);
+    app.cleanup.setAnalysisStates([{ intakeId: 'first-mail', state: 'pending' }, { intakeId: 'second-mail', state: 'running' }]);
+    assert.equal(firstStatus.textContent, '분석 대기'); assert.equal(secondStatus.textContent, '분석 중');
+    assert.equal(firstStatus.hidden, false); assert.equal(secondStatus.dataset.state, 'running');
+    app.cleanup.setAnalysisStates([{ intakeId: 'first-mail', state: 'ready' }]);
+    assert.equal(firstStatus.textContent, '확인 준비'); assert.equal(secondStatus.textContent, '분석 중');
+    app.cleanup.setAnalysisStates([{ intakeId: 'second-mail', state: 'failed', message: '다시 열어 확인하세요.' }]);
+    assert.equal(secondStatus.textContent, '다시 확인 필요'); assert.equal(secondStatus.title, '다시 열어 확인하세요.');
+    assert.equal(uiNodes(app.listMount, node => node.className === 'mail-source-item')[0], cards[0]);
+    assert.equal(uiNodes(cards[0], node => node.className === 'mail-source-select')[0], select); assert.equal(select.focused, true);
+    assert.deepEqual({ url: app.location.href, calls: app.calls.length, selected: selected.length, loaded: loaded.length, changes: changes.length, closed: closed.length }, before);
+    assert.equal(uiNodes(cards[0], node => node.tagName === 'A' && node.textContent === '네이버웍스 ↗').length, 1);
+    assert.equal(uiNodes(cards[0], node => node.tagName === 'BUTTON' && node.textContent === '첨부파일').length, 1);
+    assert.doesNotMatch(app.listMount.textContent, /원본 보관|학교급식 발주서\.xls/);
+    app.cleanup();
+    app.cleanup.setAnalysisStates([{ intakeId: 'first-mail', state: 'failed' }]);
+    assert.equal(firstStatus.textContent, '확인 준비');
+});
+
+test('states received before a list response survive refresh and apply to a selected mail outside the scope', async () => {
+    let finishList;
+    const selected = [];
+    const app = viewerHarness(url => url.searchParams.has('intakeId') ? { ok: true, mail: { ...mailSummary('outside-mail', '0'), raw: { mail: {}, attachments: [] } } } : new Promise(resolve => { finishList = resolve; }),
+        'https://dashboard.dmnfood.co.kr/orders?mail=outside-mail', { split: true, summaryOnly: true, onSelectMail: value => selected.push(value.id) });
+    app.cleanup.setAnalysisStates([{ intakeId: 'inside-mail', state: 'ready' }, { intakeId: 'outside-mail', state: 'running' }]);
+    await settleUi();
+    finishList(scoped('106', [mailSummary('inside-mail')])); await settleUi();
+    const cards = uiNodes(app.listMount, node => node.className === 'mail-source-item');
+    assert.equal(cards[0].dataset.intakeId, 'outside-mail');
+    assert.match(cards[0].textContent, /현재 선택한 메일 · 목록 범위 밖/);
+    assert.match(cards[0].textContent, /분석 중/); assert.match(cards[1].textContent, /확인 준비/);
+    app.listeners.get('mail-intakes-updated')(); await settleUi();
+    finishList(scoped('106', [mailSummary('inside-mail')])); await settleUi();
+    assert.match(app.listMount.textContent, /분석 중/); assert.match(app.listMount.textContent, /확인 준비/);
+    assert.deepEqual(selected, ['outside-mail']);
+    assert.equal(new URL(app.location.href).searchParams.get('mail'), 'outside-mail');
+    app.cleanup();
+});
+
+test('invalid analysis state updates cannot replace a valid status or inject unrelated content', async () => {
+    const app = viewerHarness(() => scoped('106', [mailSummary('valid-mail')]), 'https://dashboard.dmnfood.co.kr/orders', { split: true, summaryOnly: true });
+    await settleUi();
+    app.cleanup.setAnalysisStates([{ intakeId: 'valid-mail', state: 'ready' }]);
+    const status = uiNodes(app.listMount, node => node.className === 'mail-source-analysis-status')[0];
+    for (const input of [null, {}, 'ready', [null, { intakeId: '../valid-mail', state: 'failed' }, { intakeId: 'valid-mail', state: '__proto__', message: '<script>bad()</script>' }, { intakeId: 'valid-mail', state: 'approved' }]]) app.cleanup.setAnalysisStates(input);
+    assert.equal(status.textContent, '확인 준비'); assert.equal(status.title, '확인 준비');
+    assert.doesNotMatch(app.listMount.textContent, /bad\(\)|approved/);
+    app.cleanup();
+});

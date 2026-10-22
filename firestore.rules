@@ -504,6 +504,39 @@
             && getAfter(/databases/$(database)/documents/orderAiAnalyses/$(intakeId)).data.revision == request.resource.data.record.revision + 1;
         }
       }
+      match /orderAiJobs/{intakeId} {
+        function sourceCurrent(data) {
+          let source = get(/databases/$(database)/documents/mailIntakes/$(intakeId)).data;
+          let membership = get(/databases/$(database)/documents/mailFolders/106/intakes/$(intakeId)).data;
+          return source.account == 'official@dmnfood.co.kr' && membership.account == source.account && membership.folderId == '106'
+            && membership.intakeId == intakeId && membership.sourceHash == data.sourceHash && source.rawStorage.sha256 == data.sourceHash
+            && membership.receivedAt == source.receivedAt;
+        }
+        function validJob(data) {
+          return intakeId.matches('^[a-f0-9]{64}$') && data.keys().hasOnly(['schemaVersion', 'intakeId', 'sourceHash', 'folderId', 'scope', 'state', 'createdByUid', 'updatedByUid', 'createdAt', 'updatedAt', 'leaseExpiresAt', 'revision', 'failureCode', 'message'])
+            && data.schemaVersion == 1 && data.intakeId == intakeId && data.folderId == '106' && data.scope == 'school'
+            && data.sourceHash is string && data.sourceHash.matches('^[a-f0-9]{64}$') && sourceCurrent(data)
+            && data.createdByUid is string && data.createdByUid.size() > 0 && data.createdByUid.size() <= 128
+            && data.updatedByUid == request.auth.uid && data.createdAt is timestamp && data.updatedAt == request.time
+            && data.leaseExpiresAt is int;
+        }
+        function finishedJob(data) {
+          let analysisPath = /databases/$(database)/documents/orderAiAnalyses/$(intakeId);
+          return (data.state == 'ready' && data.failureCode == null && data.message == null && data.revision is int && data.revision >= 1
+              && exists(analysisPath) && get(analysisPath).data.sourceHash == data.sourceHash && get(analysisPath).data.revision == data.revision)
+            || (data.state == 'failed' && data.revision == null && data.failureCode is string && data.failureCode.matches('^[a-z0-9_]{1,80}$')
+              && data.message is string && data.message.size() > 0 && data.message.size() <= 200);
+        }
+        allow get: if approvedManagerOrAdmin();
+        allow create: if approvedManagerOrAdmin() && validJob(request.resource.data)
+          && !exists(/databases/$(database)/documents/orderAiAnalyses/$(intakeId))
+          && request.resource.data.state == 'running' && request.resource.data.revision == null && request.resource.data.failureCode == null && request.resource.data.message == null
+          && request.resource.data.createdByUid == request.auth.uid && request.resource.data.createdAt == request.time
+          && request.resource.data.leaseExpiresAt > request.time.toMillis() && request.resource.data.leaseExpiresAt <= request.time.toMillis() + 300000;
+        allow update: if approvedManagerOrAdmin() && resource.data.state == 'running' && resource.data.createdByUid == request.auth.uid
+          && validJob(request.resource.data) && finishedJob(request.resource.data)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['state', 'updatedAt', 'updatedByUid', 'revision', 'failureCode', 'message']);
+      }
       match /orderAiLocks/{intakeId} {
         function validLock() {
           return intakeId.matches('^[a-f0-9]{64}$') && request.resource.data.keys().hasOnly(['intakeId', 'owner', 'uid', 'expiresAt'])

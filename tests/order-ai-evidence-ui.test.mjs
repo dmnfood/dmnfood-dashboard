@@ -11,15 +11,16 @@ const source = await readFile(new URL('../dashboard/js/order-ai-evidence.js', im
 class Node {
   constructor(tag) { this.tagName = tag.toUpperCase(); this.children = []; this.listeners = new Map(); this.attributes = {}; this.style = {}; this._text = ''; this.open = false; }
   get textContent() { return this._text + this.children.map(child => child.textContent).join(''); }
-  set textContent(value) { this._text = String(value); this.children = []; }
-  append(...nodes) { for (const node of nodes) { node.parentNode = this; this.children.push(node); } }
-  replaceChildren(...nodes) { this.children = []; this._text = ''; this.append(...nodes); }
+  get isConnected() { return this.tagName === 'BODY' || this.parentNode?.isConnected === true; }
+  set textContent(value) { this._text = String(value); for (const child of this.children) child.parentNode = null; this.children = []; }
+  append(...nodes) { for (const node of nodes) { if (node.parentNode) node.remove(); node.parentNode = this; this.children.push(node); } }
+  replaceChildren(...nodes) { for (const child of this.children) child.parentNode = null; this.children = []; this._text = ''; this.append(...nodes); }
   setAttribute(name, value) { this.attributes[name] = String(value); }
   addEventListener(name, action) { this.listeners.set(name, action); }
   fire(name) { if (!this.disabled) this.listeners.get(name)?.({ target: this, preventDefault() {} }); }
   showModal() { this.open = true; }
   close() { this.open = false; }
-  remove() { this.parentNode.children = this.parentNode.children.filter(node => node !== this); }
+  remove() { if (this.parentNode) this.parentNode.children = this.parentNode.children.filter(node => node !== this); this.parentNode = null; }
 }
 const all = (node, predicate) => [...(predicate(node) ? [node] : []), ...node.children.flatMap(child => all(child, predicate))];
 const until = async predicate => { for (let i = 0; i < 100; i++) { if (predicate()) return; await new Promise(resolve => setTimeout(resolve, 5)); } throw new Error('UI did not settle'); };
@@ -33,11 +34,11 @@ function analysisValue({ rows = [100, 199], sources = true, mailId = 'a'.repeat(
     sources: sources ? [{ attachmentId: '2', sha256, kind: 'workbook', complete: true }] : [], lines }, group: { id: 'oil', label: '가상 참기름', quantity: '3', unit: '병', lineIds: lines.map(line => line.id) } };
 }
 function harness({ defer = false, textSource, imageSize = { width: 1, height: 1 }, deferImage = false, sheetRange = { s: { r: 2, c: 2 }, e: { r: 204, c: 24 } } } = {}) {
-  const body = new Node('body'), fetches = [], pending = [], books = [], focuses = [], imageDecodes = [];
+  const body = new Node('body'), fetches = [], pending = [], books = [], focuses = [], focusOptions = [], imageDecodes = [];
   const metadata = { sheets: [{ index: 0, name: '원본', range: sheetRange }] };
   function book() {
     const cleanup = () => { cleanup.closed = true; }; cleanup.getMetadata = () => metadata;
-    cleanup.focusEvidence = async value => { if (cleanup.closed) return null; focuses.push(JSON.parse(JSON.stringify(value))); return value; };
+    cleanup.focusEvidence = async (value, options) => { if (cleanup.closed) return null; focuses.push(JSON.parse(JSON.stringify(value))); focusOptions.push(options); return value; };
     books.push(cleanup); return cleanup;
   }
   const createElement = tag => { const node = new Node(tag); if (String(tag).toLowerCase() === 'img') { node.naturalWidth = imageSize.width; node.naturalHeight = imageSize.height; node.decode = () => deferImage ? new Promise(resolve => imageDecodes.push(resolve)) : Promise.resolve(); } return node; };
@@ -48,7 +49,7 @@ function harness({ defer = false, textSource, imageSize = { width: 1, height: 1 
     } }) }; } });
   vm.runInContext(`${source.replace(/^import .*\r?\n/gm, '').replace(/^export /gm, '')}\nglobalThis.init = initOrderAiEvidence;`, context);
   const ui = context.init({ user: { getIdToken: async () => 'fictional-ui-token' } });
-  return { ui, body, fetches, pending, books, focuses, imageDecodes, complete: () => all(body, node => node.tagName === 'BUTTON' && ['이 상품 원본 대조 완료', '제외한 행 원본 확인 완료'].includes(node.textContent))[0],
+  return { ui, body, fetches, pending, books, focuses, focusOptions, imageDecodes, mount: () => { const mount = new Node('div'); body.append(mount); return mount; }, complete: () => all(body, node => node.tagName === 'BUTTON' && ['이 상품 원본 대조 완료', '제외한 행 원본 확인 완료', '대조 완료'].includes(node.textContent))[0],
     navigation: () => all(body, node => node.className === 'order-ai-evidence-navigation')[0] };
 }
 
@@ -61,6 +62,7 @@ test('evidence review requires every referenced row and product/unit/quantity co
       assert.ok(button, 'an unreviewed original page remains reachable'); button.fire('click'); await until(() => app.focuses.length > attempts + 1 || !app.complete().disabled);
     }
     assert.equal(app.complete().disabled, false);
+    assert.equal(app.focusOptions.every(options => options.local === false), true, 'standalone review keeps the workbook default scrolling');
     const visible = app.focuses.map(focus => {
       const row = focus.quantityCells[0]?.row ?? focus.rowIndexes[0], column = focus.columnIndex ?? focus.quantityCells[0]?.column ?? 2;
       const startRow = 2 + Math.floor((row - 2) / 100) * 100, startColumn = 2 + Math.floor((column - 2) / 20) * 20;
@@ -225,5 +227,83 @@ test('an old pasted-image decode completing after a new review cannot unlock the
   try {
     app.imageDecodes[0](); await new Promise(resolve => setImmediate(resolve)); assert.equal(app.complete().disabled, true);
     app.imageDecodes[1](); await until(() => !app.complete().disabled); app.ui.close(); assert.equal(await latest, false);
+  } finally { app.ui.destroy(); }
+});
+
+test('inline image review shows original and product evidence in the supplied card without opening a dialog and retains the completed original', async () => {
+  const { record, value } = imageValue(), app = harness({ textSource: record }), mount = app.mount();
+  const review = app.ui.review({ ...value, mount });
+  try {
+    await until(() => app.complete() && !app.complete().disabled);
+    assert.equal(all(app.body, node => node.tagName === 'DIALOG' && node.open).length, 0);
+    assert.equal(all(mount, node => (node.className || '').includes('order-ai-evidence-inline')).length, 1);
+    assert.equal(all(mount, node => node.tagName === 'IMG').length, 1);
+    assert.match(mount.textContent, /중국산 참기름 1.8L/); assert.match(mount.textContent, /합계 11 병/);
+    assert.equal(all(mount, node => node.className === 'order-ai-image-evidence').length, 1);
+    app.complete().fire('click'); assert.equal(await review, true);
+    assert.equal(app.complete().textContent, '대조 완료'); assert.equal(app.complete().disabled, true);
+    assert.equal(all(mount, node => node.tagName === 'IMG').length, 1, 'the final reviewed original stays visible');
+    app.ui.cancel(); assert.equal(mount.children.length, 0);
+  } finally { app.ui.destroy(); }
+});
+
+test('inline workbook review keeps the full page gate and cleans its workbook when cancelled', async () => {
+  const app = harness(), value = analysisValue(), mount = app.mount(), review = app.ui.review({ ...value, mount });
+  try {
+    await until(() => app.focuses.length > 0);
+    assert.equal(app.complete().disabled, true);
+    for (let attempts = 0; attempts < 20 && app.complete().disabled; attempts++) {
+      const next = app.navigation().children.find(node => !node.textContent.includes('확인'));
+      assert.ok(next); next.fire('click'); await until(() => app.focuses.length > attempts + 1 || !app.complete().disabled);
+    }
+    assert.equal(app.complete().disabled, false);
+    assert.equal(app.focusOptions.every(options => options.local === true), true, 'all inline evidence parts stay within the workbook scroll region');
+    assert.match(mount.textContent, /원본 근거 \d+\/\d+ 열람/);
+    app.ui.cancel(); assert.equal(await review, false); assert.equal(mount.children.length, 0);
+    assert.equal(app.books.every(book => book.closed), true);
+  } finally { app.ui.destroy(); }
+});
+
+test('a detached inline card cannot accept a late workbook result or mark the old source reviewed', async () => {
+  const app = harness({ defer: true }), value = analysisValue({ rows: [3] }), mount = app.mount(), review = app.ui.review({ ...value, mount });
+  try {
+    await until(() => app.pending.length === 1); mount.remove(); app.pending[0]();
+    assert.equal(await review, false); assert.equal(app.books[0].closed, true);
+    assert.equal(mount.children.length, 0); assert.equal(all(app.body, node => node.tagName === 'DIALOG' && node.open).length, 0);
+  } finally { app.ui.destroy(); }
+});
+
+test('changing inline source cancels the old promise and late decode cannot unlock the replacement card', async () => {
+  const { record, value } = imageValue(), app = harness({ textSource: record, deferImage: true }), mount = app.mount();
+  const previous = app.ui.review({ ...value, mount }); await until(() => app.imageDecodes.length === 1);
+  const latest = app.ui.review({ ...value, mount }); assert.equal(await previous, false); await until(() => app.imageDecodes.length === 2);
+  try {
+    app.imageDecodes[0](); await new Promise(resolve => setImmediate(resolve)); assert.equal(app.complete().disabled, true);
+    app.imageDecodes[1](); await until(() => !app.complete().disabled);
+    app.ui.cancel(); assert.equal(await latest, false); assert.equal(mount.children.length, 0);
+  } finally { app.ui.destroy(); }
+});
+
+test('inline completion rejects a detached already-loaded mount and confirmed inline history has no approval action', async () => {
+  const { record, value } = imageValue(), app = harness({ textSource: record }), mount = app.mount();
+  const review = app.ui.review({ ...value, mount });
+  try {
+    await until(() => app.complete() && !app.complete().disabled);
+    const oldButton = app.complete(); mount.remove(); oldButton.fire('click'); assert.equal(await review, false);
+    const nextMount = app.mount(), readonly = app.ui.review({ ...value, analysis: { ...value.analysis, status: 'confirmed' }, mount: nextMount });
+    await until(() => all(nextMount, node => node.tagName === 'IMG').length === 1 && app.complete().hidden);
+    assert.equal(app.complete().disabled, true); app.ui.cancel(); assert.equal(await readonly, false);
+    const preview = app.ui.preview({ mail: value.mail }); await until(() => all(app.body, node => node.tagName === 'DIALOG' && node.open).length === 1);
+    app.ui.close(); assert.equal(await preview, false, 'standalone archived-source preview remains a popup');
+  } finally { app.ui.destroy(); }
+});
+
+test('inline integrity failures stay inside the card and never enable a review completion', async () => {
+  const { value, record } = textValue('중국산 참기름 1.8L 11병'); record.text = record.text.replace('11병', '99병');
+  const app = harness({ textSource: record }), mount = app.mount(), review = app.ui.review({ ...value, mount });
+  try {
+    await until(() => mount.textContent.includes('실패'));
+    assert.equal(app.complete().disabled, true); assert.equal(all(app.body, node => node.tagName === 'DIALOG' && node.open).length, 0);
+    app.ui.cancel(); assert.equal(await review, false);
   } finally { app.ui.destroy(); }
 });

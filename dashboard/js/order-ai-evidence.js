@@ -10,15 +10,24 @@ const fileId = source => String(source.attachmentId);
 /** Opens archived bytes and their source positions. A review is valid only for the supplied analysis. */
 export function initOrderAiEvidence(session) {
   const dialog = el('dialog', null, 'order-dialog order-ai-evidence-dialog'); dialog.setAttribute('aria-label', '발주 원본 대조');
+  const panel = el('section', null, 'order-ai-evidence-panel'); panel.setAttribute('aria-label', '상품별 원본 대조');
   const header = el('div', null, 'order-dialog-header'), heading = el('h2', '원본 대조'), close = button('닫기', () => finish(false)); header.append(heading, close);
   const navigation = el('div', null, 'order-ai-evidence-navigation'), pageTitle = el('p', '', 'order-ai-note');
   const body = el('div', null, 'order-ai-evidence-body'), sourceMount = el('div', null, 'order-ai-evidence-source'), summary = el('aside', null, 'order-ai-evidence-summary'); body.append(sourceMount, summary);
   const error = el('p', '', 'order-ai-feedback'); error.setAttribute('role', 'alert'); error.hidden = true;
   const complete = button('이 상품 원본 대조 완료', () => finish(true), 'order-primary'); complete.disabled = true;
-  dialog.append(header, navigation, pageTitle, error, body, complete); document.body.append(dialog);
-  const cache = new Map(); let active = null, parts = [], visited = new Set(), current = 0, generation = 0, controller, workbook, blobUrl, resolve, disposed = false, viewReady = false;
+  const footer = el('div', null, 'order-ai-evidence-footer'), progress = el('p', '', 'order-ai-note'); footer.append(progress, complete);
+  panel.append(header, navigation, pageTitle, error, body, footer); dialog.append(panel); document.body.append(dialog);
+  const cache = new Map(); let active = null, inlineMount = null, parts = [], visited = new Set(), current = 0, generation = 0, controller, workbook, blobUrl, resolve, disposed = false, viewReady = false;
   function cleanupView() { controller?.abort(); controller = null; workbook?.(); workbook = null; if (blobUrl) URL.revokeObjectURL(blobUrl); blobUrl = ''; }
-  function finish(accepted) { const allowed = accepted && viewReady && parts.length > 0 && visited.size === parts.length; generation++; cleanupView(); if (dialog.open) dialog.close(); const done = resolve; resolve = null; active = null; viewReady = false; done?.(allowed); }
+  function liveMount() { return !inlineMount || inlineMount.isConnected !== false && panel.parentNode === inlineMount; }
+  function finish(accepted) {
+    const allowed = accepted && !active?.readOnly && liveMount() && viewReady && parts.length > 0 && visited.size === parts.length;
+    const done = resolve; resolve = null;
+    if (allowed && inlineMount) { active = { ...active, readOnly: true, completed: true }; complete.textContent = '대조 완료'; complete.disabled = true; done?.(true); return; }
+    generation++; cleanupView(); if (dialog.open) dialog.close(); if (inlineMount && panel.parentNode === inlineMount) panel.remove(); inlineMount = null; active = null; viewReady = false; done?.(allowed);
+  }
+  function currentView(token, value) { if (disposed || token !== generation || active !== value) return false; if (!liveMount()) { finish(false); return false; } return true; }
   dialog.addEventListener('cancel', event => { event.preventDefault(); finish(false); });
   async function archive(mail, attachmentId, expectedHash, signal) {
     const key = `${mail.id}:${attachmentId}:${expectedHash || ''}`;
@@ -106,7 +115,9 @@ export function initOrderAiEvidence(session) {
     parts.forEach((part, index) => { const node = button(`${index + 1}/${parts.length}${visited.has(index) ? ' · 확인' : ''}`, () => void show(index)); node.setAttribute('aria-current', String(index === current)); navigation.append(node); });
     navigation.hidden = parts.length < 2;
     complete.disabled = !viewReady || !active?.group || parts.length === 0 || visited.size !== parts.length || !!active?.readOnly;
-    complete.hidden = !active?.group || !!active?.readOnly;
+    complete.hidden = !active?.group || !!active?.readOnly && !active?.completed;
+    progress.textContent = parts.length > 1 ? `원본 근거 ${visited.size}/${parts.length} 열람` : '';
+    progress.hidden = parts.length < 2;
   }
   async function show(index) {
     cleanupView(); const token = ++generation, value = active, part = parts[index]; current = index; viewReady = false; controller = new AbortController(); const signal = controller.signal;
@@ -118,7 +129,7 @@ export function initOrderAiEvidence(session) {
       const isPastedImage = value.mail?.sourceKind === 'image';
       if (isPastedImage && (part.attachmentId !== 'message-image' || original && original.kind !== 'image')) throw new Error('분석한 이미지 원본의 종류가 다릅니다.');
       const file = isText ? await textArchive(value.mail, original?.sha256, signal) : isPastedImage ? await imageArchive(value.mail, original?.sha256, signal) : await archive(value.mail, part.attachmentId, original?.sha256, signal);
-      if (disposed || token !== generation || active !== value) return;
+      if (!currentView(token, value)) return;
       sourceMount.replaceChildren();
       pageTitle.textContent = `${file.fileName}${part.sheetIndex != null ? ` · 시트 ${part.sheetIndex + 1}${part.rows.length ? ` · ${part.rows.map(row => row + 1).join(', ')}행` : ''}` : ''}`;
       if (isText) {
@@ -126,16 +137,16 @@ export function initOrderAiEvidence(session) {
         showText(file, part, original);
       } else if (!isPastedImage && /\.(xlsx|xls|csv)$/i.test(file.fileName)) {
         const opened = await renderMailWorkbook({ mount: sourceMount, bytes: new Uint8Array(file.bytes), fileName: file.fileName, signal });
-        if (disposed || token !== generation || active !== value) { opened?.(); return; }
+        if (!currentView(token, value)) { opened?.(); return; }
         workbook = opened;
         if (part.rows.length) {
-          const evidence = await opened.focusEvidence({ sheetIndex: part.sheetIndex, rowIndexes: part.rows, quantityCells: part.quantityCells, ...(part.columnIndex != null ? { columnIndex: part.columnIndex } : {}) });
-          if (disposed || token !== generation || active !== value) return;
+          const evidence = await opened.focusEvidence({ sheetIndex: part.sheetIndex, rowIndexes: part.rows, quantityCells: part.quantityCells, ...(part.columnIndex != null ? { columnIndex: part.columnIndex } : {}) }, { local: Boolean(inlineMount) });
+          if (!currentView(token, value)) return;
           if (!evidence) throw new Error('분석한 셀 위치를 원본에서 확인하지 못했습니다.');
         } else if (!workbook.getMetadata?.()) throw new Error('원본 Excel을 읽지 못했습니다.');
       } else if (isPastedImage || /\.(png|jpe?g)$/i.test(file.fileName)) {
         const stage = el('div', null, 'order-ai-image-stage'), image = el('img'); image.alt = file.fileName; blobUrl = URL.createObjectURL(new Blob([file.bytes], { type: isPastedImage ? file.mimeType : /\.png$/i.test(file.fileName) ? 'image/png' : 'image/jpeg' })); image.src = blobUrl; stage.append(image); sourceMount.append(stage);
-        await image.decode(); if (disposed || token !== generation || signal.aborted) return;
+        await image.decode(); if (!currentView(token, value) || signal.aborted) return;
         if (!Number.isSafeInteger(image.naturalWidth) || image.naturalWidth < 1 || !Number.isSafeInteger(image.naturalHeight) || image.naturalHeight < 1 || image.naturalWidth * image.naturalHeight > 16000000) throw new Error('이미지 크기를 확인할 수 없습니다.');
         if (original && (original.width !== image.naturalWidth || original.height !== image.naturalHeight)) throw new Error('분석한 이미지 크기와 원본이 다릅니다.');
         for (const box of part.boxes) {
@@ -143,7 +154,7 @@ export function initOrderAiEvidence(session) {
           const mark = el('span', null, 'order-ai-image-evidence'); mark.style.left = `${box.x * 100}%`; mark.style.top = `${box.y * 100}%`; mark.style.width = `${box.width * 100}%`; mark.style.height = `${box.height * 100}%`; mark.setAttribute('aria-label', '이 상품의 원본 근거 영역'); stage.append(mark);
         }
       } else throw new Error('이 파일은 네이버웍스 원문에서 확인해 주세요.');
-      if (disposed || token !== generation || active !== value) return;
+      if (!currentView(token, value)) return;
       if (value.group) {
         summary.append(el('h3', value.group.label));
         if (!value.exclusions) summary.append(el('p', `합계 ${value.group.quantity} ${value.group.unit}`, 'order-ai-evidence-total'));
@@ -151,7 +162,7 @@ export function initOrderAiEvidence(session) {
         summary.append(el('p', value.exclusions ? '실제 발주가 제외되지 않았는지 확인해 주세요.' : '상품·규격·원산지와 각 수량을 원본에서 대조해 주세요.', 'order-ai-note'));
       }
       visited.add(index); viewReady = true; renderNavigation();
-    } catch (e) { if (!disposed && token === generation && e.name !== 'AbortError') { error.textContent = e.message; error.hidden = false; complete.disabled = true; visited.delete(index); } }
+    } catch (e) { if (currentView(token, value) && e.name !== 'AbortError') { error.textContent = e.message; error.hidden = false; complete.disabled = true; visited.delete(index); } }
   }
   function buildParts(analysis, group, exclusions = false) {
     const byPage = new Map();
@@ -184,7 +195,15 @@ export function initOrderAiEvidence(session) {
   }
   function open(value, selectedParts) {
     finish(false); if (disposed) return Promise.resolve(false); active = value; parts = selectedParts; visited = new Set(); current = 0; error.hidden = true; error.textContent = ''; heading.textContent = value.group ? `${value.group.label} · 원본 대조` : value.mail?.sourceKind === 'text' ? '붙여넣은 원문' : value.mail?.sourceKind === 'image' ? '받은 이미지 원본' : '첨부 원본'; complete.textContent = value.exclusions ? '제외한 행 원본 확인 완료' : '이 상품 원본 대조 완료';
-    dialog.showModal(); const promise = new Promise(done => { resolve = done; }); if (parts.length) void show(0); else { sourceMount.replaceChildren(el('p', '대조할 원본 위치가 없습니다.')); renderNavigation(); } return promise;
+    const inline = value.group && value.mount;
+    if (panel.parentNode) panel.remove();
+    if (inline) {
+      inlineMount = value.mount; panel.className = 'order-ai-evidence-panel order-ai-evidence-inline'; close.hidden = true;
+      heading.textContent = '원본과 인식 결과';
+      if (typeof inlineMount.replaceChildren !== 'function' || inlineMount.isConnected === false) { inlineMount = null; active = null; return Promise.resolve(false); }
+      inlineMount.replaceChildren(panel);
+    } else { panel.className = 'order-ai-evidence-panel'; close.hidden = false; dialog.append(panel); dialog.showModal(); }
+    const promise = new Promise(done => { resolve = done; }); if (parts.length) void show(0); else { sourceMount.replaceChildren(el('p', '대조할 원본 위치가 없습니다.')); summary.replaceChildren(); renderNavigation(); } return promise;
   }
   return { review: value => {
       const valid = value.analysis?.intakeId === value.mail?.id && value.analysis?.sourceHash === value.mail?.rawStorage?.sha256;
@@ -195,5 +214,5 @@ export function initOrderAiEvidence(session) {
       return result;
     },
     preview: ({ mail, attachment }) => open({ mail, readOnly: true }, [{ attachmentId: mail?.sourceKind === 'text' ? 'text' : mail?.sourceKind === 'image' ? 'message-image' : String(attachment.id || attachment.attachmentId), sheetIndex: null, rows: [], quantityCells: [], boxes: [], lines: [] }]),
-    close: () => finish(false), destroy() { disposed = true; finish(false); cache.clear(); dialog.remove(); } };
+    cancel: () => finish(false), close: () => finish(false), destroy() { disposed = true; finish(false); cache.clear(); dialog.remove(); } };
 }

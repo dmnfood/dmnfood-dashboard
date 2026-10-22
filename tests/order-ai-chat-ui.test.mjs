@@ -26,9 +26,9 @@ function draft(intakeId = 'mail-A', revision = 1) {
         groups: [{ id: 'group-1', productId: 'oil-cn-1_8l', label: '가상 중국산 참기름', quantity: '6', unit: '병', lineIds: ['l1'] },
             { id: 'group-2', productId: 'oil-kr-1_8l', label: '가상 국산 참기름', quantity: '5', unit: '병', lineIds: ['l2'] }] };
 }
-function harness({ configured = true, respond, evidence = async () => true, ensure = async () => ({ created: false, revision: 1 }) } = {}) {
+function harness({ configured = true, respond, evidence, confirm = () => true, ensure = async () => ({ created: false, revision: 1 }) } = {}) {
     const mount = new UiNode('section'), calls = [], listeners = new Map(), navigator = { onLine: true };
-    let catalogCallback, catalogError, active = null, ensureCalls = 0;
+    let catalogCallback, catalogError, active = null, ensureCalls = 0, cancelCalls = 0; const evidenceCalls = [], evidenceResolvers = [];
     const api = async (session, path, options = {}) => {
         const call = { path, options }; calls.push(call);
         if (respond) { const result = await respond(path, options, call); if (result !== undefined) { if (result.analysis) active = structuredClone(result.analysis); return result; } }
@@ -39,215 +39,209 @@ function harness({ configured = true, respond, evidence = async () => true, ensu
         throw new Error(`Unexpected local fixture path: ${path}`);
     };
     const context = vm.createContext({ document: { createElement: tag => new UiNode(tag) }, navigator,
-        window: { addEventListener: (name, callback) => listeners.set(name, callback), removeEventListener: name => listeners.delete(name), confirm: () => true },
+        window: { addEventListener: (name, callback) => listeners.set(name, callback), removeEventListener: name => listeners.delete(name), confirm },
         AbortController, encodeURIComponent, requestOrderAi: api,
         ensureSchoolMealCompanies: async session => { ensureCalls++; return ensure(session); },
         subscribeSchoolMealCompanies: (next, error) => { catalogCallback = next; catalogError = error; queueMicrotask(() => next([{ ...customer }], { exists: true, revision: 1, fromCache: false, hasPendingWrites: false })); return () => {}; } });
     vm.runInContext(`${source.replace(/^import .*;\r?$/gm, '').replace(/^export /gm, '')}\nglobalThis.start = initOrderAiChat;`, context);
-    const app = context.start({ user: { uid: 'fictional-local-manager' } }, mount, { openEvidence: evidence });
+    const app = context.start({ user: { uid: 'fictional-local-manager' } }, mount, { openEvidence: args => { evidenceCalls.push(args); if (evidence) return evidence(args); return new Promise(resolve => evidenceResolvers.push(resolve)); }, cancelEvidence: () => { cancelCalls++; } });
     const nodes = predicate => descendants(mount, predicate), button = text => nodes(node => node.tagName === 'BUTTON' && node.textContent === text)[0];
     return { app, mount, calls, navigator, listeners, nodes, button,
         stage: () => nodes(node => node.className === 'order-ai-stage')[0]?.dataset.step,
         final: () => button('발주 확정') || button('발주 확인·확정 완료'),
         textarea: () => nodes(node => node.tagName === 'TEXTAREA')[0],
-        ensureCalls: () => ensureCalls,
+        ensureCalls: () => ensureCalls, evidenceCalls, finishEvidence: accepted => evidenceResolvers.at(-1)?.(accepted), cancelCalls: () => cancelCalls,
         updateCustomers: (items, metadata = { exists: true, revision: 1, fromCache: false, hasPendingWrites: false }) => catalogCallback(items, metadata),
         catalogError: () => catalogError(new Error('fictional catalog failure')),
         online(value) { navigator.onLine = value; listeners.get(value ? 'online' : 'offline')?.(); } };
 }
 async function analyzed(options = {}) {
-    const app = harness(options); await settle(); app.app.setMail(mail('mail-A')); await settle(); app.button('발주 분석 시작').click(); await settle(); return app;
+    const app = harness(options); await settle(); await app.app.setMail(mail('mail-A')); app.app.setAutomationState({ intakeId: 'mail-A', state: 'failed' }); app.button('다시 분석').click(); await settle(); return app;
 }
-async function beginReview(app) { if (app.stage() === 'analysis') { app.button('원본 대조 시작')?.click(); await settle(); } }
 async function reviewAll(app) {
-    await beginReview(app);
-    const buttons = app.nodes(node => node.tagName === 'BUTTON' && node.textContent === '원본 대조');
-    for (const button of buttons) { button.click(); await settle(); }
+    const count = app.evidenceCalls[0]?.analysis.groups.length + (app.evidenceCalls[0]?.analysis.exclusions?.length ? 1 : 0);
+    for (let index = 0; index < count; index++) { app.finishEvidence(true); await settle(); }
 }
-async function toFinal(app) { app.button('최종 확인으로')?.click(); await settle(); }
-const hasReviews = app => app.nodes(node => node.dataset.reviewed === 'true').length;
+const reviewedCount = app => app.nodes(node => node.dataset.reviewed === 'true').length;
 
-test('new pasted text starts one explicitly requested analysis and keeps its source kind through final review', async () => {
-    const app = harness(); await settle();
-    await app.app.setSource({ id: 'text-A', sourceKind: 'text', subject: '가상 붙여넣기 발주' }, { analyze: true });
-    const analyzed = app.calls.filter(call => call.path === 'analysis'); assert.equal(analyzed.length, 1); assert.equal(analyzed[0].options.body.sourceKind, 'text');
-    assert.equal(app.final(), undefined); await reviewAll(app); await toFinal(app); app.final().click(); await settle();
-    assert.equal(app.calls.find(call => call.path === 'confirm').options.body.sourceKind, 'text'); app.app.destroy();
+test('mail selection waits for background analysis; only a failed automatic job offers explicit retry', async () => {
+    const app = harness(); await settle(); assert.equal(app.button('발주 분석 시작'), undefined);
+    await app.app.setMail(mail('mail-A')); assert.equal(app.button('발주 분석 시작'), undefined); assert.match(app.mount.textContent, /자동 분석을 준비/);
+    app.app.setAutomationState({ intakeId: 'mail-A', state: 'running' }); assert.match(app.mount.textContent, /자동 분석하고/);
+    app.app.setAutomationState({ intakeId: 'mail-B', state: 'failed' }); assert.equal(app.button('다시 분석'), undefined);
+    app.app.setAutomationState({ intakeId: 'mail-A', state: 'failed', message: '가상 분석 오류' }); assert.match(app.mount.textContent, /가상 분석 오류/); assert.ok(app.button('다시 분석'));
+    assert.equal(app.calls.filter(call => call.path === 'analysis').length, 0); app.app.destroy();
 });
-test('reopening a previously analyzed pasted source does not silently run another analysis', async () => {
+
+test('the single review card displays company, inline source and final action together without navigation', async () => {
+    const app = await analyzed(); assert.equal(app.ensureCalls(), 1);
+    assert.equal(app.nodes(node => node.className === 'order-ai-review-card').length, 1);
+    assert.ok(app.button('맞아요')); assert.ok(app.final()); assert.equal(app.final().disabled, true);
+    assert.equal(app.nodes(node => node.className === 'order-ai-inline-evidence').length, 1);
+    assert.equal(app.evidenceCalls.length, 1); assert.equal(app.evidenceCalls[0].mount.className, 'order-ai-inline-evidence');
+    assert.equal(app.button('원본 대조 시작'), undefined); assert.equal(app.button('최종 확인으로'), undefined);
+    assert.equal(app.nodes(node => node.tagName === 'BUTTON' && node.className.includes('order-ai-step')).length, 0);
+    assert.equal(app.textarea(), undefined); assert.equal(app.nodes(node => node.tagName === 'DETAILS').length, 0); app.app.destroy();
+});
+
+test('confirming the proposed company is local, keeps the inline viewer and never calls AI or final confirmation', async () => {
+    const app = await analyzed(), target = app.evidenceCalls[0].mount, before = app.calls.length;
+    app.button('맞아요').click(); await settle(); assert.ok(app.button('업체 확인 완료'));
+    assert.equal(app.calls.length, before); assert.equal(app.evidenceCalls.length, 1); assert.equal(app.evidenceCalls[0].mount, target); assert.equal(app.stage(), 'review');
+    assert.equal(app.final().disabled, true); app.app.destroy();
+});
+
+test('all original groups and the company must be checked before the one final action enables', async () => {
+    const app = await analyzed(); app.finishEvidence(true); await settle(); assert.equal(reviewedCount(app), 1);
+    assert.equal(app.evidenceCalls.length, 2); assert.equal(app.evidenceCalls[1].group.id, 'group-2'); assert.equal(app.final().disabled, true);
+    app.finishEvidence(true); await settle(); assert.equal(reviewedCount(app), 2); assert.equal(app.final().disabled, true);
+    app.button('맞아요').click(); await settle(); assert.equal(app.final().disabled, false); assert.equal(app.stage(), 'final');
+    assert.equal(app.calls.filter(call => call.path === 'confirm').length, 0);
+    app.final().click(); await settle(); assert.equal(app.final().disabled, true);
+    const request = app.calls.find(call => call.path === 'confirm'); assert.deepEqual(Array.from(request.options.body.reviewedGroupIds), ['group-1', 'group-2']); assert.equal(request.options.body.reviewedExclusions, true);
+    assert.match(app.mount.textContent, /원본 대조와 확정 기록을 저장/); app.app.destroy();
+});
+
+test('excluded rows are a mandatory inline review after the product groups', async () => {
+    const app = await analyzed({ respond: (path, options) => {
+        if (path === 'analysis') { const value = draft(options.body.intakeId); value.exclusions = [{ attachmentId: '101', sheetIndex: 0, rowIndex: 0, reason: '가상 제목 행' }]; return { ok: true, analysis: value }; }
+    } });
+    app.button('맞아요').click(); app.finishEvidence(true); await settle(); app.finishEvidence(true); await settle();
+    assert.equal(app.evidenceCalls.length, 3); assert.equal(app.evidenceCalls[2].exclusions, true); assert.equal(app.final().disabled, true); assert.match(app.mount.textContent, /2 \/ 3 대조 완료/);
+    app.finishEvidence(true); await settle(); assert.equal(app.final().disabled, false); app.final().click(); await settle(); assert.equal(app.calls.find(call => call.path === 'confirm').options.body.reviewedExclusions, true); app.app.destroy();
+});
+
+test('cancelled source evidence cannot count as a review', async () => {
+    const app = await analyzed(); app.button('맞아요').click(); app.finishEvidence(false); await settle();
+    assert.equal(reviewedCount(app), 0); assert.equal(app.final().disabled, true); app.app.destroy();
+});
+
+test('questions are deduplicated and the editor appears only through the top correction button', async () => {
+    const app = await analyzed({ respond: (path, options) => {
+        if (path === 'analysis') return { ok: true, analysis: { ...draft(options.body.intakeId), readyForReview: false, questions: [{ text: '원산지 확인 필요' }], blockers: [{ message: '원산지 확인 필요' }] } };
+    } });
+    const pending = app.nodes(node => node.className === 'order-ai-pending')[0]; assert.equal(descendants(pending, node => node.tagName === 'LI').length, 1);
+    assert.equal(app.textarea(), undefined); assert.equal(app.evidenceCalls.length, 0); assert.equal(app.final().disabled, true);
+    app.button('수정').click(); assert.ok(app.textarea()); assert.ok(app.nodes(node => node.tagName === 'SELECT')[0]);
+    app.button('수정 닫기').click(); assert.equal(app.textarea(), undefined); app.app.destroy();
+});
+
+test('a correction creates a new version and clears company and original review checks without confirming', async () => {
+    const app = await analyzed(); app.button('맞아요').click(); await reviewAll(app); assert.equal(app.final().disabled, false);
+    app.button('수정').click(); app.textarea().value = '좋아'; app.nodes(node => node.tagName === 'FORM')[0].fire('submit'); await settle();
+    const request = app.calls.filter(call => call.path === 'analysis').at(-1); assert.equal(request.options.body.message, '좋아'); assert.equal(request.options.body.expectedRevision, 1); assert.equal(request.options.body.expectedUpdatedAt, 'fixture-1');
+    assert.equal(reviewedCount(app), 0); assert.ok(app.button('맞아요')); assert.equal(app.final().disabled, true); assert.equal(app.calls.filter(call => call.path === 'confirm').length, 0);
+    assert.equal(app.textarea(), undefined); app.app.destroy();
+});
+
+test('an open or unsent correction cannot accidentally finalize the old analysis', async () => {
+    const app = await analyzed(); app.button('맞아요').click(); await reviewAll(app); assert.equal(app.final().disabled, false);
+    app.button('수정').click(); assert.equal(app.final().disabled, true); app.textarea().value = '아직 보내지 않은 수정'; app.button('수정 닫기').click(); assert.equal(app.final().disabled, true);
+    app.final().fire('click'); await settle(); assert.equal(app.calls.filter(call => call.path === 'confirm').length, 0); assert.match(app.mount.textContent, /작성 중인 수정 내용을/);
+    app.button('수정').click(); app.textarea().value = ''; app.button('수정 닫기').click(); assert.equal(app.final().disabled, false); app.app.destroy();
+});
+
+test('choosing a different weekly company sends its internal ID and clears checks; choosing the same one costs no analysis', async () => {
+    const other = { ...customer, id: 'school-another', name: '다른 가상 업체' }, app = await analyzed(); app.updateCustomers([{ ...customer }, other]); app.button('맞아요').click(); app.button('수정').click();
+    let select = app.nodes(node => node.tagName === 'SELECT')[0], before = app.calls.filter(call => call.path === 'analysis').length; select.value = customer.id; select.fire('change'); await settle(); assert.equal(app.calls.filter(call => call.path === 'analysis').length, before);
+    select = app.nodes(node => node.tagName === 'SELECT')[0]; select.value = other.id; select.fire('change'); await settle();
+    const request = app.calls.filter(call => call.path === 'analysis').at(-1); assert.equal(request.options.body.customerId, other.id); assert.equal(Object.hasOwn(request.options.body, 'customerCode'), false); assert.ok(app.button('맞아요')); assert.equal(reviewedCount(app), 0); app.app.destroy();
+});
+
+test('catalog changes invalidate company and source checks, including a reversal during pending evidence', async () => {
+    const app = await analyzed(); app.button('맞아요').click(); const stale = app.evidenceCalls[0]; app.updateCustomers([{ ...customer, revision: 2 }]); app.updateCustomers([{ ...customer }]); app.finishEvidence(true); await settle();
+    assert.equal(reviewedCount(app), 0, 'the cancelled first promise must not restore its review after catalog reversal');
+    assert.ok(app.button('맞아요')); assert.equal(app.final().disabled, true); assert.notEqual(app.evidenceCalls.at(-1).mount, stale.mount); app.app.destroy();
+});
+
+test('an unchanged catalog snapshot preserves checked groups and the active original view', async () => {
+    const app = await analyzed(); app.button('맞아요').click(); app.finishEvidence(true); await settle(); const before = app.evidenceCalls.length, view = app.evidenceCalls.at(-1).mount;
+    app.updateCustomers([{ ...customer }]); await settle(); assert.equal(reviewedCount(app), 1); assert.ok(app.button('업체 확인 완료')); assert.equal(app.evidenceCalls.length, before); assert.equal(app.evidenceCalls.at(-1).mount, view); app.app.destroy();
+});
+
+test('offline and reconnect clear checks and reject acceptance from the formerly open source', async () => {
+    let resolveOld; const app = await analyzed({ evidence: () => new Promise(resolve => { resolveOld ||= resolve; }) }); app.button('맞아요').click(); app.online(false); app.online(true); resolveOld(true); await settle();
+    assert.equal(reviewedCount(app), 0); assert.ok(app.button('맞아요')); assert.equal(app.final().disabled, true); app.app.destroy();
+});
+
+test('late evidence for a former source cannot check the newly selected analysis', async () => {
+    let resolveOld; const app = await analyzed({ evidence: () => new Promise(resolve => { resolveOld ||= resolve; }) }); app.button('맞아요').click();
+    await app.app.setSource({ id: 'text-B', sourceKind: 'text' }, { analyze: true }); resolveOld(true); await settle();
+    assert.equal(app.evidenceCalls.at(-1).mail.id, 'text-B'); assert.equal(reviewedCount(app), 0); assert.ok(app.button('맞아요')); app.app.destroy();
+});
+
+test('failed confirmation clears both local gates and leaves the same review card available', async () => {
+    const app = await analyzed({ respond: path => path === 'confirm' ? Promise.reject(new Error('최신 분석을 확인하세요.')) : undefined }); app.button('맞아요').click(); await reviewAll(app); app.final().click(); await settle();
+    assert.match(app.mount.textContent, /최신 분석을 확인하세요/); assert.equal(app.nodes(node => node.className === 'order-ai-review-card').length, 1); assert.equal(reviewedCount(app), 0); assert.ok(app.button('맞아요')); assert.equal(app.final().disabled, true); app.app.destroy();
+});
+
+test('background completion loads an untouched empty view without another paid analysis', async () => {
+    let saved = null; const app = harness({ respond: path => path.startsWith('analysis?') ? { ok: true, analysis: saved } : undefined }); await settle(); await app.app.setMail(mail('mail-A')); saved = draft();
+    await app.app.refreshAnalysis({ revision: 1 }); await settle(); assert.ok(app.button('맞아요')); assert.equal(app.evidenceCalls.length, 1); assert.equal(app.calls.filter(call => call.path === 'analysis').length, 0); app.app.destroy();
+});
+
+test('same or older background revisions avoid fetching or disturbing ongoing original review', async () => {
+    const app = await analyzed(), before = app.calls.length, view = app.evidenceCalls[0].mount; app.button('맞아요').click();
+    await app.app.refreshAnalysis({ revision: 1 }); await app.app.refreshAnalysis({ revision: 0 }); assert.equal(app.calls.length, before); assert.equal(app.evidenceCalls.length, 1); assert.equal(app.evidenceCalls[0].mount, view); assert.ok(app.button('업체 확인 완료')); app.app.destroy();
+});
+
+test('new background results do not overwrite an editor, original view or local review; replacement requires an explicit action', async () => {
+    let saved = null; const app = await analyzed({ respond: path => path.startsWith('analysis?') ? { ok: true, analysis: saved } : undefined }); app.button('맞아요').click(); app.finishEvidence(true); await settle(); app.button('수정').click(); app.textarea().value = '작성 중인 내용';
+    const view = app.evidenceCalls.at(-1).mount; saved = draft('mail-A', 2); await app.app.refreshAnalysis({ revision: 2 }); await settle();
+    assert.equal(app.textarea().value, '작성 중인 내용'); assert.equal(reviewedCount(app), 1); assert.ok(app.button('업체 확인 완료')); assert.equal(app.evidenceCalls.at(-1).mount, view); assert.ok(app.button('불러오기')); assert.equal(app.final().disabled, true);
+    app.button('불러오기').click(); await settle(); assert.equal(reviewedCount(app), 0); assert.ok(app.button('맞아요')); assert.equal(app.textarea(), undefined); assert.equal(app.button('불러오기'), undefined); app.app.destroy();
+});
+
+test('declining replacement keeps the pending saved result and current source checks', async () => {
+    let saved = null; const app = await analyzed({ confirm: () => false, respond: path => path.startsWith('analysis?') ? { ok: true, analysis: saved } : undefined }); app.button('맞아요').click(); saved = draft('mail-A', 2); await app.app.refreshAnalysis({ revision: 2 });
+    const before = app.calls.length; app.button('불러오기').click(); await settle(); assert.equal(app.calls.length, before); assert.ok(app.button('불러오기')); assert.ok(app.button('업체 확인 완료')); app.app.destroy();
+});
+
+test('a stale background result cannot replace a correction saved while it was loading', async () => {
+    let finishRead, reads = 0; const app = await analyzed({ respond: path => {
+        if (path.startsWith('analysis?') && ++reads > 1) return new Promise(resolve => { finishRead = resolve; });
+    } });
+    const refreshing = app.app.refreshAnalysis({ revision: 2 }); app.button('수정').click(); app.textarea().value = '수정'; app.nodes(node => node.tagName === 'FORM')[0].fire('submit'); await settle();
+    finishRead({ ok: true, analysis: draft('mail-A', 9) }); await refreshing; await settle(); assert.equal(app.button('불러오기'), undefined); assert.equal(app.evidenceCalls.at(-1).analysis.revision, 2); app.app.destroy();
+});
+
+test('confirmed records stay read-only within the same card and never migrate or reanalyze', async () => {
+    const app = harness({ respond: path => path.startsWith('analysis?') ? { ok: true, analysis: { ...draft(), customerCatalogSource: 'erp', status: 'confirmed' } } : undefined }); await settle(); await app.app.setMail(mail('mail-A'));
+    assert.equal(app.final().disabled, true); assert.equal(app.button('맞아요'), undefined); assert.equal(app.button('수정'), undefined); assert.equal(app.textarea(), undefined); assert.equal(app.calls.filter(call => call.options.body).length, 0); assert.match(app.mount.textContent, /6 병/); assert.match(app.mount.textContent, /원본 대조와 확정 기록을 저장/); app.app.destroy();
+});
+
+test('legacy drafts require an explicit migration and cannot confirm against the obsolete catalog', async () => {
+    const app = harness({ respond: (path, options) => path.startsWith('analysis?') ? { ok: true, analysis: { ...draft('mail-A', 7), customerCatalogSource: 'erp', questions: [{ text: 'ERP 코드 입력' }] } }
+        : path === 'analysis' ? { ok: true, analysis: draft(options.body.intakeId, 8) } : undefined }); await settle(); await app.app.setMail(mail('mail-A'));
+    assert.equal(app.evidenceCalls.length, 0); assert.equal(app.button('맞아요').disabled, true); assert.equal(app.final().disabled, true); assert.doesNotMatch(app.mount.textContent, /ERP 코드 입력/);
+    app.button('업체 목록으로 다시 분석').click(); await settle(); assert.equal(app.calls.find(call => call.path === 'analysis').options.body.expectedRevision, 7); assert.ok(app.button('맞아요')); app.app.destroy();
+});
+
+test('text and image source kinds survive automatic analysis and explicit final confirmation', async () => {
+    for (const sourceKind of ['text', 'image']) {
+        const app = harness(); await settle(); await app.app.setSource({ id: sourceKind + '-A', sourceKind }, { analyze: true });
+        assert.equal(app.calls.find(call => call.path === 'analysis').options.body.sourceKind, sourceKind);
+        app.button('맞아요').click(); await reviewAll(app); app.final().click(); await settle(); assert.equal(app.calls.find(call => call.path === 'confirm').options.body.sourceKind, sourceKind); app.app.destroy();
+    }
+});
+
+test('reopening an analyzed manual source never silently incurs another analysis', async () => {
     const app = harness({ respond: path => path.startsWith('analysis?') ? { ok: true, analysis: draft('text-A') } : undefined }); await settle();
     await app.app.setSource({ id: 'text-A', sourceKind: 'text' }, { analyze: true }); assert.equal(app.calls.filter(call => call.path === 'analysis').length, 0); app.app.destroy();
 });
-test('manual images preserve their own source kind in analysis and final confirmation', async () => {
-    const app = harness(); await settle(); await app.app.setSource({ id: 'image-A', sourceKind: 'image' }, { analyze: true });
-    assert.equal(app.calls.find(call => call.path === 'analysis').options.body.sourceKind, 'image');
-    await reviewAll(app); await toFinal(app); app.final().click(); await settle(); assert.equal(app.calls.find(call => call.path === 'confirm').options.body.sourceKind, 'image'); app.app.destroy();
-});
-test('delayed connection readiness cannot start pasted-source analysis after a different source is selected', async () => {
-    let finishStatus; const app = harness({ respond: path => path === 'status' ? new Promise(resolve => finishStatus = () => resolve({ ok: true, configured: true })) : undefined });
-    const first = app.app.setSource({ id: 'text-A', sourceKind: 'text' }, { analyze: true }); app.app.setMail(mail('mail-B'));
-    finishStatus(); await first; await settle(); assert.equal(app.calls.filter(call => call.path === 'analysis').length, 0);
-    assert.ok(app.calls.some(call => call.path === 'analysis?intakeId=mail-B')); assert.equal(app.calls.some(call => call.path === 'analysis?intakeId=text-A'), false); app.app.destroy();
+
+test('delayed readiness and stored responses cannot overwrite a later source selection', async () => {
+    let finishStatus; const app = harness({ respond: path => path === 'status' ? new Promise(resolve => { finishStatus = resolve; }) : undefined });
+    const first = app.app.setSource({ id: 'text-A', sourceKind: 'text' }, { analyze: true }); const second = app.app.setMail(mail('mail-B')); finishStatus({ ok: true, configured: true }); await first; await second; await settle();
+    assert.equal(app.calls.filter(call => call.path === 'analysis').length, 0); assert.equal(app.calls.some(call => call.path === 'analysis?intakeId=text-A'), false); assert.match(app.mount.textContent, /자동 분석을 준비/); app.app.destroy();
 });
 
-test('no selected mail has no start action; selecting a mail only loads an existing result', async () => {
-    const app = harness(); await settle(); assert.equal(app.button('발주 분석 시작'), undefined); assert.equal(app.calls.length, 1);
-    app.app.setMail(mail('mail-A')); await settle(); assert.deepEqual(app.calls.map(call => call.path), ['status', 'analysis?intakeId=mail-A']);
-    assert.equal(app.button('발주 분석 시작').disabled, false); assert.equal(app.calls.filter(call => call.options.body).length, 0); assert.equal(app.stage(), 'analysis'); app.app.destroy();
+test('missing server configuration disables manual analysis and does not fake connection readiness', async () => {
+    const app = harness({ configured: false }); await settle(); await app.app.setSource({ id: 'text-A', sourceKind: 'text' });
+    assert.equal(app.button('발주 분석 시작').disabled, true); assert.match(app.mount.textContent, /AI 연결 설정/); assert.equal(app.calls.filter(call => call.path === 'analysis').length, 0); app.app.destroy();
 });
 
-test('missing server configuration disables explicit start without pretending AI is connected', async () => {
-    const app = harness({ configured: false }); await settle(); app.app.setMail(mail('mail-A')); await settle();
-    assert.equal(app.button('발주 분석 시작').disabled, true); app.button('발주 분석 시작').click(); assert.equal(app.calls.filter(call => call.path === 'analysis').length, 0);
-    assert.match(app.mount.textContent, /AI 연결 설정/); app.app.destroy();
-});
-
-test('successful analysis waits for explicit review navigation and only one procedural stage exists', async () => {
-    const app = await analyzed(); assert.equal(app.ensureCalls(), 1); assert.equal(app.calls.filter(call => call.path === 'analysis').length, 1);
-    assert.deepEqual(JSON.parse(JSON.stringify(app.calls.find(call => call.path === 'analysis').options.body)), { intakeId: 'mail-A', expectedRevision: 0 });
-    assert.equal(app.stage(), 'analysis'); assert.match(app.mount.textContent, /mail-A 분석 1/); assert.equal(app.nodes(node => node.className === 'order-ai-stage').length, 1);
-    assert.equal(app.final(), undefined); assert.equal(app.button('원본 대조'), undefined); await beginReview(app);
-    assert.equal(app.stage(), 'review'); assert.equal(app.button('답변 보내기'), undefined); assert.equal(app.final(), undefined); app.app.destroy();
-});
-
-test('current questions are compact and deduplicated while earlier conversation stays collapsed', async () => {
-    const app = await analyzed({ respond: (path, options) => {
-        if (path !== 'analysis') return; const analysis = draft(options.body.intakeId); analysis.readyForReview = false;
-        analysis.questions = [{ text: '원산지를 확인해 주세요.' }]; analysis.blockers = [{ message: '원산지를 확인해 주세요.' }];
-        analysis.conversation = [{ role: 'assistant', content: '이전 분석' }, { role: 'user', content: '이전 답변' }, { role: 'assistant', content: analysis.assistantMessage }]; return { ok: true, analysis };
-    } });
-    const pending = app.nodes(node => node.className === 'order-ai-pending')[0], history = app.nodes(node => node.className === 'order-ai-history')[0];
-    assert.equal(descendants(pending, node => node.tagName === 'LI').length, 1); assert.ok(history); assert.notEqual(history.open, true); assert.match(history.textContent, /이전 분석/);
-    assert.equal(app.button('원본 대조 시작').disabled, true); app.app.destroy();
-});
-
-test('unresolved analysis cannot bypass review or final gates through the step header', async () => {
-    let evidenceCalls = 0;
-    const app = await analyzed({ evidence: () => { evidenceCalls++; return true; }, respond: (path, options) => {
-        if (path !== 'analysis') return; const analysis = draft(options.body.intakeId); analysis.readyForReview = false; analysis.blockers = [{ message: '상품 확인 필요' }]; return { ok: true, analysis };
-    } });
-    for (const text of ['원본 대조', '최종 확인']) {
-        const step = app.nodes(node => node.tagName === 'BUTTON' && node.className.includes('order-ai-step') && node.textContent.endsWith(text))[0];
-        assert.equal(step.disabled, true); step.fire('click'); assert.equal(app.stage(), 'analysis');
-    }
-    assert.equal(evidenceCalls, 0); assert.equal(app.final(), undefined); app.app.destroy();
-});
-
-test('a stale stored-result response cannot replace the newly selected mail', async () => {
-    let finishOld;
-    const app = harness({ respond: path => path === 'analysis?intakeId=mail-A' ? new Promise(resolve => { finishOld = resolve; }) : path === 'analysis?intakeId=mail-B' ? { ok: true, analysis: draft('mail-B') } : undefined });
-    await settle(); app.app.setMail(mail('mail-A')); await settle(); app.app.setMail(mail('mail-B')); await settle(); finishOld({ ok: true, analysis: draft('mail-A') }); await settle();
-    assert.match(app.mount.textContent, /mail-B 분석 1/); assert.doesNotMatch(app.mount.textContent, /mail-A 분석/); assert.equal(app.calls.find(call => call.path === 'analysis?intakeId=mail-A').options.signal.aborted, true); app.app.destroy();
-});
-
-test('navigation during delayed catalog initialization cannot start analysis for the former mail', async () => {
-    let finishEnsure; const app = harness({ ensure: () => new Promise(resolve => { finishEnsure = resolve; }) });
-    await settle(); app.app.setMail(mail('mail-A')); await settle(); app.button('발주 분석 시작').click(); await settle();
-    app.app.setMail(mail('mail-B')); await settle(); finishEnsure({ created: false, revision: 1 }); await settle();
-    assert.equal(app.calls.filter(call => call.path === 'analysis').length, 0, 'old catalog preparation must not incur an AI request');
-    assert.equal(app.stage(), 'analysis'); assert.equal(app.button('발주 분석 시작').disabled, false); app.app.destroy();
-});
-
-test('a stale ongoing analysis is ignored after navigation even if its provider ignores abort', async () => {
-    let finishOld; const app = harness({ respond: path => path === 'analysis' ? new Promise(resolve => { finishOld = resolve; }) : undefined });
-    await settle(); app.app.setMail(mail('mail-A')); await settle(); app.button('발주 분석 시작').click(); await settle(); app.app.setMail(mail('mail-B')); await settle(); finishOld({ ok: true, analysis: draft('mail-A') }); await settle();
-    assert.doesNotMatch(app.mount.textContent, /mail-A 분석/); assert.equal(app.button('발주 분석 시작').disabled, false); assert.equal(app.calls.find(call => call.path === 'analysis').options.signal.aborted, true); app.app.destroy();
-});
-
-test('every group must be reviewed before final and changing the current catalog invalidates progress', async () => {
-    const app = await analyzed(); await beginReview(app); assert.equal(app.button('최종 확인으로').disabled, true);
-    app.button('원본 대조').click(); await settle(); assert.equal(app.button('최종 확인으로').disabled, true); app.button('원본 대조').click(); await settle(); assert.equal(app.button('최종 확인으로').disabled, false);
-    app.updateCustomers([{ ...customer, revision: 2 }]); assert.equal(app.stage(), 'analysis'); assert.equal(app.button('원본 대조 시작').disabled, true);
-    app.updateCustomers([{ ...customer }], { exists: true, fromCache: true, hasPendingWrites: false }); assert.equal(app.button('원본 대조 시작').disabled, true);
-    app.updateCustomers([{ ...customer }]); await beginReview(app); assert.equal(hasReviews(app), 0); assert.equal(app.button('최종 확인으로').disabled, true);
-    await reviewAll(app); assert.equal(app.button('최종 확인으로').disabled, false); app.catalogError(); assert.equal(app.stage(), 'analysis'); app.app.destroy();
-});
-
-test('entering the final summary never confirms automatically, and navigating back preserves valid checks', async () => {
-    const app = await analyzed(); await reviewAll(app); await toFinal(app); assert.equal(app.stage(), 'final'); assert.equal(app.final().disabled, false); assert.equal(app.calls.filter(call => call.path === 'confirm').length, 0);
-    assert.equal(app.button('원본 대조'), undefined); assert.equal(app.button('답변 보내기'), undefined); assert.match(app.mount.textContent, /6 병/); assert.match(app.mount.textContent, /5 병/); assert.match(app.mount.textContent, /ERP 판매 입력은 후속/);
-    app.button('원본 대조로 돌아가기').click(); await settle(); assert.equal(app.stage(), 'review'); assert.equal(hasReviews(app), 2); assert.equal(app.button('최종 확인으로').disabled, false); app.app.destroy();
-});
-
-test('a positive correction reply creates a new analysis version, clears reviews, and never confirms', async () => {
-    const app = await analyzed(); await reviewAll(app); app.button('분석 내용 수정').click(); await settle(); app.textarea().value = '좋아'; app.nodes(node => node.tagName === 'FORM')[0].fire('submit'); await settle();
-    assert.equal(app.calls.filter(call => call.path === 'confirm').length, 0); const request = app.calls.filter(call => call.path === 'analysis').at(-1); assert.equal(request.options.body.message, '좋아'); assert.equal(request.options.body.expectedRevision, 1);
-    assert.equal(app.stage(), 'analysis'); assert.match(app.mount.textContent, /mail-A 분석 2/); await beginReview(app); assert.equal(hasReviews(app), 0); assert.equal(app.button('최종 확인으로').disabled, true); app.app.destroy();
-});
-
-test('selecting a weekly company sends its internal ID without inventing an ERP customer code', async () => {
-    const app = await analyzed(); const select = app.nodes(node => node.tagName === 'SELECT')[0]; select.value = customer.id; select.fire('change'); await settle();
-    const request = app.calls.filter(call => call.path === 'analysis').at(-1); assert.equal(request.options.body.customerId, customer.id); assert.equal(Object.hasOwn(request.options.body, 'customerCode'), false); assert.equal(app.stage(), 'analysis'); app.app.destroy();
-});
-
-test('offline transition leaves the final summary and requires fresh review after reconnecting', async () => {
-    const app = await analyzed(); await reviewAll(app); await toFinal(app); app.online(false); assert.equal(app.stage(), 'analysis'); assert.equal(app.final(), undefined); app.online(true); await beginReview(app);
-    assert.equal(hasReviews(app), 0); assert.equal(app.button('최종 확인으로').disabled, true); app.app.destroy();
-});
-
-test('disconnecting and reconnecting while a source dialog is open invalidates its pending acceptance', async () => {
-    let finishEvidence; const app = await analyzed({ evidence: () => new Promise(resolve => { finishEvidence = resolve; }) }); await beginReview(app);
-    app.button('원본 대조').click(); app.online(false); app.online(true); finishEvidence(true); await settle(); await beginReview(app); assert.equal(hasReviews(app), 0); assert.equal(app.button('최종 확인으로').disabled, true); app.app.destroy();
-});
-
-test('a catalog change and reversal during an open source dialog cannot restore its pending review', async () => {
-    let finishEvidence; const app = await analyzed({ evidence: () => new Promise(resolve => { finishEvidence = resolve; }) }); await beginReview(app);
-    app.button('원본 대조').click(); app.updateCustomers([{ ...customer, revision: 2 }]); app.updateCustomers([{ ...customer }]); finishEvidence(true); await settle(); await beginReview(app);
-    assert.equal(hasReviews(app), 0); assert.equal(app.button('최종 확인으로').disabled, true); app.app.destroy();
-});
-
-test('unchanged catalog snapshots do not discard already completed source reviews', async () => {
-    const app = await analyzed(); await reviewAll(app); app.updateCustomers([{ ...customer }]); assert.equal(app.stage(), 'review'); assert.equal(hasReviews(app), 2); assert.equal(app.button('최종 확인으로').disabled, false); app.app.destroy();
-});
-
-test('excluded rows need a separate review and explicit proof is sent only from final confirmation', async () => {
-    const app = await analyzed({ respond: (path, options) => {
-        if (path === 'analysis') { const analysis = draft(options.body.intakeId); analysis.exclusions = [{ attachmentId: '101', sheetIndex: 0, rowIndex: 0, reason: '가상 제목 행' }]; return { ok: true, analysis }; }
-    } });
-    await reviewAll(app); assert.equal(app.button('최종 확인으로').disabled, true); assert.match(app.mount.textContent, /2 \/ 3 확인/); app.button('제외한 행 원본 확인').click(); await settle(); assert.equal(app.button('최종 확인으로').disabled, false); await toFinal(app);
-    assert.equal(app.calls.filter(call => call.path === 'confirm').length, 0); app.final().click(); await settle(); const request = app.calls.find(call => call.path === 'confirm'); assert.equal(request.options.body.reviewedExclusions, true); assert.deepEqual(Array.from(request.options.body.reviewedGroupIds), ['group-1', 'group-2']);
-    assert.equal(app.stage(), 'final'); assert.equal(app.final().disabled, true); app.app.destroy();
-});
-
-test('failed final confirmation clears source checks and returns to analysis', async () => {
-    const app = await analyzed({ respond: path => path === 'confirm' ? Promise.reject(new Error('최신 분석을 확인하세요.')) : undefined }); await reviewAll(app); await toFinal(app); app.final().click(); await settle();
-    assert.match(app.mount.textContent, /최신 분석을 확인하세요/); assert.equal(app.stage(), 'analysis'); await beginReview(app); assert.equal(hasReviews(app), 0); assert.equal(app.button('최종 확인으로').disabled, true); app.app.destroy();
-});
-
-test('a source dialog for an old mail cannot review the newly selected analysis', async () => {
-    let finishEvidence; const app = await analyzed({ evidence: () => new Promise(resolve => { finishEvidence = resolve; }) }); await beginReview(app);
-    app.button('원본 대조').click(); app.app.setMail(mail('mail-B')); await settle(); app.button('발주 분석 시작').click(); await settle(); finishEvidence(true); await settle(); assert.match(app.mount.textContent, /mail-B 분석/); await beginReview(app); assert.equal(hasReviews(app), 0); app.app.destroy();
-});
-
-test('loading a confirmed record opens a read-only final summary without another analysis request', async () => {
-    const app = harness({ respond: path => path.startsWith('analysis?') ? { ok: true, analysis: { ...draft(), status: 'confirmed' } } : undefined }); await settle(); app.app.setMail(mail('mail-A')); await settle();
-    assert.equal(app.stage(), 'final'); assert.equal(app.final().disabled, true); assert.equal(app.button('답변 보내기'), undefined); assert.equal(app.calls.filter(call => call.options.body).length, 0); assert.match(app.mount.textContent, /원본 대조와 확정 기록을 저장/); app.app.destroy();
-});
-
-test('an old ERP-based draft replaces obsolete setup requests with an explicit uncharged migration action', async () => {
-    const old = { ...draft('mail-A', 7), customerCatalogSource: 'erp', assistantMessage: 'ERP 거래처 코드를 먼저 등록해 주세요.',
-        questions: [{ text: 'ERP 거래처 코드와 거래처명을 알려주세요.' }], blockers: [], readyForReview: true };
-    const app = harness({ respond: (path, options) => path.startsWith('analysis?') ? { ok: true, analysis: old }
-        : path === 'analysis' ? { ok: true, analysis: { ...draft(options.body.intakeId, 8), customerCatalogSource: 'school_meal' } } : undefined });
-    await settle(); app.app.setMail(mail('mail-A')); await settle();
-    assert.equal(app.stage(), 'analysis'); assert.ok(app.button('업체 목록으로 다시 분석'));
-    assert.equal(app.calls.filter(call => call.path === 'analysis').length, 0, 'loading an old draft must never create an automatic paid analysis');
-    assert.equal(app.nodes(node => node.className === 'order-ai-current-summary' && /ERP 거래처 코드/.test(node.textContent)).length, 0);
-    assert.equal(app.nodes(node => node.className === 'order-ai-pending' && /ERP 거래처 코드/.test(node.textContent)).length, 0);
-    for (const label of ['원본 대조', '최종 확인']) {
-        const step = app.nodes(node => node.tagName === 'BUTTON' && node.className.includes('order-ai-step') && node.textContent.endsWith(label))[0];
-        assert.equal(step.disabled, true); step.fire('click'); assert.equal(app.stage(), 'analysis');
-    }
-    app.button('업체 목록으로 다시 분석').click(); await settle();
-    const requests = app.calls.filter(call => call.path === 'analysis'); assert.equal(requests.length, 1); assert.equal(requests[0].options.body.expectedRevision, 7);
-    assert.equal(Object.hasOwn(requests[0].options.body, 'customerCode'), false);
-    assert.equal(app.stage(), 'analysis'); assert.equal(app.button('업체 목록으로 다시 분석'), undefined); assert.equal(app.button('원본 대조 시작').disabled, false);
-    assert.match(app.mount.textContent, /mail-A 분석 8/); app.app.destroy();
-});
-
-test('confirmed legacy records remain read-only summaries without migration or regeneration', async () => {
-    const app = harness({ respond: path => path.startsWith('analysis?') ? { ok: true, analysis: { ...draft(), customerCatalogSource: 'erp', status: 'confirmed' } } : undefined });
-    await settle(); app.app.setMail(mail('mail-A')); await settle();
-    assert.equal(app.stage(), 'final'); assert.equal(app.final().disabled, true); assert.equal(app.button('업체 목록으로 다시 분석'), undefined);
-    assert.equal(app.calls.filter(call => call.options.body).length, 0); assert.match(app.mount.textContent, /6 병/); app.app.destroy();
+test('source switches during delayed catalog preparation cannot start an old paid analysis', async () => {
+    let finishEnsure; const app = harness({ ensure: () => new Promise(resolve => { finishEnsure = resolve; }) }); await settle(); await app.app.setSource({ id: 'text-A', sourceKind: 'text' }); app.button('발주 분석 시작').click(); await settle();
+    await app.app.setMail(mail('mail-B')); finishEnsure({ created: false, revision: 1 }); await settle(); assert.equal(app.calls.filter(call => call.path === 'analysis').length, 0); assert.equal(app.evidenceCalls.length, 0); app.app.destroy();
 });

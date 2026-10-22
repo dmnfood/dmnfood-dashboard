@@ -15,6 +15,10 @@ function button(label, handler) {
   const node = element('button', 'mail-workbook-button', label);
   node.type = 'button'; node.addEventListener('click', handler); return node;
 }
+function localScrollDelta(start, end, viewportStart, viewportEnd) {
+  if (end - start > viewportEnd - viewportStart) return end <= viewportStart || start >= viewportEnd ? start - viewportStart : 0;
+  return start < viewportStart ? start - viewportStart : end > viewportEnd ? end - viewportEnd : 0;
+}
 function ensureStyles() {
   if (document.querySelector('link[data-mail-workbook-styles]')) return;
   const link = document.createElement('link'); link.rel = 'stylesheet'; link.href = CSS_URL.href;
@@ -231,7 +235,7 @@ export async function renderMailWorkbook({ mount, bytes, fileName = '', signal, 
   cleanup.getSelection = () => selectionSnapshot(selected);
   cleanup.getMetadata = () => selectionSnapshot(metadata || null);
   cleanup.getEvidence = () => selectionSnapshot(disposed ? null : evidence);
-  cleanup.focusEvidence = async value => {
+  cleanup.focusEvidence = async (value, { local = false } = {}) => {
     if (disposed) return null;
     clearEvidence();
     if (value == null) return null;
@@ -244,7 +248,13 @@ export async function renderMailWorkbook({ mount, bytes, fileName = '', signal, 
     if (!loaded || !currentPage || currentPage.info?.index !== sheetIndex) { clearEvidence(); return null; }
     paintEvidence();
     const focus = region.querySelector('td.mail-workbook-evidence-quantity') || region.querySelector('td.mail-workbook-evidence-row');
-    focus?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+    if (focus && local) {
+      const cell = focus.getBoundingClientRect(), bounds = region.getBoundingClientRect();
+      const top = bounds.top + region.clientTop, left = bounds.left + region.clientLeft;
+      const bottom = top + region.clientHeight, right = left + region.clientWidth;
+      region.scrollTop += localScrollDelta(cell.top, cell.bottom, top, bottom);
+      region.scrollLeft += localScrollDelta(cell.left, cell.right, left, right);
+    } else focus?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
     return selectionSnapshot(evidence);
   };
   cleanup.setHighlightedRows = (rows, options = {}) => cleanup.focusEvidence(rows == null ? null : { sheetIndex: options.sheetIndex ?? sheetIndex, rowIndexes: rows, quantityCells: options.quantityCells ?? [],

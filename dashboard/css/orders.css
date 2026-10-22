@@ -30,6 +30,7 @@ body { color-scheme: dark; }
 .order-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .order-main { max-width: 1600px; margin: auto; padding: 30px 32px 48px; }
 .order-page-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 20px; }
+.order-heading-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
 .order-eyebrow { color: var(--brand-a); font-size: 12px; font-weight: 600; margin: 0 0 6px; }
 .order-page-heading h1 { font-size: 24px; line-height: 1.4; margin: 0 0 7px; letter-spacing: -.5px; }
 .order-muted { color: var(--t1); font-size: 12px; line-height: 1.7; }
@@ -127,11 +128,11 @@ body { color-scheme: dark; }
 .order-text-source-channel { color: var(--t1); font-size: 11px; font-weight: 400; }
 .order-text-source-actions { padding: 0 16px; }
 .order-text-source-actions .order-button { min-height: 30px; padding: 5px 10px; font-size: 11px; }
-.order-workbench-layout { display: grid; grid-template-columns: 290px minmax(0, 1fr); min-height: 570px; height: min(76dvh, 900px); }
-.order-mail-queue { min-width: 0; min-height: 0; overflow: auto; background: var(--card-w); border-right: 1px solid var(--border); }
+.order-workbench-layout { display: grid; grid-template-columns: 290px minmax(0, 1fr); align-items: start; min-height: 480px; }
+.order-mail-queue { min-width: 0; min-height: 0; max-height: min(76dvh, 900px); overflow: auto; overscroll-behavior: contain; position: sticky; top: 68px; align-self: start; background: var(--card-w); border-right: 1px solid var(--border); }
 .order-workbench-content { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
 .order-workbench-panel:focus-visible { outline: 2px solid var(--brand-a); outline-offset: -3px; }
-.order-workbench-panel { min-width: 0; min-height: 0; flex: 1; overflow: auto; overscroll-behavior: contain; scroll-margin-top: 72px; }
+.order-workbench-panel { min-width: 0; min-height: 0; flex: 1; overflow: visible; scroll-margin-top: 72px; }
 .order-processing-panel { padding: 20px; }
 .order-processing-intro { display: flex; flex-wrap: wrap; align-items: start; gap: 12px 20px; margin-bottom: 18px; }
 .order-processing-intro > p { flex: 1 1 260px; margin: 0; }

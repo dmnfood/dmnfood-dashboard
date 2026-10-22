@@ -5,6 +5,7 @@ import { initMailSourceViewer } from './mail-source-viewer.js';
 import { initOrderAiChat } from './order-ai-chat.js';
 import { initOrderAiEvidence } from './order-ai-evidence.js';
 import { initOrderTextSources } from './order-text-sources.js';
+import { initOrderBackground } from './order-ai-background.js';
 import { ORDER_CUSTOMER_GROUPS, ORDER_SOURCE_CHANNELS, ORDER_STATUSES, ORDER_DELIVERY_METHODS, ORDER_LIMITS, getApprovalIssues } from './order-request-model.js';
 import { createOrderRequest, subscribeOrderRequests, subscribeOrderRequest, updateOrderRequest, reviewOrderRequest } from './order-request-store.js';
 
@@ -275,12 +276,13 @@ requireApprovedActiveUser().then(approvedSession => {
   $('authLoading').hidden = true; $('ordersApp').hidden = false;
   $('orderUserName').textContent = session.profile.displayName || session.profile.employeeName || '사용자';
   if (!['manager', 'admin'].includes(session.profile.role)) { $('orderAccessDenied').hidden = false; $('orderWorkspace').hidden = true; $('openExistingOrders').hidden = true; $('newOrderButton').hidden = true; $('testOrderButton').hidden = true; return; }
-  const evidence = initOrderAiEvidence(session);
-  preparation = initOrderAiChat(session, $('orderChatMount'), { openEvidence: value => evidence.review(value), previewAttachment: value => evidence.preview(value) });
+  const evidence = initOrderAiEvidence(session), previewEvidence = initOrderAiEvidence(session);
+  const closeEvidence = () => { evidence.close(); previewEvidence.close(); };
+  preparation = initOrderAiChat(session, $('orderChatMount'), { openEvidence: value => evidence.review(value), cancelEvidence: () => evidence.cancel(), previewAttachment: value => previewEvidence.preview(value) });
   unsubscribe.push(() => preparation.destroy());
-  unsubscribe.push(() => evidence.destroy());
+  unsubscribe.push(() => { evidence.destroy(); previewEvidence.destroy(); });
   unsubscribe.push(initMailConnection(session, $('mailConnectionMount')));
-  let textSources, mailViewer, currentSourceUrl = location.href;
+  let textSources, mailViewer, background, activeMailId = '', currentSourceUrl = location.href;
   const setQueueMode = mode => {
     const text = mode === 'text'; $('mailQueueMount').hidden = text; $('mailSourceToolbar').hidden = text; $('orderTextQueueMount').hidden = !text;
     $('showMailSources').setAttribute('aria-pressed', String(!text)); $('showTextSources').setAttribute('aria-pressed', String(text));
@@ -299,19 +301,24 @@ requireApprovedActiveUser().then(approvedSession => {
     onHistoryChange: () => { currentSourceUrl = location.href; },
     summaryOnly: true, onBeforeSelectMail: canChangeSource,
     onSelectMail: value => {
+      activeMailId = '';
       if (value.id) { textSources?.clearSelection(); setQueueMode('mail'); setSourceRoute('mail', value.id, 'replace'); }
-      evidence.close(); preparation.setSource(null);
-    }, onMailLoaded: mail => preparation.setSource(mail),
-    onPreviewAttachment: (attachment, { mail }) => evidence.preview({ mail, attachment }),
+      closeEvidence(); preparation.setSource(null);
+    }, onMailLoaded: async mail => {
+      activeMailId = mail.id;
+      const loaded = preparation.setSource(mail); preparation.setAutomationState(background?.stateFor(mail.id)); await loaded;
+      const state = background?.stateFor(mail.id); if (activeMailId === mail.id && state?.state === 'ready') await preparation.refreshAnalysis({ revision: state.revision });
+    },
+    onPreviewAttachment: (attachment, { mail }) => previewEvidence.preview({ mail, attachment }),
   });
   textSources = initOrderTextSources(session, {
     mount: $('orderTextQueueMount'), dialog: $('orderTextDialog'), form: $('orderTextForm'), addButton: $('addTextOrder'), canLeave: canChangeSource,
-    onSelectStart: ({ id, history }) => { mailViewer.clearSelection({ history: false, checkedNavigation: true }); setQueueMode('text'); setSourceRoute('text', id, history); evidence.close(); preparation.setSource(null); },
-    onSelect: (source, options) => preparation.setSource(source, options), onPreview: source => evidence.preview({ mail: source }),
+    onSelectStart: ({ id, history }) => { activeMailId = ''; mailViewer.clearSelection({ history: false, checkedNavigation: true }); setQueueMode('text'); setSourceRoute('text', id, history); closeEvidence(); preparation.setSource(null); },
+    onSelect: (source, options) => preparation.setSource(source, options), onPreview: source => previewEvidence.preview({ mail: source }),
   });
   const switchQueue = mode => {
     if (!canChangeSource()) return;
-    evidence.close(); textSources.clearSelection(); mailViewer.clearSelection({ history: false, checkedNavigation: true }); setSourceRoute(mode, '', 'push'); setQueueMode(mode);
+    activeMailId = ''; closeEvidence(); textSources.clearSelection(); mailViewer.clearSelection({ history: false, checkedNavigation: true }); setSourceRoute(mode, '', 'push'); setQueueMode(mode);
   };
   $('showMailSources').addEventListener('click', () => switchQueue('mail'));
   $('showTextSources').addEventListener('click', () => switchQueue('text'));
@@ -322,11 +329,20 @@ requireApprovedActiveUser().then(approvedSession => {
     const query = new URLSearchParams(location.search), textId = query.get('text'), mailId = query.get('mail');
     if (textId) { void textSources.selectSource(textId, { history: false, checkedNavigation: true }); }
     else if (mailId) { textSources.clearSelection(); mailViewer.syncHistory(); }
-    else { textSources.clearSelection(); mailViewer.clearSelection({ history: false, checkedNavigation: true }); evidence.close(); preparation.setSource(null); }
+    else { activeMailId = ''; textSources.clearSelection(); mailViewer.clearSelection({ history: false, checkedNavigation: true }); closeEvidence(); preparation.setSource(null); }
     rememberSourceUrl();
   };
   window.addEventListener('popstate', routeHistory);
   const initialTextId = new URLSearchParams(location.search).get('text'); if (initialTextId) { setQueueMode('text'); void textSources.selectSource(initialTextId, { history: false, checkedNavigation: true }); }
+  const autoFeedback = element('p', '', 'mail-source-feedback'); autoFeedback.setAttribute('role', 'status'); autoFeedback.setAttribute('aria-live', 'polite'); autoFeedback.hidden = true; $('mailQueueMount').append(autoFeedback);
+  background = initOrderBackground(session, {
+    getPreferredIntakeId: () => activeMailId,
+    onStates: items => { mailViewer.setAnalysisStates(items); const active = items.find(item => item.intakeId === activeMailId); if (active) preparation.setAutomationState(active); },
+    onReady: item => { if (item.intakeId === activeMailId) void preparation.refreshAnalysis({ revision: item.revision }); },
+    onMailSynced: () => window.dispatchEvent(new CustomEvent('mail-intakes-updated', { detail: { origin: 'background' } })),
+    onStatus: state => { autoFeedback.hidden = state.state !== 'failed'; autoFeedback.textContent = state.state === 'failed' ? state.message : ''; },
+  });
+  unsubscribe.push(() => background.destroy());
   unsubscribe.push(mailViewer, () => textSources.destroy(), () => window.removeEventListener('popstate', routeHistory));
   const notifications = initOrderNotifications({ ...session, mount: $('orderNotificationMount') }); unsubscribe.push(() => notifications?.destroy());
   const requestedId = new URLSearchParams(window.location.search).get('order');

@@ -27,6 +27,7 @@ function findButton(mount, text) {
   const button = findAll(mount, node => node.tagName === 'button' && node.textContent === text)[0];
   assert.ok(button, `Missing button: ${text}`); return button;
 }
+function findToggle(mount) { return findAll(mount, node => node.dataset.mailAction === 'toggle')[0]; }
 const settled = async () => { await new Promise(resolve => setImmediate(resolve)); await new Promise(resolve => setImmediate(resolve)); };
 const configured = (connection = {}) => ({ ok: true, configuration: { ready: true, missing: [] },
   connection: { connected: true, mailbox: 'official@dmnfood.co.kr', accessStatus: 'mailbox_access_verified', ...connection },
@@ -35,7 +36,12 @@ const schoolFolders = folders => ({ ok: true, folders, schoolScope: { folderId: 
 
 function panel({ role = 'admin', responses, url = 'https://dashboard.dmnfood.co.kr/orders' } = {}) {
   const calls = [], navigations = [], historyReplacements = [];
-  const document = { activeElement: null, createElement: tag => new Node(tag, document) }, mount = new Node('section', document);
+  const documentEvents = new Map();
+  const document = { activeElement: null, createElement: tag => new Node(tag, document),
+    addEventListener: (name, handler) => documentEvents.set(name, handler),
+    removeEventListener: (name, handler) => { if (documentEvents.get(name) === handler) documentEvents.delete(name); },
+    fire: (name, values = {}) => documentEvents.get(name)?.({ target: document, preventDefault() {}, ...values }),
+  }, mount = new Node('section', document);
   const context = vm.createContext({ document, window: { location: { href: url, assign: url => navigations.push(url) }, history: { state: { selected: true }, replaceState: (state, title, path) => historyReplacements.push({ state, title, path }) } },
     AbortController, DOMException, URL, Intl, Date,
     fetch: async (path, settings) => {
@@ -46,7 +52,7 @@ function panel({ role = 'admin', responses, url = 'https://dashboard.dmnfood.co.
   });
   vm.runInContext(`${source.replace(/^export /gm, '')}\nglobalThis.startPanel = initMailConnection;`, context);
   const cleanup = context.startPanel({ profile: { role }, user: { getIdToken: async () => 'firebase-user-token' } }, mount);
-  return { mount, calls, navigations, historyReplacements, cleanup, document };
+  return { mount, calls, navigations, historyReplacements, cleanup, document, documentEvents };
 }
 
 test('manager panel stays compact without asserting unknown status, exposing setup details or calling APIs', async () => {
@@ -55,9 +61,81 @@ test('manager panel stays compact without asserting unknown status, exposing set
   assert.equal(app.calls.length, 0);
   assert.equal(app.mount.dataset.mode, 'compact');
   assert.equal(findAll(app.mount, node => ['button', 'select', 'details', 'input', 'textarea', 'dl'].includes(node.tagName)).length, 0);
-  assert.match(app.mount.textContent, /메일 가져오기와 연결 설정은 관리자가 진행합니다/);
-  assert.match(app.mount.textContent, /학교급식 발주/);
+  assert.equal(app.mount.textContent, '네이버웍스 · 관리자 관리');
+  assert.match(app.mount.children[0].children[0].attributes['aria-label'], /학교급식 발주 · 메일 가져오기와 연결 설정은 관리자가 진행합니다/);
   assert.doesNotMatch(app.mount.textContent, /연결 전|수집 전|Client ID|kaXX9XpQRZ7ohuKFW1TU|설정 필요/);
+  app.cleanup();
+});
+
+test('connection control sits before company management without a separate workspace card', async () => {
+  const html = await readFile(new URL('../dashboard/orders.html', import.meta.url), 'utf8');
+  assert.equal((html.match(/id="mailConnectionMount"/g) || []).length, 1);
+  const headingStart = html.indexOf('class="order-heading-actions"');
+  const connection = html.indexOf('id="mailConnectionMount"');
+  const companies = html.indexOf('href="/school-meal-weekly"');
+  const workspace = html.indexOf('id="orderWorkspace"');
+  assert.ok(headingStart < connection && connection < companies && companies < workspace);
+  assert.match(html.slice(connection, companies), /hidden/);
+  assert.match(html, /order-ai-chat\.css[\s\S]*order-ai-evidence\.css/);
+});
+
+test('connection settings describe automatic work only while the inbox remains open', async () => {
+  const app = panel({ responses: path => path.endsWith('/status') ? configured() : schoolFolders([{ id: '106', name: '학교급식 발주' }]) });
+  await settled();
+  assert.match(app.mount.textContent, /발주함이 열려 있는 동안 학교급식 메일을 자동 확인합니다\. 닫으면 자동 처리가 멈춥니다/);
+  assert.match(app.mount.textContent, /분석 결과를 원본과 대조한 뒤 담당자가 최종 확정/);
+  assert.doesNotMatch(app.mount.textContent, /버튼을 눌러야 실행|상시 자동 수집.*미가동|규칙 설정 전/);
+  assert.equal(findButton(app.mount, '메일 가져오기').disabled, false);
+  app.cleanup();
+});
+
+test('compact disclosure opens without collecting and closes on Escape, outside pointer or focus', async () => {
+  const app = panel({ responses: path => path.endsWith('/status') ? configured() : schoolFolders([{ id: '106', name: '학교급식 발주' }]) });
+  await settled();
+  const toggle = findToggle(app.mount), dropdown = findAll(app.mount, node => node.id === 'mailConnectionMenu')[0];
+  assert.equal(app.mount.hidden, false);
+  assert.equal(toggle.textContent, '네이버웍스 연결 정상⌄');
+  assert.equal(toggle.attributes['aria-expanded'], 'false');
+  assert.equal(toggle.attributes['aria-controls'], dropdown.id);
+  assert.equal(dropdown.attributes.role, 'region');
+  assert.equal(dropdown.hidden, true);
+  assert.equal(toggle.children[0].attributes['aria-hidden'], 'true');
+  await toggle.fire('click');
+  assert.equal(toggle.attributes['aria-expanded'], 'true');
+  assert.equal(dropdown.hidden, false);
+  assert.equal(app.calls.length, 2);
+  app.document.fire('pointerdown', { target: findButton(app.mount, '메일 가져오기') });
+  assert.equal(dropdown.hidden, false);
+  findButton(app.mount, '메일 가져오기').focus();
+  let prevented = false;
+  app.document.fire('keydown', { key: 'Escape', preventDefault() { prevented = true; } });
+  assert.equal(prevented, true);
+  assert.equal(dropdown.hidden, true);
+  assert.equal(app.document.activeElement, toggle);
+  await toggle.fire('click');
+  const outside = new Node('button', app.document); outside.focus();
+  app.document.fire('pointerdown', { target: outside });
+  assert.equal(dropdown.hidden, true);
+  assert.equal(app.document.activeElement, outside);
+  await toggle.fire('click');
+  app.document.fire('focusin', { target: outside });
+  assert.equal(dropdown.hidden, true);
+  app.cleanup();
+  assert.equal(app.documentEvents.size, 0);
+  assert.equal(app.mount.hidden, true);
+});
+
+test('opening detailed settings closes the disclosure and returns focus to its visible trigger', async () => {
+  const app = panel({ responses: () => configured({ connected: false }) });
+  await settled();
+  const toggle = findToggle(app.mount), dropdown = findAll(app.mount, node => node.id === 'mailConnectionMenu')[0];
+  await toggle.fire('click');
+  await findButton(app.mount, '연결 설정').fire('click');
+  assert.equal(dropdown.hidden, true);
+  assert.equal(toggle.attributes['aria-expanded'], 'false');
+  assert.equal(findAll(app.mount, node => node.tagName === 'dialog')[0].open, true);
+  await findButton(app.mount, '닫기').fire('click');
+  assert.equal(app.document.activeElement, toggle);
   app.cleanup();
 });
 
@@ -199,17 +277,17 @@ test('setup stays in a separate dialog that survives async status updates and re
   await dialog.fire('cancel', { preventDefault() { prevented = true; } });
   assert.equal(prevented, true);
   assert.equal(dialog.open, false);
-  assert.equal(app.document.activeElement, findButton(app.mount, '연결 설정'));
+  assert.equal(app.document.activeElement, findToggle(app.mount));
   await findButton(app.mount, '연결 설정').fire('click');
   await dialog.fire('click', { target: findButton(app.mount, '닫기') });
   assert.equal(dialog.open, true);
   await dialog.fire('click');
   assert.equal(dialog.open, false);
-  assert.equal(app.document.activeElement, findButton(app.mount, '연결 설정'));
+  assert.equal(app.document.activeElement, findToggle(app.mount));
   app.cleanup();
 });
 
-test('closing settings retains continuation and collection feedback remains visible in the strip', async () => {
+test('closing settings retains continuation and collection feedback is available in the dropdown', async () => {
   let batches = 0;
   const app = panel({ responses: path => {
     if (path.endsWith('/status')) return configured();
@@ -227,11 +305,12 @@ test('closing settings retains continuation and collection feedback remains visi
   app.cleanup();
 });
 
-test('connection failure stays visible outside the closed settings dialog', async () => {
+test('connection failure shows a concise status with details in the dropdown and settings', async () => {
   const app = panel({ responses: () => ({ status: 503, body: { ok: false } }) });
   await settled();
   const strip = app.mount.children[0], dialog = findAll(app.mount, node => node.tagName === 'dialog')[0];
   assert.equal(dialog.open, false);
+  assert.equal(findToggle(app.mount).textContent, '네이버웍스 확인 필요⌄');
   assert.match(strip.textContent, /연결 상태를 확인하지 못했습니다/);
   assert.match(dialog.textContent, /연결 상태를 확인하지 못했습니다/);
   app.cleanup();
@@ -245,6 +324,7 @@ test('keyboard focus stays on the collection action across busy, continuation an
     return new Promise(resolve => { resolveBatch = resolve; });
   } });
   await settled();
+  await findToggle(app.mount).fire('click');
   findButton(app.mount, '메일 가져오기').focus();
   const first = findButton(app.mount, '메일 가져오기').fire('click');
   await settled();

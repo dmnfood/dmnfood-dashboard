@@ -21,9 +21,12 @@ class UiNode {
   removeEventListener(name, callback) { this.listeners.set(name, (this.listeners.get(name) || []).filter(item => item !== callback)); }
   fire(name, values = {}) { const event = { target: this, preventDefault() {}, ...values }; for (const callback of this.listeners.get(name) || []) callback(event); }
   contains(node) { for (let current = node; current; current = current.parentNode) if (current === this) return true; return false; }
-  matches(selector) { if (selector === 'td[data-source-row]') return this.tagName === 'TD' && this.dataset.sourceRow !== undefined; return this.tagName === selector.toUpperCase(); }
+  matches(selector) { if (selector === 'td[data-source-row]') return this.tagName === 'TD' && this.dataset.sourceRow !== undefined; const styled = selector.match(/^([a-z]+)\.([a-z-]+)$/); if (styled) return this.tagName === styled[1].toUpperCase() && this.className.split(' ').includes(styled[2]); return this.tagName === selector.toUpperCase(); }
   closest(selector) { for (let current = this; current; current = current.parentNode) if (current.matches(selector)) return current; return null; }
   querySelectorAll(selector) { return this.children.flatMap(child => [...(child.matches(selector) ? [child] : []), ...child.querySelectorAll(selector)]); }
+  querySelector(selector) { return this.querySelectorAll(selector)[0] || null; }
+  getBoundingClientRect() { return this.bounds || { top: 0, left: 0, bottom: 0, right: 0 }; }
+  scrollIntoView(options) { this.scrollCalls = [...(this.scrollCalls || []), options]; }
   setPointerCapture(id) { this.captures.add(id); }
   hasPointerCapture(id) { return this.captures.has(id); }
   releasePointerCapture(id) { this.captures.delete(id); }
@@ -131,5 +134,60 @@ test('late programmatic restore cannot overwrite a later drag, clear, address ed
   pendingRestore = app.cleanup.setSelection(saved);
   const picker = app.nodes().find(node => node.tagName === 'SELECT'); picker.value = '1'; picker.fire('change');
   assert.equal(await pendingRestore, null); await settle(); assert.equal(app.cleanup.getSelection(), null);
+  app.cleanup();
+});
+
+test('inline evidence scrolls only the workbook region and keeps an already visible cell stationary', async () => {
+  const app = await harness();
+  app.region.bounds = { top: 100, left: 50, bottom: 304, right: 354 };
+  app.region.clientTop = 2; app.region.clientLeft = 2; app.region.clientHeight = 200; app.region.clientWidth = 300;
+  let cellBounds = { top: 400, left: 470, bottom: 430, right: 520 };
+  const createElement = app.document.createElement;
+  app.document.createElement = tag => { const node = createElement(tag); if (tag === 'td') node.getBoundingClientRect = () => cellBounds; return node; };
+  app.mount.scrollTop = 234; app.document.scrollTop = 567; app.window.scrollY = 890;
+  const value = { sheetIndex: 0, rowIndexes: [4], quantityCells: [{ row: 4, column: 4 }] };
+  const evidence = await app.cleanup.focusEvidence(value, { local: true });
+  assert.ok(evidence); assert.equal(app.region.scrollTop, 128); assert.equal(app.region.scrollLeft, 168);
+  assert.equal(app.cell(4, 4).scrollCalls, undefined, 'inline focus must not ask the browser to scroll ancestor containers');
+  assert.equal(app.mount.scrollTop, 234); assert.equal(app.document.scrollTop, 567); assert.equal(app.window.scrollY, 890);
+  cellBounds = { top: 130, left: 80, bottom: 160, right: 140 };
+  await app.cleanup.focusEvidence(value, { local: true });
+  assert.equal(app.region.scrollTop, 0); assert.equal(app.region.scrollLeft, 0);
+  assert.equal(app.cell(4, 4).scrollCalls, undefined);
+  assert.equal(app.changes.length, 0, 'source highlighting never claims a user selection');
+  app.cleanup();
+});
+
+test('standalone evidence retains browser nearest scrolling by default', async () => {
+  const app = await harness();
+  await app.cleanup.focusEvidence({ sheetIndex: 0, rowIndexes: [4], quantityCells: [{ row: 4, column: 4 }] });
+  const calls = app.cell(4, 4).scrollCalls;
+  assert.equal(calls.length, 1); assert.equal(calls[0].block, 'nearest'); assert.equal(calls[0].inline, 'nearest');
+  assert.equal(app.region.scrollTop, 0); assert.equal(app.region.scrollLeft, 0);
+  app.cleanup();
+});
+
+test('oversized evidence cells keep their visible start and align to the start only when fully outside the region', async () => {
+  const app = await harness();
+  app.region.bounds = { top: 100, left: 50, bottom: 304, right: 354 };
+  app.region.clientTop = 2; app.region.clientLeft = 2; app.region.clientHeight = 200; app.region.clientWidth = 300;
+  let cellBounds;
+  const createElement = app.document.createElement;
+  app.document.createElement = tag => { const node = createElement(tag); if (tag === 'td') node.getBoundingClientRect = () => cellBounds; return node; };
+  const value = { sheetIndex: 0, rowIndexes: [4], quantityCells: [{ row: 4, column: 4 }] };
+  for (const visible of [
+    { top: 102, left: 52, bottom: 700, right: 900 },
+    { top: 120, left: 80, bottom: 700, right: 900 },
+    { top: -100, left: -200, bottom: 700, right: 900 },
+  ]) {
+    cellBounds = visible;
+    await app.cleanup.focusEvidence(value, { local: true });
+    assert.equal(app.region.scrollTop, 0); assert.equal(app.region.scrollLeft, 0);
+    assert.equal(app.cell(4, 4).scrollCalls, undefined);
+  }
+  cellBounds = { top: 500, left: 600, bottom: 1100, right: 1400 };
+  await app.cleanup.focusEvidence(value, { local: true });
+  assert.equal(app.region.scrollTop, 398); assert.equal(app.region.scrollLeft, 548);
+  assert.equal(app.cell(4, 4).scrollCalls, undefined);
   app.cleanup();
 });

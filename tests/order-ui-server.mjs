@@ -33,7 +33,7 @@ const uiFiles = new Set([
     '/dashboard/js/mail-workbook-selection.js',
     '/dashboard/js/mail-preparation-ui.js', '/dashboard/js/mail-preparation-model.js', '/dashboard/css/mail-preparation.css',
     '/dashboard/js/order-ai-client.js', '/dashboard/js/order-ai-chat.js', '/dashboard/js/order-ai-evidence.js',
-    '/dashboard/js/order-ai-model.js', '/dashboard/css/order-ai-chat.css',
+    '/dashboard/js/order-ai-model.js', '/dashboard/css/order-ai-chat.css', '/dashboard/css/order-ai-evidence.css', '/dashboard/js/order-ai-background.js',
     '/dashboard/js/order-text-source-model.js', '/dashboard/js/order-text-sources.js',
     '/dashboard/js/school-meal-company-model.js',
     '/dashboard/js/erp-customer-model.js', '/dashboard/js/erp-customer-import.js',
@@ -208,6 +208,21 @@ const server = createServer(async (req, res) => {
             if (req.headers.authorization !== 'Bearer fictional-local-token-not-a-firebase-credential') return reply(res, 401, { ok: false });
             const referer = new URL(req.headers.referer || localOrigin), scenario = referer.searchParams.get('orderAiScenario') || 'valid';
             if (referer.origin !== localOrigin) return reply(res, 403, { ok: false });
+            if (url.pathname.endsWith('/background')) {
+                if (req.method === 'GET') return reply(res, 200, { ok: true, items: mailFixtures.map(mail => {
+                    const saved = orderAiAnalyses.get(`${scenario}:${mail.id}`);
+                    return { intakeId: mail.id, state: saved ? 'ready' : mail.id === SCHOOL_MAIL_ID ? 'pending' : 'failed',
+                        ...(saved ? { revision: saved.revision } : mail.id !== SCHOOL_MAIL_ID ? { message: '가상 검증: 발주 첨부가 없는 자료입니다.' } : {}) };
+                }), nextCursor: null, mode: 'fictional_local_only' });
+                if (req.method !== 'POST' || req.headers.origin !== localOrigin) return reply(res, 405, { ok: false });
+                const input = await readAction(req);
+                if (input.action === 'sync') return reply(res, 200, { ok: true, sync: { status: 'complete', collected: 0, continuation: null }, mode: 'fictional_local_only' });
+                if (input.action !== 'analyze' || input.intakeId !== SCHOOL_MAIL_ID) return reply(res, 400, { ok: false, message: '가상 자동 분석 대상을 확인해 주세요.' });
+                if (scenario === 'unconfigured') return reply(res, 503, { ok: false, message: '가상 AI 연결이 꺼져 있습니다.' });
+                const key = `${scenario}:${input.intakeId}`;
+                if (!orderAiAnalyses.has(key)) orderAiAnalyses.set(key, createOrderAiFixture({ intakeId: input.intakeId, expectedRevision: 0 }, scenario, null));
+                return reply(res, 200, { ok: true, intakeId: input.intakeId, state: 'ready', revision: orderAiAnalyses.get(key).revision, mode: 'fictional_local_only' });
+            }
             if (url.pathname.endsWith('/text-sources')) {
                 if (req.method === 'GET') {
                     const id = url.searchParams.get('id');

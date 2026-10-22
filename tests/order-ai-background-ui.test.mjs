@@ -127,3 +127,23 @@ test('internal collection events do not recursively restart collection', async (
   h.listeners.get('mail-intakes-updated')({ detail: {} }); await settle();
   assert.equal(h.calls.filter(call => call.body?.action === 'sync').length, 1); assert.ok(h.calls.length > before); h.app.destroy();
 });
+
+test('a successful human confirmation updates immediately and cannot regress when an older scan or worker finishes', async () => {
+  const held = deferred(), confirmedAt = '2026-10-22T03:00:00.000Z';
+  const h = harness(call => !call.body ? held.promise : undefined); await settle();
+  assert.equal(h.app.markConfirmed({ intakeId: A, revision: 4, confirmedAt }), true);
+  assert.deepEqual(h.app.stateFor(A), { intakeId: A, state: 'confirmed', revision: 4, confirmedAt });
+  held.resolve({ ok: true, items: [{ intakeId: A, state: 'pending' }], nextCursor: null }); await settle();
+  assert.equal(h.app.stateFor(A).state, 'confirmed'); assert.equal(h.calls.some(call => call.body?.action === 'analyze'), false);
+  assert.equal(h.ready.filter(item => item.state === 'confirmed').length, 1);
+  assert.equal(h.app.markConfirmed({ intakeId: A, revision: 2 }), true); assert.equal(h.app.stateFor(A).revision, 4);
+  h.app.destroy(); assert.equal(h.app.markConfirmed({ intakeId: A, revision: 5 }), false);
+});
+
+test('another staff confirmation found by polling upgrades ready status and refreshes saved analysis without a new AI request', async () => {
+  let scans = 0;
+  const h = harness(call => !call.body ? { ok: true, items: [{ intakeId: A, state: ++scans === 1 ? 'ready' : scans === 2 ? 'confirmed' : 'ready', revision: scans === 1 ? 1 : scans === 2 ? 2 : 1 }], nextCursor: null } : undefined);
+  await settle(); await h.tick(); assert.equal(h.app.stateFor(A).state, 'confirmed'); assert.equal(h.ready.at(-1).state, 'confirmed');
+  await h.tick(); assert.equal(h.app.stateFor(A).state, 'confirmed'); assert.equal(h.ready.length, 2); assert.equal(h.calls.some(call => call.body?.action === 'analyze'), false);
+  assert.equal(h.app.markConfirmed({ intakeId: '../invalid', revision: 1 }), false); assert.equal(h.app.markConfirmed({ intakeId: A, revision: 0 }), false); h.app.destroy();
+});

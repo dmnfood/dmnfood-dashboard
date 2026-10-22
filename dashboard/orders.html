@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="/dashboard/css/mail-workbook-preview.css">
   <link rel="stylesheet" href="/dashboard/css/order-ai-chat.css">
   <link rel="stylesheet" href="/dashboard/css/order-ai-evidence.css">
+  <link rel="stylesheet" href="/dashboard/css/order-confirmed-list.css">
 </head>
 <body>
   <div class="blobs" aria-hidden="true"><div class="b1"></div><div class="b2"></div></div>
@@ -69,7 +70,9 @@
   </dialog>
   <dialog id="existingOrdersDialog" class="order-dialog order-existing-dialog" aria-labelledby="existingOrdersTitle">
     <div class="order-dialog-header"><h2 id="existingOrdersTitle">등록된 발주</h2><button id="closeExistingOrders" class="order-icon-button" type="button" aria-label="발주 목록 닫기">×</button></div>
-              <section id="orderProcessingPanel" class="order-workbench-panel order-processing-panel">
+    <div class="order-source-switch" role="group" aria-label="등록된 발주 종류"><button id="showConfirmedOrders" type="button" aria-pressed="true">확정한 발주</button><button id="showManualOrders" type="button" aria-pressed="false">수동 보완</button></div>
+    <section id="confirmedOrdersPanel" aria-label="확정한 발주"></section>
+              <section id="orderProcessingPanel" class="order-workbench-panel order-processing-panel" hidden>
                 <div class="order-processing-intro"><p id="orderMailContext" class="order-muted">별도로 등록된 발주를 확인합니다.</p><div class="order-actions"><button id="newOrderButton" class="order-button" type="button">수동 보완 등록</button><button id="testOrderButton" class="order-button order-text-button" type="button">가상 발주 시험</button></div></div>
                 <section class="order-list-panel" aria-label="발주 목록">
                   <div class="order-processing-list-header"><div class="order-list-heading"><h2>등록된 발주</h2><span id="orderCount" class="order-muted">연결 중</span></div><label class="order-filter" for="orderStatusFilter">처리 상태<select id="orderStatusFilter"><option value="pending_review">확인 대기</option><option value="needs_information">추가 확인</option><option value="approved">확인 완료</option><option value="rejected">처리 제외</option><option value="all">전체</option></select></label></div>

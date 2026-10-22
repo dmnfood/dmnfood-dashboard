@@ -34,6 +34,7 @@ const uiFiles = new Set([
     '/dashboard/js/mail-preparation-ui.js', '/dashboard/js/mail-preparation-model.js', '/dashboard/css/mail-preparation.css',
     '/dashboard/js/order-ai-client.js', '/dashboard/js/order-ai-chat.js', '/dashboard/js/order-ai-evidence.js',
     '/dashboard/js/order-ai-model.js', '/dashboard/css/order-ai-chat.css', '/dashboard/css/order-ai-evidence.css', '/dashboard/js/order-ai-background.js',
+    '/dashboard/js/order-confirmed-list.js', '/dashboard/css/order-confirmed-list.css',
     '/dashboard/js/order-text-source-model.js', '/dashboard/js/order-text-sources.js',
     '/dashboard/js/school-meal-company-model.js',
     '/dashboard/js/erp-customer-model.js', '/dashboard/js/erp-customer-import.js',
@@ -211,8 +212,8 @@ const server = createServer(async (req, res) => {
             if (url.pathname.endsWith('/background')) {
                 if (req.method === 'GET') return reply(res, 200, { ok: true, items: mailFixtures.map(mail => {
                     const saved = orderAiAnalyses.get(`${scenario}:${mail.id}`);
-                    return { intakeId: mail.id, state: saved ? 'ready' : mail.id === SCHOOL_MAIL_ID ? 'pending' : 'failed',
-                        ...(saved ? { revision: saved.revision } : mail.id !== SCHOOL_MAIL_ID ? { message: '가상 검증: 발주 첨부가 없는 자료입니다.' } : {}) };
+                    return { intakeId: mail.id, state: saved?.status === 'confirmed' ? 'confirmed' : saved ? 'ready' : mail.id === SCHOOL_MAIL_ID ? 'pending' : 'failed',
+                        ...(saved ? { revision: saved.revision, confirmedAt: saved.confirmedAt } : mail.id !== SCHOOL_MAIL_ID ? { message: '가상 검증: 발주 첨부가 없는 자료입니다.' } : {}) };
                 }), nextCursor: null, mode: 'fictional_local_only' });
                 if (req.method !== 'POST' || req.headers.origin !== localOrigin) return reply(res, 405, { ok: false });
                 const input = await readAction(req);
@@ -221,7 +222,8 @@ const server = createServer(async (req, res) => {
                 if (scenario === 'unconfigured') return reply(res, 503, { ok: false, message: '가상 AI 연결이 꺼져 있습니다.' });
                 const key = `${scenario}:${input.intakeId}`;
                 if (!orderAiAnalyses.has(key)) orderAiAnalyses.set(key, createOrderAiFixture({ intakeId: input.intakeId, expectedRevision: 0 }, scenario, null));
-                return reply(res, 200, { ok: true, intakeId: input.intakeId, state: 'ready', revision: orderAiAnalyses.get(key).revision, mode: 'fictional_local_only' });
+                const saved = orderAiAnalyses.get(key);
+                return reply(res, 200, { ok: true, intakeId: input.intakeId, state: saved.status === 'confirmed' ? 'confirmed' : 'ready', revision: saved.revision, confirmedAt: saved.confirmedAt, mode: 'fictional_local_only' });
             }
             if (url.pathname.endsWith('/text-sources')) {
                 if (req.method === 'GET') {
@@ -240,6 +242,15 @@ const server = createServer(async (req, res) => {
             if (url.pathname.endsWith('/status') && req.method === 'GET') return reply(res, 200, { ok: true,
                 configured: scenario !== 'unconfigured', mode: 'fictional_local_only', message: '로컬 가상 검증이며 실제 OpenAI에 연결하지 않습니다.' });
             const key = `${scenario}:${url.searchParams.get('intakeId')}`;
+            if (url.pathname.endsWith('/analysis') && req.method === 'GET' && url.searchParams.get('list') === 'confirmed') {
+                const records = [...orderAiAnalyses.entries()].filter(([id, analysis]) => id.startsWith(`${scenario}:`) && analysis.status === 'confirmed')
+                    .map(([, analysis]) => ({ intakeId: analysis.intakeId, sourceKind: textSourceFixtures.get(analysis.intakeId)?.kind || 'mail', sourceHash: analysis.sourceHash,
+                        revision: analysis.revision, confirmedRevision: analysis.confirmedRevision, confirmedAt: analysis.confirmedAt, confirmedByUid: analysis.confirmedByUid,
+                        customer: analysis.customer, groups: analysis.groups.map(({ id, productId, label, quantity, unit }) => ({ id, productId, label, quantity, unit })),
+                        lineCount: new Set(analysis.groups.flatMap(group => group.lineIds)).size }))
+                    .sort((a, b) => b.confirmedAt.localeCompare(a.confirmedAt) || b.intakeId.localeCompare(a.intakeId));
+                return reply(res, 200, { ok: true, records: records.slice(0, 25), nextCursor: null, mode: 'fictional_local_only' });
+            }
             if (url.pathname.endsWith('/analysis') && req.method === 'GET') return reply(res, 200, { ok: true, analysis: orderAiAnalyses.get(key) || null, mode: 'fictional_local_only' });
             if (req.method !== 'POST' || req.headers.origin !== localOrigin || !req.headers['content-type']?.startsWith('application/json')) return reply(res, 405, { ok: false });
             if (scenario === 'unconfigured') return reply(res, 503, { ok: false, message: '가상 AI 연결이 꺼져 있습니다.', mode: 'fictional_local_only' });
@@ -261,7 +272,7 @@ const server = createServer(async (req, res) => {
                 assertOrderAiConfirmation(previous, { revision: input.expectedRevision, sourceHash: text?.sha256 || mailFixtures[0].rawStorage.sha256,
                     sources: manualSources || orderAiSources, customers: orderAiCustomers(), reviewedGroupIds: input.reviewedGroupIds,
                     reviewedExclusions: input.reviewedExclusions });
-                const analysis = { ...previous, status: 'confirmed', confirmedRevision: previous.revision,
+                const analysis = { ...previous, status: 'confirmed', revision: previous.revision + 1, confirmedRevision: previous.revision,
                     reviewedGroupIds: [...input.reviewedGroupIds], reviewedExclusions: input.reviewedExclusions === true,
                     confirmedByUid: actor.uid, confirmedAt: new Date().toISOString() };
                 orderAiAnalyses.set(writeKey, analysis); return reply(res, 200, { ok: true, analysis, mode: 'fictional_local_only' });

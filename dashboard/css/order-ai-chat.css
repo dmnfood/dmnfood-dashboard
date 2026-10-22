@@ -20,6 +20,12 @@
 .order-ai-kicker { font-size: 10px; font-weight: 700; letter-spacing: .08em; color: var(--t1); }
 .order-ai-current-summary { margin: 0 0 20px; padding: 16px 18px; border-radius: 10px; border-left: 3px solid var(--brand-a); background: rgba(34,211,238,.05); font-size: 13px; line-height: 1.9; white-space: pre-wrap; overflow-wrap: anywhere; }
 .order-ai-empty { padding: 35px 0; max-width: 540px; }
+.order-ai-chat[data-empty="true"] { display: flex; align-items: center; justify-content: center; min-height: min(56dvh,560px); }
+.order-ai-chat[data-empty="true"] .order-ai-empty { margin: 0 auto; text-align: center; }
+.order-ai-source-actions { display: flex; align-items: center; gap: 10px; }
+.order-ai-source-actions .order-button { padding: 6px 11px; font-size: 12px; }
+.order-ai-source-card > .order-ai-editor { margin: 0 0 18px; padding: 0 0 18px; background: transparent; }
+.order-ai-open-registered { margin-top: 12px; }
 .order-ai-empty .order-button { margin: 22px 8px 0 0; }
 .order-ai-stage-footer { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border); }
 .order-ai-pending { padding: 16px 18px; margin: 18px 0; border: 1px solid rgba(251,191,36,.2); border-radius: 10px; background: rgba(251,191,36,.035); font-size: 12px; line-height: 1.9; }

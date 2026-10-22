@@ -3,7 +3,7 @@ const ATTACHMENT_PATH = '/api/naverworks/attachment';
 const SCHOOL_FOLDER_ID = '106';
 const MAX_ATTACHMENT_BYTES = 3 * 1024 * 1024;
 const SOURCE_ID = /^[A-Za-z0-9_-]{1,128}$/;
-const ANALYSIS_STATES = { pending: '분석 대기', running: '분석 중', ready: '확인 준비', failed: '다시 확인 필요' };
+const ANALYSIS_STATES = { pending: '분석 대기', running: '분석 중', ready: '확인 준비', failed: '다시 확인 필요', confirmed: '발주 확정' };
 
 function element(tag, text, className) {
   const node = document.createElement(tag);
@@ -183,6 +183,7 @@ export function initMailSourceViewer(session, mount, options = {}) {
     if (disposed || !Array.isArray(items)) return;
     for (const item of items) {
       if (!item || typeof item.intakeId !== 'string' || !SOURCE_ID.test(item.intakeId) || !Object.hasOwn(ANALYSIS_STATES, item.state)) continue;
+      if (analysisStates.get(item.intakeId)?.state === 'confirmed' && item.state !== 'confirmed') continue;
       analysisStates.set(item.intakeId, { state: item.state, message: typeof item.message === 'string' ? item.message.trim().slice(0, 240) : '' });
       const node = analysisStatusNodes.get(item.intakeId);
       if (node) updateAnalysisStatus(item.intakeId, node);

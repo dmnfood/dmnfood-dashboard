@@ -1,7 +1,8 @@
 import { requestOrderAi } from './order-ai-client.js';
 
 const validId = value => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
-const STATES = new Set(['pending', 'running', 'ready', 'failed']);
+const STATES = new Set(['pending', 'running', 'ready', 'failed', 'confirmed']);
+const savedState = state => state === 'ready' || state === 'confirmed';
 
 /** Work only while this signed-in page exists. The server owns the once-only AI claim. */
 export function initOrderBackground(session, {
@@ -18,16 +19,19 @@ export function initOrderBackground(session, {
     if (disposed) return;
     const changed = [], ready = [];
     for (const raw of items) {
-      if (!validId(raw?.intakeId) || !STATES.has(raw.state)) throw new Error('발주 분석 상태를 확인하지 못했습니다.');
+      if (!validId(raw?.intakeId) || !STATES.has(raw.state) || raw.state === 'confirmed' && (!Number.isSafeInteger(raw.revision) || raw.revision < 1)) throw new Error('발주 분석 상태를 확인하지 못했습니다.');
       const previous = states.get(raw.intakeId);
       // A scan begun before a worker finished cannot regress its committed result.
-      if (previous?.state === 'ready' && raw.state !== 'ready' || attempted.has(raw.intakeId) && raw.state === 'pending') continue;
+      if (previous?.state === 'confirmed' && raw.state !== 'confirmed' || previous?.state === 'ready' && !savedState(raw.state)
+        || savedState(previous?.state) && savedState(raw.state) && Number.isSafeInteger(raw.revision) && raw.revision < previous.revision
+        || attempted.has(raw.intakeId) && raw.state === 'pending') continue;
       const item = { intakeId: raw.intakeId, state: raw.state,
         ...(Number.isSafeInteger(raw.revision) && raw.revision > 0 ? { revision: raw.revision } : {}),
+        ...(raw.state === 'confirmed' && typeof raw.confirmedAt === 'string' && Number.isFinite(Date.parse(raw.confirmedAt)) ? { confirmedAt: raw.confirmedAt } : {}),
         ...(typeof raw.message === 'string' && raw.message ? { message: raw.message.slice(0, 1000) } : {}) };
       if (JSON.stringify(item) === JSON.stringify(previous)) continue;
       states.set(item.intakeId, item); changed.push(item);
-      if (item.state === 'ready' && (previous?.state !== 'ready' || previous.revision !== item.revision)) ready.push(item);
+      if (savedState(item.state) && (previous?.state !== item.state || previous.revision !== item.revision)) ready.push(item);
     }
     if (changed.length) notify(onStates, changed);
     for (const item of ready) notify(onReady, item);
@@ -125,6 +129,11 @@ export function initOrderBackground(session, {
   return {
     refresh: scan,
     stateFor: id => states.get(id) || null,
+    markConfirmed(value) {
+      if (disposed || !validId(value?.intakeId) || !Number.isSafeInteger(value.revision) || value.revision < 1) return false;
+      publish([{ intakeId: value.intakeId, state: 'confirmed', revision: value.revision, confirmedAt: value.confirmedAt }]);
+      return true;
+    },
     destroy() { disposed = true; scanAgain = false; if (timer !== undefined) unschedule(timer); scanController?.abort(); workerController?.abort(); queue.length = 0; queued.clear(); attempted.clear(); states.clear(); events.removeEventListener('online', online); events.removeEventListener('mail-intakes-updated', mailUpdated); },
   };
 }

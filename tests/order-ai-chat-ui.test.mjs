@@ -26,9 +26,9 @@ function draft(intakeId = 'mail-A', revision = 1) {
         groups: [{ id: 'group-1', productId: 'oil-cn-1_8l', label: '가상 중국산 참기름', quantity: '6', unit: '병', lineIds: ['l1'] },
             { id: 'group-2', productId: 'oil-kr-1_8l', label: '가상 국산 참기름', quantity: '5', unit: '병', lineIds: ['l2'] }] };
 }
-function harness({ configured = true, respond, evidence, confirm = () => true, ensure = async () => ({ created: false, revision: 1 }) } = {}) {
+function harness({ configured = true, respond, evidence, onConfirmed, confirm = () => true, ensure = async () => ({ created: false, revision: 1 }) } = {}) {
     const mount = new UiNode('section'), calls = [], listeners = new Map(), navigator = { onLine: true };
-    let catalogCallback, catalogError, active = null, ensureCalls = 0, cancelCalls = 0; const evidenceCalls = [], evidenceResolvers = [];
+    let catalogCallback, catalogError, active = null, ensureCalls = 0, cancelCalls = 0, registeredCalls = 0; const evidenceCalls = [], evidenceResolvers = [], confirmedCalls = [];
     const api = async (session, path, options = {}) => {
         const call = { path, options }; calls.push(call);
         if (respond) { const result = await respond(path, options, call); if (result !== undefined) { if (result.analysis) active = structuredClone(result.analysis); return result; } }
@@ -44,13 +44,13 @@ function harness({ configured = true, respond, evidence, confirm = () => true, e
         ensureSchoolMealCompanies: async session => { ensureCalls++; return ensure(session); },
         subscribeSchoolMealCompanies: (next, error) => { catalogCallback = next; catalogError = error; queueMicrotask(() => next([{ ...customer }], { exists: true, revision: 1, fromCache: false, hasPendingWrites: false })); return () => {}; } });
     vm.runInContext(`${source.replace(/^import .*;\r?$/gm, '').replace(/^export /gm, '')}\nglobalThis.start = initOrderAiChat;`, context);
-    const app = context.start({ user: { uid: 'fictional-local-manager' } }, mount, { openEvidence: args => { evidenceCalls.push(args); if (evidence) return evidence(args); return new Promise(resolve => evidenceResolvers.push(resolve)); }, cancelEvidence: () => { cancelCalls++; } });
+    const app = context.start({ user: { uid: 'fictional-local-manager' } }, mount, { openEvidence: args => { evidenceCalls.push(args); if (evidence) return evidence(args); return new Promise(resolve => evidenceResolvers.push(resolve)); }, cancelEvidence: () => { cancelCalls++; }, onConfirmed: value => { confirmedCalls.push(value); return onConfirmed?.(value); }, onOpenRegistered: () => { registeredCalls++; } });
     const nodes = predicate => descendants(mount, predicate), button = text => nodes(node => node.tagName === 'BUTTON' && node.textContent === text)[0];
     return { app, mount, calls, navigator, listeners, nodes, button,
         stage: () => nodes(node => node.className === 'order-ai-stage')[0]?.dataset.step,
         final: () => button('발주 확정') || button('발주 확인·확정 완료'),
         textarea: () => nodes(node => node.tagName === 'TEXTAREA')[0],
-        ensureCalls: () => ensureCalls, evidenceCalls, finishEvidence: accepted => evidenceResolvers.at(-1)?.(accepted), cancelCalls: () => cancelCalls,
+        ensureCalls: () => ensureCalls, evidenceCalls, confirmedCalls, registeredCalls: () => registeredCalls, finishEvidence: accepted => evidenceResolvers.at(-1)?.(accepted), cancelCalls: () => cancelCalls,
         updateCustomers: (items, metadata = { exists: true, revision: 1, fromCache: false, hasPendingWrites: false }) => catalogCallback(items, metadata),
         catalogError: () => catalogError(new Error('fictional catalog failure')),
         online(value) { navigator.onLine = value; listeners.get(value ? 'online' : 'offline')?.(); } };
@@ -71,6 +71,13 @@ test('only tracked mail waits for background analysis, and failed automatic jobs
     app.app.setAutomationState({ intakeId: 'mail-B', state: 'failed' }); assert.equal(app.button('다시 분석'), undefined);
     app.app.setAutomationState({ intakeId: 'mail-A', state: 'failed', message: '가상 분석 오류' }); assert.match(app.mount.textContent, /가상 분석 오류/); assert.ok(app.button('다시 분석'));
     assert.equal(app.calls.filter(call => call.path === 'analysis').length, 0); app.app.destroy();
+});
+
+test('the initial selection hint is centered and has no separate three-step navigation', async () => {
+    const app = harness(); await settle(); assert.equal(app.mount.dataset.empty, 'true');
+    assert.match(app.mount.textContent, /시작하기.*발주 자료를 선택하세요.*왼쪽 목록에서 확인할 발주를 선택/);
+    assert.equal(app.nodes(node => node.className === 'order-ai-steps').length, 0);
+    await app.app.setMail(mail('mail-A')); assert.equal(app.mount.dataset.empty, 'false'); app.app.destroy();
 });
 
 test('older and outside-scope untracked mail keep a manual analysis action instead of waiting forever', async () => {
@@ -107,7 +114,21 @@ test('all original groups and the company must be checked before the one final a
     assert.equal(app.calls.filter(call => call.path === 'confirm').length, 0);
     app.final().click(); await settle(); assert.equal(app.final().disabled, true);
     const request = app.calls.find(call => call.path === 'confirm'); assert.deepEqual(Array.from(request.options.body.reviewedGroupIds), ['group-1', 'group-2']); assert.equal(request.options.body.reviewedExclusions, true);
-    assert.match(app.mount.textContent, /원본 대조와 확정 기록을 저장/); app.app.destroy();
+    assert.match(app.mount.textContent, /등록된 발주에 저장/); assert.equal(app.confirmedCalls.length, 1); assert.equal(app.confirmedCalls[0].mail.id, 'mail-A');
+    app.button('등록된 발주 보기').click(); assert.equal(app.registeredCalls(), 1); app.app.destroy();
+});
+
+test('the source-card correction action opens its own input and clears review checks after applying the correction', async () => {
+    const app = await analyzed(); app.button('맞아요').click(); await reviewAll(app); assert.equal(app.final().disabled, false);
+    app.button('수정하기').click(); const sourceCard = app.nodes(node => node.className?.includes('order-ai-source-card'))[0];
+    assert.equal(descendants(sourceCard, node => node.tagName === 'TEXTAREA').length, 1); assert.equal(descendants(sourceCard, node => node.tagName === 'SELECT').length, 0); assert.equal(app.final().disabled, true);
+    app.textarea().value = '중국산 참기름 1.8L 수량을 원본 D3와 대조해서 수정해 주세요.'; app.nodes(node => node.tagName === 'FORM')[0].fire('submit'); await settle();
+    assert.equal(app.calls.filter(call => call.path === 'analysis').at(-1).options.body.expectedRevision, 1); assert.equal(reviewedCount(app), 0); assert.ok(app.button('맞아요')); assert.equal(app.confirmedCalls.length, 0); app.app.destroy();
+});
+
+test('a secondary list or badge callback cannot turn a successfully saved confirmation into a failed save', async () => {
+    const app = await analyzed({ onConfirmed: () => { throw new Error('secondary display failure'); } }); app.button('맞아요').click(); await reviewAll(app); app.final().click(); await settle();
+    assert.ok(app.button('발주 확인·확정 완료')); assert.equal(app.final().disabled, true); assert.doesNotMatch(app.mount.textContent, /secondary display failure/); assert.equal(app.confirmedCalls.length, 1); app.app.destroy();
 });
 
 test('one whole-original review covers included products and excluded context without a separate exclusion action', async () => {
@@ -257,7 +278,7 @@ test('a stale background result cannot replace a correction saved while it was l
 
 test('confirmed records stay read-only within the same card and never migrate or reanalyze', async () => {
     const app = harness({ respond: path => path.startsWith('analysis?') ? { ok: true, analysis: { ...draft(), customerCatalogSource: 'erp', status: 'confirmed' } } : undefined }); await settle(); await app.app.setMail(mail('mail-A'));
-    assert.equal(app.final().disabled, true); assert.equal(app.button('맞아요'), undefined); assert.equal(app.button('수정'), undefined); assert.equal(app.textarea(), undefined); assert.equal(app.calls.filter(call => call.options.body).length, 0); assert.equal(app.evidenceCalls[0].reviewAll, true); assert.equal(app.evidenceCalls[0].analysis.groups[0].quantity, '6'); assert.match(app.mount.textContent, /원본 대조와 확정 기록을 저장/); app.app.destroy();
+    assert.equal(app.final().disabled, true); assert.equal(app.button('맞아요'), undefined); assert.equal(app.button('수정'), undefined); assert.equal(app.button('수정하기'), undefined); assert.equal(app.textarea(), undefined); assert.equal(app.calls.filter(call => call.options.body).length, 0); assert.equal(app.evidenceCalls[0].reviewAll, true); assert.equal(app.evidenceCalls[0].analysis.groups[0].quantity, '6'); assert.match(app.mount.textContent, /등록된 발주에 저장/); assert.equal(app.confirmedCalls.length, 1); app.app.destroy();
 });
 
 test('legacy drafts require an explicit migration and cannot confirm against the obsolete catalog', async () => {

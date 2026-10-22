@@ -6,20 +6,17 @@ function button(text, action, cls = '') { const node = el('button', text, 'order
 const confirmed = value => ['confirmed', 'approved'].includes(value?.status);
 const customerId = value => value?.id || value?.code;
 const groupId = group => group.id || group.productId;
-const STEPS = [{ id: 'analysis', label: '분석 확인' }, { id: 'review', label: '원본 대조' }, { id: 'final', label: '최종 확인' }];
-
-export function initOrderAiChat(session, mount, { openEvidence, cancelEvidence, previewAttachment } = {}) {
+export function initOrderAiChat(session, mount, { openEvidence, cancelEvidence, previewAttachment, onConfirmed, onOpenRegistered } = {}) {
   let mail = null, analysis = null, generation = 0, analysisEpoch = 0, busy = false, loading = false, disposed = false, configured = false, connectionReady = false;
   let controller, refreshController, customers = [], catalogConfirmed = false, reviewed = new Set(), reviewEpoch = 0, notice = '', error = false, initializingCatalog = false;
-  let acknowledged = '', editorOpen = false, evidenceKey = '', evidenceRun = 0, pendingAnalysis = null, automation = null, customerSyncAttempt = '';
+  let acknowledged = '', editorOpen = false, editorSection = 'company', evidenceKey = '', evidenceRun = 0, pendingAnalysis = null, automation = null, customerSyncAttempt = '';
   let evidenceMount = el('div', null, 'order-ai-inline-evidence');
-  const progress = el('nav', null, 'order-ai-steps'); progress.setAttribute('aria-label', '발주 처리 순서');
   const feedback = el('p', '', 'order-ai-feedback'); feedback.setAttribute('role', 'status'); feedback.setAttribute('aria-live', 'polite');
   const panel = el('section', null, 'order-ai-stage'); panel.setAttribute('aria-label', '발주 처리');
   const form = el('form', null, 'order-ai-composer'), label = el('label', '수정할 내용');
   const input = el('textarea'); input.rows = 2; input.maxLength = 2000; input.placeholder = '예: 이 상품은 중국산 참기름 1.8L입니다.'; input.setAttribute('aria-label', '발주 분석 수정 내용'); label.append(input);
   const send = el('button', '수정 내용 반영', 'order-button order-primary'); send.type = 'submit'; form.append(label, send);
-  mount.replaceChildren(progress, feedback, panel);
+  mount.replaceChildren(feedback, panel);
 
   function identity(value = analysis) { const latest = latestCustomer(value); return value ? JSON.stringify([value.revision, value.updatedAt, customerId(value.customer), value.customer?.name, value.customer?.revision, catalogConfirmed, latest?.id, latest?.name, latest?.revision]) : ''; }
   function latestCustomer(value = analysis) { return customers.find(item => customerId(item) === customerId(value?.customer)); }
@@ -33,7 +30,9 @@ export function initOrderAiChat(session, mount, { openEvidence, cancelEvidence, 
   function cancelReview() { evidenceRun++; evidenceKey = ''; cancelEvidence?.(); evidenceMount = el('div', null, 'order-ai-inline-evidence'); }
   function clearReviews() { reviewEpoch++; reviewed.clear(); acknowledged = ''; cancelReview(); }
   function localWork() { return !!acknowledged || reviewed.size > 0 || editorOpen || !!input.value.trim() || !!evidenceKey; }
-  function applyAnalysis(value) { analysisEpoch++; clearReviews(); analysis = value; pendingAnalysis = null; editorOpen = false; input.value = ''; }
+  function reportConfirmed() { if (confirmed(analysis)) { try { Promise.resolve(onConfirmed?.({ mail, analysis })).catch(() => {}); } catch { /* The committed result remains authoritative if a secondary display cannot update. */ } } }
+  function applyAnalysis(value) { analysisEpoch++; clearReviews(); analysis = value; pendingAnalysis = null; editorOpen = false; input.value = ''; reportConfirmed(); }
+  function toggleEditor(section) { if (busy || loading || confirmed(analysis)) return; editorOpen = !editorOpen || editorSection !== section; editorSection = section; render(); if (editorOpen) input.focus?.({ preventScroll: true }); }
   function ensureEvidence() {
     if (!openEvidence || busy || loading || !analysis || !mail || navigator.onLine === false || !connectionReady || !configured) return;
     if (!confirmed(analysis) && !reviewReady()) return;
@@ -52,12 +51,7 @@ export function initOrderAiChat(session, mount, { openEvidence, cancelEvidence, 
     }).catch(e => { if (!disposed && run === evidenceRun && token === generation && epoch === reviewEpoch) { notice = e.message || '원본 대조 화면을 열지 못했습니다.'; error = true; render(); } });
   }
   function renderProgress() {
-    progress.hidden = !!analysis;
-    progress.replaceChildren(); const current = phase(), currentIndex = STEPS.findIndex(item => item.id === current);
-    for (const [index, item] of STEPS.entries()) {
-      const node = el('span', null, 'order-ai-step'); node.append(el('span', String(index + 1), 'order-ai-step-number'), el('span', item.label)); node.setAttribute('aria-current', item.id === current ? 'step' : 'false'); node.dataset.completed = String(index < currentIndex || confirmed(analysis)); progress.append(node);
-    }
-    panel.dataset.step = current;
+    panel.dataset.step = phase(); mount.dataset.empty = String(!mail);
   }
   function renderEditor(locked) {
     const editor = el('section', null, 'order-ai-editor'); editor.setAttribute('aria-label', '분석 수정');
@@ -65,7 +59,7 @@ export function initOrderAiChat(session, mount, { openEvidence, cancelEvidence, 
     const placeholder = el('option', !catalogConfirmed ? '업체 목록 확인 중' : customers.length ? '업체를 선택하세요' : '학교급식 업체 목록을 확인해 주세요'); placeholder.value = ''; select.append(placeholder);
     for (const item of customers) { const option = el('option', item.name); option.value = customerId(item); select.append(option); }
     select.value = sameCustomer() ? customerId(analysis.customer) : ''; select.disabled = locked || !catalogConfirmed;
-    select.addEventListener('change', () => { const item = customers.find(value => customerId(value) === select.value); if (item && (customerId(item) !== customerId(analysis?.customer) || item.name !== analysis?.customer?.name)) void analyze({ message: '이번 발주의 업체를 ' + item.name + '으로 지정합니다.', customerId: customerId(item) }); }); field.append(select); editor.append(field, form);
+    select.addEventListener('change', () => { const item = customers.find(value => customerId(value) === select.value); if (item && (customerId(item) !== customerId(analysis?.customer) || item.name !== analysis?.customer?.name)) void analyze({ message: '이번 발주의 업체를 ' + item.name + '으로 지정합니다.', customerId: customerId(item) }); }); field.append(select); if (editorSection === 'company') editor.append(field); editor.append(form);
     const actions = el('div', null, 'order-ai-editor-actions'), reload = button('저장된 분석 불러오기', () => void loadAnalysis({ replace: true })); reload.disabled = locked;
     if (catalogConfirmed && latestCustomer() && !customerCurrent()) {
       if (sameCustomer()) { const refresh = button('업체 정보 새로고침', () => void refreshCustomer(), 'order-primary'); refresh.disabled = locked; actions.append(refresh); }
@@ -79,14 +73,17 @@ export function initOrderAiChat(session, mount, { openEvidence, cancelEvidence, 
     else {
       const accept = button(customerChecked() ? '업체 확인 완료' : '맞아요', () => { if (!locked && customerCurrent() && analysis.customerCatalogSource !== 'erp') { acknowledged = identity(); render(); } }, customerChecked() ? 'order-ai-checked' : 'order-primary');
       accept.disabled = locked || !customerCurrent() || analysis.customerCatalogSource === 'erp' || customerChecked();
-      const edit = button(editorOpen ? '수정 닫기' : '수정', () => { if (!locked) { editorOpen = !editorOpen; render(); } }); edit.disabled = locked; edit.setAttribute('aria-expanded', String(editorOpen)); actions.append(accept, edit);
+      const edit = button(editorOpen && editorSection === 'company' ? '수정 닫기' : '수정', () => { if (!locked) toggleEditor('company'); }); edit.disabled = locked; edit.setAttribute('aria-expanded', String(editorOpen && editorSection === 'company')); actions.append(accept, edit);
     }
     header.append(title, actions); return header;
   }
   function renderReview(locked) {
     const section = el('article', null, 'order-ai-review-card order-ai-source-card'); section.setAttribute('aria-label', '원본 대조');
     section.dataset.reviewed = String(confirmed(analysis) || allReviewed());
-    const heading = el('div', null, 'order-ai-review-heading'); heading.append(el('h3', '2 · 원본 대조'), el('span', confirmed(analysis) || allReviewed() ? '대조 완료' : '대조 전', 'order-ai-review-progress')); section.append(heading);
+    const heading = el('div', null, 'order-ai-review-heading'), actions = el('div', null, 'order-ai-source-actions'); heading.append(el('h3', '2 · 원본 대조'));
+    if (!confirmed(analysis)) { const edit = button(editorOpen && editorSection === 'source' ? '수정 닫기' : '수정하기', () => { if (!locked) toggleEditor('source'); }); edit.disabled = locked; edit.setAttribute('aria-expanded', String(editorOpen && editorSection === 'source')); actions.append(edit); }
+    actions.append(el('span', confirmed(analysis) || allReviewed() ? '대조 완료' : '대조 전', 'order-ai-review-progress')); heading.append(actions); section.append(heading);
+    if (editorOpen && editorSection === 'source' && !confirmed(analysis)) section.append(renderEditor(locked));
     if (!confirmed(analysis) && !reviewReady()) section.append(el('p', '위의 확인할 내용을 수정하면 원본과 상품·수량을 대조할 수 있습니다.', 'order-ai-review-placeholder'));
     else if (!analysis.groups?.length) section.append(el('p', '대조할 상품을 찾지 못했습니다. 분석 내용을 수정해 주세요.', 'order-ai-review-placeholder'));
     section.append(evidenceMount); return section;
@@ -96,7 +93,7 @@ export function initOrderAiChat(session, mount, { openEvidence, cancelEvidence, 
     summary.append(el('strong', '3 · 최종 확인'), el('span', (analysis.groups?.length || 0) + '개 상품'));
     if (!done) summary.append(el('span', pendingAnalysis ? '새로 저장된 분석을 불러온 뒤 확인해 주세요.' : input.value.trim() ? '작성 중인 수정 내용을 반영하거나 지워 주세요.' : editorOpen ? '수정할 내용이 없으면 수정 창을 닫아 주세요.' : !customerChecked() ? '업체가 맞는지 확인해 주세요.' : !reviewReady() ? '분석에서 확인할 내용을 수정해 주세요.' : !allReviewed() ? '원본 대조를 완료해 주세요.' : '업체와 원본 대조를 마쳤습니다.', 'order-ai-confirm-status'));
     const finalize = button(done ? '발주 확인·확정 완료' : busy ? '저장 중' : '발주 확정', () => void confirmAnalysis(), 'order-primary'); finalize.disabled = locked || done || !ready; footer.append(summary, finalize);
-    const wrapper = el('article', null, 'order-ai-review-card order-ai-confirmation'); wrapper.setAttribute('aria-label', '최종 확인'); wrapper.append(footer); if (done) wrapper.append(el('p', '원본 대조와 확정 기록을 저장했습니다.', 'order-ai-note')); return wrapper;
+    const wrapper = el('article', null, 'order-ai-review-card order-ai-confirmation'); wrapper.setAttribute('aria-label', '최종 확인'); wrapper.append(footer); if (done) { wrapper.append(el('p', '등록된 발주에 저장했습니다.', 'order-ai-note')); if (onOpenRegistered) wrapper.append(button('등록된 발주 보기', () => onOpenRegistered(), 'order-ai-open-registered')); } return wrapper;
   }
   function render() {
     const restoreInput = document.activeElement === input, selectionStart = input.selectionStart, selectionEnd = input.selectionEnd;
@@ -104,7 +101,7 @@ export function initOrderAiChat(session, mount, { openEvidence, cancelEvidence, 
     const locked = busy || loading || !mail || !connectionReady || !configured || navigator.onLine === false;
     feedback.textContent = notice || (!connectionReady ? 'AI 연결을 확인하고 있습니다.' : !configured ? 'AI 연결 설정을 확인해 주세요.' : ''); feedback.dataset.error = String(error); feedback.hidden = !feedback.textContent; input.disabled = locked; send.disabled = locked;
     if (!mail || loading || !analysis) {
-      const automatic = mail && !['text', 'image'].includes(mail.sourceKind) && automation?.intakeId === mail.id && ['pending', 'running', 'ready', 'failed'].includes(automation.state), failed = automatic && automation.state === 'failed';
+      const automatic = mail && !['text', 'image'].includes(mail.sourceKind) && automation?.intakeId === mail.id && ['pending', 'running', 'ready', 'confirmed', 'failed'].includes(automation.state), failed = automatic && automation.state === 'failed';
       const state = el('div', null, 'order-ai-empty'); state.append(el('span', busy || loading || automatic && !failed ? '진행 중' : '시작하기', 'order-ai-kicker'), el('h2', !mail ? '발주 자료를 선택하세요' : loading ? '저장된 분석을 확인하고 있습니다' : busy ? '발주 내용을 분석하고 있습니다' : failed ? '자동 분석을 마치지 못했습니다' : automatic ? automation?.state === 'running' ? '발주 내용을 자동 분석하고 있습니다' : '자동 분석을 준비하고 있습니다' : '발주 분석을 시작할까요?'));
       state.append(el('p', !mail ? '왼쪽 목록에서 확인할 발주를 선택해 주세요.' : busy ? '업체와 상품·수량을 정리하고 있습니다.' : failed ? automation.message || '다시 분석한 뒤 원본과 대조해 주세요.' : automatic ? '분석이 완료되면 업체와 원본을 함께 확인할 수 있습니다.' : 'AI가 정리한 내용을 원본과 대조한 뒤 확정하세요.'));
       if (!busy && !loading && mail && (!automatic || failed)) { const start = button(failed ? '다시 분석' : '발주 분석 시작', () => void analyze(), 'order-primary'); start.disabled = locked; state.append(start); }
@@ -119,7 +116,7 @@ export function initOrderAiChat(session, mount, { openEvidence, cancelEvidence, 
     else if (sameCustomer() && !customerCurrent() && !busy && !loading) { const sync = button('업체 정보 새로고침', () => void refreshCustomer()); sync.disabled = locked; card.append(sync); }
     const messages = legacy || confirmed(analysis) ? [] : [...(analysis.questions || []).map(item => typeof item === 'string' ? item : item.text || item.message), ...(analysis.blockers || []).map(item => typeof item === 'string' ? item : item.message || item.reason)].filter(Boolean), pending = [...new Set(messages)];
     if (pending.length) { const box = el('div', null, 'order-ai-pending'); box.append(el('strong', '확인할 내용')); const list = el('ul'); for (const text of pending) list.append(el('li', text)); box.append(list); card.append(box); }
-    if (editorOpen && !confirmed(analysis)) card.append(renderEditor(locked));
+    if (editorOpen && editorSection === 'company' && !confirmed(analysis)) card.append(renderEditor(locked));
     layout.append(card, renderReview(locked), renderConfirmation(locked)); panel.append(layout); ensureEvidence();
     const syncKey = customerSyncIdentity(); if (syncKey && syncKey !== customerSyncAttempt && !confirmed(analysis) && !busy && !loading && !editorOpen && !input.value.trim()) queueMicrotask(() => void refreshCustomer({ automatic: true }));
     if (restoreInput && editorOpen && !input.disabled) { input.focus?.({ preventScroll: true }); if (typeof selectionStart === 'number' && typeof selectionEnd === 'number') input.setSelectionRange?.(selectionStart, selectionEnd); }
@@ -165,7 +162,7 @@ export function initOrderAiChat(session, mount, { openEvidence, cancelEvidence, 
   async function confirmAnalysis() {
     if (!analysis || busy || loading || confirmed(analysis) || navigator.onLine === false || !customerChecked() || !reviewReady() || !allReviewed() || editorOpen || input.value.trim() || pendingAnalysis) return;
     const token = generation, id = mail.id; refreshController?.abort(); busy = true; notice = ''; error = false; render();
-    try { const data = await requestOrderAi(session, 'confirm', { body: { intakeId: id, expectedRevision: analysis.revision, expectedUpdatedAt: analysis.updatedAt, ...(['text', 'image'].includes(mail.sourceKind) ? { sourceKind: mail.sourceKind } : {}), reviewedGroupIds: analysis.groups.map(groupId), reviewedExclusions: !analysis.exclusions?.length || reviewed.has('__excluded__') }, signal: controller?.signal }); if (disposed || generation !== token || mail?.id !== id) return; analysisEpoch++; analysis = data.analysis; pendingAnalysis = null; notice = '원본 대조와 최종 확정을 저장했습니다.'; }
+    try { const data = await requestOrderAi(session, 'confirm', { body: { intakeId: id, expectedRevision: analysis.revision, expectedUpdatedAt: analysis.updatedAt, ...(['text', 'image'].includes(mail.sourceKind) ? { sourceKind: mail.sourceKind } : {}), reviewedGroupIds: analysis.groups.map(groupId), reviewedExclusions: !analysis.exclusions?.length || reviewed.has('__excluded__') }, signal: controller?.signal }); if (disposed || generation !== token || mail?.id !== id) return; analysisEpoch++; analysis = data.analysis; pendingAnalysis = null; notice = '원본 대조와 최종 확정을 저장했습니다.'; reportConfirmed(); }
     catch (e) { if (!disposed && generation === token && e.name !== 'AbortError') { notice = e.message; error = true; clearReviews(); } }
     finally { if (!disposed && generation === token) { busy = false; render(); } }
   }

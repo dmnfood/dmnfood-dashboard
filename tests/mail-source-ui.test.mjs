@@ -418,3 +418,16 @@ test('invalid analysis state updates cannot replace a valid status or inject unr
     assert.doesNotMatch(app.listMount.textContent, /bad\(\)|approved/);
     app.cleanup();
 });
+
+test('confirmed mail keeps its final badge across older status updates and list refresh without changing selected review', async () => {
+    const app = viewerHarness(() => scoped('106', [mailSummary('confirmed-mail')]), 'https://dashboard.dmnfood.co.kr/orders', { split: true, summaryOnly: true });
+    await settleUi();
+    app.cleanup.setAnalysisStates([{ intakeId: 'confirmed-mail', state: 'ready' }]);
+    const status = uiNodes(app.listMount, node => node.className === 'mail-source-analysis-status')[0];
+    app.cleanup.setAnalysisStates([{ intakeId: 'confirmed-mail', state: 'confirmed' }]);
+    assert.equal(status.textContent, '발주 확정'); assert.equal(status.dataset.state, 'confirmed');
+    app.cleanup.setAnalysisStates([{ intakeId: 'confirmed-mail', state: 'ready' }, { intakeId: 'confirmed-mail', state: 'pending' }, { intakeId: 'confirmed-mail', state: 'failed' }]);
+    assert.equal(status.textContent, '발주 확정');
+    app.listeners.get('mail-intakes-updated')(); await settleUi();
+    assert.equal(uiNodes(app.listMount, node => node.className === 'mail-source-analysis-status')[0].textContent, '발주 확정'); app.cleanup();
+});

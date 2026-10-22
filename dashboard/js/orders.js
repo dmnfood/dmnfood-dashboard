@@ -6,21 +6,32 @@ import { initOrderAiChat } from './order-ai-chat.js';
 import { initOrderAiEvidence } from './order-ai-evidence.js';
 import { initOrderTextSources } from './order-text-sources.js';
 import { initOrderBackground } from './order-ai-background.js';
+import { initConfirmedOrderList } from './order-confirmed-list.js';
 import { ORDER_CUSTOMER_GROUPS, ORDER_SOURCE_CHANNELS, ORDER_STATUSES, ORDER_DELIVERY_METHODS, ORDER_LIMITS, getApprovalIssues } from './order-request-model.js';
 import { createOrderRequest, subscribeOrderRequests, subscribeOrderRequest, updateOrderRequest, reviewOrderRequest } from './order-request-store.js';
 
 const $ = id => document.getElementById(id);
 let session, orders = [], currentOrder = null, selectedId = '', unsubscribeDetail, dirty = false, busy = false, conflicting = false, originalTestDraft = null, listConfirmed = false, listFailed = false;
 const unsubscribe = [];
-let preparation, sourceNavigationGuard = () => true;
-function openExistingOrders() { if (!$('existingOrdersDialog').open) $('existingOrdersDialog').showModal(); }
+let preparation, confirmedOrders, sourceNavigationGuard = () => true;
+function setExistingView(mode) {
+  const manual = mode === 'manual';
+  if ($('orderProcessingPanel').hidden !== !manual && !allowNavigation()) return false;
+  $('confirmedOrdersPanel').hidden = manual; $('orderProcessingPanel').hidden = !manual;
+  $('showConfirmedOrders').setAttribute('aria-pressed', String(!manual)); $('showManualOrders').setAttribute('aria-pressed', String(manual));
+  if (!manual) void confirmedOrders?.refresh();
+  return true;
+}
+function openExistingOrders(mode = 'confirmed') { if (setExistingView(mode) && !$('existingOrdersDialog').open) $('existingOrdersDialog').showModal(); }
 function closeExistingOrders() {
   if (!allowNavigation()) return;
   $('existingOrdersDialog').close();
   const url = new URL(location.href); url.searchParams.delete('order'); url.searchParams.delete('tab');
   window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
 }
-$('openExistingOrders').addEventListener('click', openExistingOrders);
+$('openExistingOrders').addEventListener('click', () => openExistingOrders());
+$('showConfirmedOrders').addEventListener('click', () => setExistingView('confirmed'));
+$('showManualOrders').addEventListener('click', () => setExistingView('manual'));
 $('closeExistingOrders').addEventListener('click', closeExistingOrders);
 $('existingOrdersDialog').addEventListener('cancel', event => { event.preventDefault(); closeExistingOrders(); });
 
@@ -177,7 +188,7 @@ function selectOrder(id, { replace = false, activate = true } = {}) {
   unsubscribeDetail?.(); selectedId = id; currentOrder = null; dirty = false; conflicting = false;
   let firstResult = true;
   const url = new URL(window.location.href); if (id) url.searchParams.set('order', id); else url.searchParams.delete('order');
-  if (activate && id) { url.searchParams.set('tab', 'processing'); openExistingOrders(); }
+  if (activate && id) { url.searchParams.set('tab', 'processing'); openExistingOrders('manual'); }
   window.history[replace ? 'replaceState' : 'pushState']({}, '', url.pathname + url.search);
   renderList();
   if (!/^[A-Za-z0-9_-]{1,128}$/.test(id)) { renderDetail(null); return; }
@@ -255,7 +266,7 @@ window.addEventListener('popstate', () => {
     if (!allowNavigation()) { const url = new URL(location.href); if (selectedId) url.searchParams.set('order', selectedId); else url.searchParams.delete('order'); window.history.pushState({}, '', url.pathname + url.search); return; }
     selectOrder(id, { replace: true, activate: false });
   }
-  if (id && new URLSearchParams(location.search).get('tab') !== 'original') openExistingOrders();
+  if (id && new URLSearchParams(location.search).get('tab') !== 'original') openExistingOrders('manual');
   else if (!dirty) $('existingOrdersDialog').close();
 });
 window.addEventListener('offline', () => { listConfirmed = false; renderList(); message('인터넷 연결이 끊겼습니다. 서버에 다시 연결된 뒤 저장·확정해 주세요.', true); updateActions(); });
@@ -278,7 +289,12 @@ requireApprovedActiveUser().then(approvedSession => {
   if (!['manager', 'admin'].includes(session.profile.role)) { $('orderAccessDenied').hidden = false; $('orderWorkspace').hidden = true; $('openExistingOrders').hidden = true; $('newOrderButton').hidden = true; $('testOrderButton').hidden = true; return; }
   const evidence = initOrderAiEvidence(session), previewEvidence = initOrderAiEvidence(session);
   const closeEvidence = () => { evidence.close(); previewEvidence.close(); };
-  preparation = initOrderAiChat(session, $('orderChatMount'), { openEvidence: value => evidence.review(value), cancelEvidence: () => evidence.cancel(), previewAttachment: value => previewEvidence.preview(value) });
+  preparation = initOrderAiChat(session, $('orderChatMount'), { openEvidence: value => evidence.review(value), cancelEvidence: () => evidence.cancel(), previewAttachment: value => previewEvidence.preview(value),
+    onConfirmed: ({ mail, analysis }) => {
+      if (!['text', 'image'].includes(mail?.sourceKind)) background?.markConfirmed({ intakeId: mail.id, revision: analysis.revision, confirmedAt: analysis.confirmedAt });
+      if ($('existingOrdersDialog').open && !$('confirmedOrdersPanel').hidden) void confirmedOrders?.refresh();
+    }, onOpenRegistered: () => openExistingOrders(),
+  });
   unsubscribe.push(() => preparation.destroy());
   unsubscribe.push(() => { evidence.destroy(); previewEvidence.destroy(); });
   unsubscribe.push(initMailConnection(session, $('mailConnectionMount')));
@@ -307,7 +323,7 @@ requireApprovedActiveUser().then(approvedSession => {
     }, onMailLoaded: async mail => {
       activeMailId = mail.id;
       const loaded = preparation.setSource(mail); preparation.setAutomationState(background?.stateFor(mail.id)); await loaded;
-      const state = background?.stateFor(mail.id); if (activeMailId === mail.id && state?.state === 'ready') await preparation.refreshAnalysis({ revision: state.revision });
+      const state = background?.stateFor(mail.id); if (activeMailId === mail.id && ['ready', 'confirmed'].includes(state?.state)) await preparation.refreshAnalysis({ revision: state.revision });
     },
     onPreviewAttachment: (attachment, { mail }) => previewEvidence.preview({ mail, attachment }),
   });
@@ -342,6 +358,18 @@ requireApprovedActiveUser().then(approvedSession => {
     onMailSynced: () => window.dispatchEvent(new CustomEvent('mail-intakes-updated', { detail: { origin: 'background' } })),
     onStatus: state => { autoFeedback.hidden = state.state !== 'failed'; autoFeedback.textContent = state.state === 'failed' ? state.message : ''; },
   });
+  confirmedOrders = initConfirmedOrderList(session, $('confirmedOrdersPanel'), {
+    onRecords: records => { for (const record of records) if (record.sourceKind === 'mail') background.markConfirmed({ intakeId: record.intakeId, revision: record.revision, confirmedAt: record.confirmedAt }); },
+    onOpenSource: async record => {
+      if (!canChangeSource() || !allowNavigation()) return;
+      $('existingOrdersDialog').close();
+      const url = new URL(location.href); url.searchParams.delete('order'); url.searchParams.delete('tab'); window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+      if (record.sourceKind === 'mail') { textSources.clearSelection(); setQueueMode('mail'); await mailViewer.selectMail(record.intakeId, { checkedNavigation: true }); }
+      else await textSources.selectSource(record.intakeId, { checkedNavigation: true });
+    },
+  });
+  void confirmedOrders.refresh();
+  unsubscribe.push(() => confirmedOrders.destroy());
   unsubscribe.push(() => background.destroy());
   unsubscribe.push(mailViewer, () => textSources.destroy(), () => window.removeEventListener('popstate', routeHistory));
   const notifications = initOrderNotifications({ ...session, mount: $('orderNotificationMount') }); unsubscribe.push(() => notifications?.destroy());

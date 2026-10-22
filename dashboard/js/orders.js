@@ -4,13 +4,14 @@ import { initMailConnection } from './mail-connection.js';
 import { initMailSourceViewer } from './mail-source-viewer.js';
 import { initOrderAiChat } from './order-ai-chat.js';
 import { initOrderAiEvidence } from './order-ai-evidence.js';
+import { initOrderTextSources } from './order-text-sources.js';
 import { ORDER_CUSTOMER_GROUPS, ORDER_SOURCE_CHANNELS, ORDER_STATUSES, ORDER_DELIVERY_METHODS, ORDER_LIMITS, getApprovalIssues } from './order-request-model.js';
 import { createOrderRequest, subscribeOrderRequests, subscribeOrderRequest, updateOrderRequest, reviewOrderRequest } from './order-request-store.js';
 
 const $ = id => document.getElementById(id);
 let session, orders = [], currentOrder = null, selectedId = '', unsubscribeDetail, dirty = false, busy = false, conflicting = false, originalTestDraft = null, listConfirmed = false, listFailed = false;
 const unsubscribe = [];
-let preparation;
+let preparation, sourceNavigationGuard = () => true;
 function openExistingOrders() { if (!$('existingOrdersDialog').open) $('existingOrdersDialog').showModal(); }
 function closeExistingOrders() {
   if (!allowNavigation()) return;
@@ -260,7 +261,7 @@ window.addEventListener('offline', () => { listConfirmed = false; renderList(); 
 window.addEventListener('online', () => { message('다시 연결 중입니다. 최신 발주 내용을 확인해 주세요.'); if (selectedId && !dirty) selectOrder(selectedId, { replace: true, activate: false }); });
 window.addEventListener('pagehide', event => { if (!event.persisted) { unsubscribeDetail?.(); unsubscribe.forEach(stop => stop?.()); } });
 $('orderLogoutButton')?.addEventListener('click', async () => {
-  if (preparation && !preparation.canLeave()) return;
+  if (!sourceNavigationGuard()) return;
   if (busy || !window.confirm(dirty ? '저장하지 않은 변경 내용이 있습니다. 저장하지 않고 로그아웃할까요?' : '로그아웃 하시겠습니까?')) return;
   const wasDirty = dirty;
   dirty = false;
@@ -279,12 +280,54 @@ requireApprovedActiveUser().then(approvedSession => {
   unsubscribe.push(() => preparation.destroy());
   unsubscribe.push(() => evidence.destroy());
   unsubscribe.push(initMailConnection(session, $('mailConnectionMount')));
-  unsubscribe.push(initMailSourceViewer(session, $('mailSourceMount'), {
-    toolbarMount: $('mailSourceToolbar'), listMount: $('mailQueueMount'), detailMount: $('mailOriginalPanel'),
-    summaryOnly: true, onBeforeSelectMail: () => preparation.canLeave(),
-    onSelectMail: () => { evidence.close(); preparation.setMail(null); }, onMailLoaded: mail => preparation.setMail(mail),
-    onPreviewAttachment: attachment => preparation.previewAttachment(attachment),
-  }));
+  let textSources, mailViewer, currentSourceUrl = location.href;
+  const setQueueMode = mode => {
+    const text = mode === 'text'; $('mailQueueMount').hidden = text; $('mailSourceToolbar').hidden = text; $('orderTextQueueMount').hidden = !text;
+    $('showMailSources').setAttribute('aria-pressed', String(!text)); $('showTextSources').setAttribute('aria-pressed', String(text));
+  };
+  const canChangeSource = () => (!textSources || textSources.canLeave()) && preparation.canLeave();
+  sourceNavigationGuard = canChangeSource;
+  const setSourceRoute = (kind, id, history = 'push') => {
+    if (!history) return;
+    const url = new URL(location.href); url.searchParams.delete(kind === 'text' ? 'mail' : 'text');
+    if (id) url.searchParams.set(kind === 'text' ? 'text' : 'mail', id); else { url.searchParams.delete('mail'); url.searchParams.delete('text'); }
+    window.history[history === 'replace' ? 'replaceState' : 'pushState'](window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+    currentSourceUrl = location.href;
+  };
+  mailViewer = initMailSourceViewer(session, $('mailSourceMount'), {
+    toolbarMount: $('mailSourceToolbar'), listMount: $('mailQueueMount'), manageHistory: true,
+    onHistoryChange: () => { currentSourceUrl = location.href; },
+    summaryOnly: true, onBeforeSelectMail: canChangeSource,
+    onSelectMail: value => {
+      if (value.id) { textSources?.clearSelection(); setQueueMode('mail'); setSourceRoute('mail', value.id, 'replace'); }
+      evidence.close(); preparation.setSource(null);
+    }, onMailLoaded: mail => preparation.setSource(mail),
+    onPreviewAttachment: (attachment, { mail }) => evidence.preview({ mail, attachment }),
+  });
+  textSources = initOrderTextSources(session, {
+    mount: $('orderTextQueueMount'), dialog: $('orderTextDialog'), form: $('orderTextForm'), addButton: $('addTextOrder'), canLeave: canChangeSource,
+    onSelectStart: ({ id, history }) => { mailViewer.clearSelection({ history: false, checkedNavigation: true }); setQueueMode('text'); setSourceRoute('text', id, history); evidence.close(); preparation.setSource(null); },
+    onSelect: (source, options) => preparation.setSource(source, options), onPreview: source => evidence.preview({ mail: source }),
+  });
+  const switchQueue = mode => {
+    if (!canChangeSource()) return;
+    evidence.close(); textSources.clearSelection(); mailViewer.clearSelection({ history: false, checkedNavigation: true }); setSourceRoute(mode, '', 'push'); setQueueMode(mode);
+  };
+  $('showMailSources').addEventListener('click', () => switchQueue('mail'));
+  $('showTextSources').addEventListener('click', () => switchQueue('text'));
+  const rememberSourceUrl = () => { currentSourceUrl = location.href; };
+  // Source callbacks update the route before the selected record is loaded.
+  const routeHistory = () => {
+    if (!canChangeSource()) { window.history.replaceState(window.history.state, '', currentSourceUrl); return; }
+    const query = new URLSearchParams(location.search), textId = query.get('text'), mailId = query.get('mail');
+    if (textId) { void textSources.selectSource(textId, { history: false, checkedNavigation: true }); }
+    else if (mailId) { textSources.clearSelection(); mailViewer.syncHistory(); }
+    else { textSources.clearSelection(); mailViewer.clearSelection({ history: false, checkedNavigation: true }); evidence.close(); preparation.setSource(null); }
+    rememberSourceUrl();
+  };
+  window.addEventListener('popstate', routeHistory);
+  const initialTextId = new URLSearchParams(location.search).get('text'); if (initialTextId) { setQueueMode('text'); void textSources.selectSource(initialTextId, { history: false, checkedNavigation: true }); }
+  unsubscribe.push(mailViewer, () => textSources.destroy(), () => window.removeEventListener('popstate', routeHistory));
   const notifications = initOrderNotifications({ ...session, mount: $('orderNotificationMount') }); unsubscribe.push(() => notifications?.destroy());
   const requestedId = new URLSearchParams(window.location.search).get('order');
   if (requestedId) selectOrder(requestedId, { replace: true, activate: true });

@@ -135,6 +135,13 @@ test('human confirmation revalidates original and customer, requires every group
     assert.equal(result.analysis.confirmedByUid, 'manager'); assert.deepEqual(result.analysis.groups, first.analysis.groups); assert.equal(f.history.length, 1); assert.equal(f.calls.length, 1);
     await assert.rejects(f.service.analyze({ intakeId, expectedRevision: 2, message: '다시' }, actor), { code: 'ai_already_confirmed' }); assert.equal(f.calls.length, 1);
 });
+test('existing mail analysis and confirmation never depend on pasted-source permissions or lookup', async () => {
+    const f = fixture(); let textLookups = 0;
+    f.store.textSource = async () => { textLookups++; throw new Error('new collection must not be queried for mail'); };
+    const first = await f.service.analyze(start, actor);
+    await f.service.confirm({ intakeId, expectedRevision: 1, reviewedGroupIds: first.analysis.groups.map(group => group.id) }, actor);
+    assert.equal(textLookups, 0); assert.equal(f.calls.length, 1);
+});
 test('modified stored totals or source hash cannot be confirmed', async () => {
     const f = fixture(), result = await f.service.analyze(start, actor), group = result.analysis.groups[0].id;
     f.mutate(record => record.data.analysis.groups[0].quantity = '999');

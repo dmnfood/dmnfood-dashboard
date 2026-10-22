@@ -111,6 +111,22 @@ body { color-scheme: dark; }
 .order-workbench-heading > div:first-child { flex: 0 0 auto; }
 .order-workbench-heading .order-muted { margin: 0; }
 .mail-source-toolbar { min-width: 0; max-width: 650px; }
+.order-workbench-tools { display: flex; align-items: center; flex-wrap: wrap; justify-content: end; gap: 10px; }
+.order-source-switch { display: flex; gap: 4px; padding: 12px; border-bottom: 1px solid var(--border); }
+.order-source-switch button { flex: 1; border: 1px solid transparent; border-radius: 8px; padding: 9px 10px; background: transparent; color: var(--t1); font: inherit; font-size: 12px; cursor: pointer; }
+.order-source-switch button[aria-pressed="true"] { background: rgba(34, 211, 238, .1); color: var(--brand-a); border-color: rgba(34, 211, 238, .2); }
+.order-source-switch button:focus-visible { outline: 2px solid var(--brand-a); outline-offset: 2px; }
+.order-text-source-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px; color: var(--t1); font-size: 11px; }
+.order-text-source-toolbar .order-button { padding: 5px 9px; min-height: 30px; font-size: 11px; }
+.order-text-source-feedback { padding: 10px 14px; color: var(--t1); font-size: 12px; overflow-wrap: anywhere; }
+.order-text-source-feedback[data-error="true"] { color: var(--ac); }
+.order-text-source-item { border-top: 1px solid var(--border); padding-bottom: 12px; }
+.order-text-source-item[data-selected="true"] { background: rgba(34, 211, 238, .08); box-shadow: inset 3px 0 var(--brand-a); }
+.order-text-source-select.order-button { display: grid; justify-content: stretch; gap: 7px; text-align: left; width: 100%; min-width: 0; border: 0; border-radius: 0; padding: 14px 16px 10px; background: transparent; }
+.order-text-source-select strong { font-size: 13px; line-height: 1.7; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.order-text-source-channel { color: var(--t1); font-size: 11px; font-weight: 400; }
+.order-text-source-actions { padding: 0 16px; }
+.order-text-source-actions .order-button { min-height: 30px; padding: 5px 10px; font-size: 11px; }
 .order-workbench-layout { display: grid; grid-template-columns: 290px minmax(0, 1fr); min-height: 570px; height: min(76dvh, 900px); }
 .order-mail-queue { min-width: 0; min-height: 0; overflow: auto; background: var(--card-w); border-right: 1px solid var(--border); }
 .order-workbench-content { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
@@ -148,6 +164,7 @@ body { color-scheme: dark; }
   .order-page-heading h1 { font-size: 21px; }
   .order-workbench-heading { flex-direction: column; gap: 14px; padding: 16px; }
   .mail-source-toolbar { width: 100%; max-width: none; }
+  .order-workbench-tools { width: 100%; justify-content: start; }
   .order-workbench-layout { grid-template-columns: 1fr; height: auto; min-height: 0; }
   .order-mail-queue { max-height: 260px; border-right: 0; border-bottom: 1px solid var(--border); }
   .order-workbench-panel { overflow: visible; }
@@ -169,3 +186,13 @@ body { color-scheme: dark; }
   .order-form-grid { grid-template-columns: 1fr; gap: 0; }
 }
 @media (prefers-reduced-motion: reduce) { .order-button, .back-btn, .btn-logout-sm { transition: none; } .loading-spinner { animation: none; } }
+.order-paste-mode { display: flex; gap: 5px; margin: 16px 0; padding: 4px; border: 1px solid var(--border); border-radius: 10px; background: var(--card-w); }
+.order-paste-mode button { flex: 1; min-height: 38px; padding: 8px 12px; border: 1px solid transparent; border-radius: 7px; background: transparent; color: var(--t1); font: inherit; cursor: pointer; }
+.order-paste-mode button[aria-pressed="true"] { border-color: rgba(34, 211, 238, .25); background: rgba(34, 211, 238, .1); color: var(--brand-a); }
+.order-paste-mode button:focus-visible { outline: 2px solid var(--brand-a); outline-offset: 2px; }
+.order-paste-mode button:disabled { opacity: .5; cursor: default; }
+.order-paste-image-panel input[type="file"] { padding: 12px; }
+.order-paste-image-preview { margin: 12px 0 16px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--card-w); }
+.order-paste-image-preview img { display: block; max-width: 100%; max-height: 280px; margin: 0 auto; object-fit: contain; }
+.order-paste-image-preview p { margin: 9px 0 0; color: var(--t1); font-size: 12px; overflow-wrap: anywhere; }
+@media (max-width: 720px) { .order-paste-mode button { min-height: 44px; } }

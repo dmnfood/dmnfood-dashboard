@@ -39,11 +39,14 @@
         <section id="mailConnectionMount" class="mail-connection" aria-label="메일 수집 상태"><p class="mail-loading" role="status">메일 수집 상태 확인 중</p></section>
         <div id="orderMessage" class="order-message" role="status" aria-live="polite" hidden></div>
         <section id="mailSourceMount" class="mail-source order-workbench" aria-labelledby="orderWorkbenchTitle">
-          <div class="order-workbench-heading"><div><h2 id="orderWorkbenchTitle">발주함</h2><p class="order-muted">메일을 선택해 첨부 원본을 확인하세요.</p></div><div id="mailSourceToolbar" class="mail-source-toolbar"></div></div>
+          <div class="order-workbench-heading"><div><h2 id="orderWorkbenchTitle">발주함</h2><p class="order-muted">받은 발주를 선택하거나 카톡·문자 내용을 추가하세요.</p></div><div class="order-workbench-tools"><div id="mailSourceToolbar" class="mail-source-toolbar"></div><button id="addTextOrder" class="order-button order-primary" type="button">＋ 발주 추가</button></div></div>
           <div class="order-workbench-layout">
-            <aside class="order-mail-queue" aria-label="메일 목록"><div id="mailQueueMount"><p class="mail-loading">메일 목록을 불러오고 있습니다.</p></div></aside>
+            <aside class="order-mail-queue" aria-label="발주 자료 목록">
+              <div class="order-source-switch" role="group" aria-label="받은 경로"><button id="showMailSources" type="button" aria-pressed="true">메일</button><button id="showTextSources" type="button" aria-pressed="false">카톡·문자</button></div>
+              <div id="mailQueueMount"><p class="mail-loading">메일 목록을 불러오고 있습니다.</p></div>
+              <div id="orderTextQueueMount" hidden></div>
+            </aside>
             <div class="order-workbench-content">
-              <section id="mailOriginalPanel" class="order-chat-summary mail-source-detail" aria-label="선택한 메일 정보"><p class="mail-source-empty">왼쪽에서 메일을 선택하세요.</p></section>
               <section id="orderChatMount" class="order-ai-chat" aria-label="발주 분석 도우미"></section>
 
             </div>
@@ -52,6 +55,18 @@
       </section>
     </main>
   </div>
+  <dialog id="orderTextDialog" class="order-dialog" aria-labelledby="orderTextTitle">
+    <form id="orderTextForm">
+      <div class="order-dialog-header"><div><p class="order-eyebrow">학교급식 발주</p><h2 id="orderTextTitle">받은 발주를 붙여넣으세요</h2></div><button class="order-icon-button" type="button" data-close aria-label="발주 추가 창 닫기">×</button></div>
+      <label>받은 경로<select name="channel"><option value="kakao">카카오톡</option><option value="sms">문자</option></select></label>
+      <div class="order-paste-mode" role="group" aria-label="추가할 원본 형식"><button type="button" data-source-mode="text" aria-pressed="true">텍스트</button><button type="button" data-source-mode="image" aria-pressed="false">이미지</button></div>
+      <div data-text-panel><label>발주 원문<textarea name="text" required maxlength="20000" rows="9" placeholder="거래처에서 받은 내용을 그대로 붙여넣으세요."></textarea></label></div>
+      <div data-image-panel class="order-paste-image-panel" hidden><label>발주 캡처<input name="imageFile" type="file" accept="image/png,image/jpeg"></label><p class="order-muted">이미지를 복사해 이 창에 붙여넣거나 파일을 선택하세요.</p><p data-image-status class="order-muted" role="status" hidden></p><div data-image-preview class="order-paste-image-preview" hidden></div></div>
+      <p class="order-muted">상품과 수량을 분석한 뒤 원문과 대조합니다.</p>
+      <p class="order-field-error" role="alert" hidden></p>
+      <div class="order-dialog-footer"><button class="order-button" type="button" data-cancel>취소</button><button class="order-button order-primary" type="submit">저장하고 분석</button></div>
+    </form>
+  </dialog>
   <dialog id="existingOrdersDialog" class="order-dialog order-existing-dialog" aria-labelledby="existingOrdersTitle">
     <div class="order-dialog-header"><h2 id="existingOrdersTitle">등록된 발주</h2><button id="closeExistingOrders" class="order-icon-button" type="button" aria-label="발주 목록 닫기">×</button></div>
               <section id="orderProcessingPanel" class="order-workbench-panel order-processing-panel">

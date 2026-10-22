@@ -1,3 +1,4 @@
+import { getOrderAiTextRows, validOrderAiTextRange } from './order-text-source-model.js';
 /* Pure analysis validation. Source files are data; no model output authorizes a sale. */
 export const ORDER_AI_PRODUCTS = Object.freeze([
     ['oil-kr-500ml', '국산 참기름 500ml', 'oil', 'kr', '500ml'],
@@ -102,7 +103,7 @@ function indexSources(sources) {
     let rowCount = 0, cellCount = 0;
     for (const source of sources) {
         if (!isObject(source) || typeof source.attachmentId !== 'string' || !/^[A-Za-z0-9_-]{1,100}$/.test(source.attachmentId)
-            || files.has(source.attachmentId) || !hash(source.sha256) || !['workbook', 'image'].includes(source.kind)) fail('원본 파일 식별 정보가 올바르지 않습니다.');
+            || files.has(source.attachmentId) || !hash(source.sha256) || !['workbook', 'image', 'text'].includes(source.kind)) fail('원본 파일 식별 정보가 올바르지 않습니다.');
         files.set(source.attachmentId, source);
         const entry = { attachmentId: source.attachmentId, sha256: source.sha256, kind: source.kind, complete: source.complete === true };
         if (boundedText(source.fileName, 255) && source.fileName.trim()) entry.fileName = source.fileName;
@@ -110,6 +111,15 @@ function indexSources(sources) {
             if (!Number.isSafeInteger(source.width) || source.width <= 0 || !Number.isSafeInteger(source.height) || source.height <= 0) fail('이미지 크기를 확인할 수 없습니다.');
             entry.width = source.width; entry.height = source.height;
             rows.set(rowKey(source.attachmentId, null, null), { image: true, source });
+        } else if (source.kind === 'text') {
+            const textRows = getOrderAiTextRows(source.text);
+            const rowValues = values => Array.isArray(values) ? values.map(row => [row.rowIndex, row.start, row.end, Array.isArray(row.tokens) ? row.tokens.map(token => [token.index, token.start, token.end, token.text]) : null]) : null;
+            if (JSON.stringify(rowValues(source.rows)) !== JSON.stringify(rowValues(textRows))) fail('텍스트 원본의 행 위치가 다릅니다.');
+            entry.rows = textRows.map(({ rowIndex, start, end }) => ({ rowIndex, start, end })); entry.rowCount = textRows.length;
+            for (const row of textRows) {
+                if (++rowCount > ORDER_AI_LIMITS.rows) fail('원본 행이 처리 범위를 넘습니다.');
+                rows.set(rowKey(source.attachmentId, null, row.rowIndex), { text: true, source, row });
+            }
         } else {
             if (!Array.isArray(source.sheets) || !source.sheets.length || source.sheets.length > ORDER_AI_LIMITS.sheets) fail('원본 시트를 확인할 수 없습니다.');
             const seenSheets = new Set(); entry.sheets = [];
@@ -171,7 +181,7 @@ function assertOutputShape(output) {
             || (line.productId !== null && !boundedText(line.productId, 100)) || (line.unit !== null && !boundedText(line.unit, 30))
             || (line.imageQuantity !== null && !boundedText(line.imageQuantity, 100))
             || !Array.isArray(line.issues) || line.issues.length > 20 || line.issues.some(issue => !boundedText(issue, 500))
-            || !sameKeys(line.source, ['attachmentId', 'sheetIndex', 'rowIndex', 'productCells', 'quantityCell', 'unitCell', 'bbox'])
+            || !sameKeys(line.source, ['attachmentId', 'sheetIndex', 'rowIndex', 'productCells', 'quantityCell', 'unitCell', 'bbox', ...(Object.hasOwn(line.source || {}, 'textRanges') ? ['textRanges'] : [])])
             || !boundedText(line.source.attachmentId, 100)
             || (line.source.sheetIndex !== null && !int(line.source.sheetIndex, 32))
             || (line.source.rowIndex !== null && !int(line.source.rowIndex))
@@ -180,7 +190,10 @@ function assertOutputShape(output) {
             || (line.source.quantityCell !== null && !boundedText(line.source.quantityCell, 16))
             || (line.source.unitCell !== null && !boundedText(line.source.unitCell, 16))
             || (line.source.bbox !== null && (!sameKeys(line.source.bbox, ['x', 'y', 'width', 'height'])
-                || Object.values(line.source.bbox).some(value => typeof value !== 'number' || !Number.isFinite(value))))) fail('분석 행 형식이 올바르지 않습니다.');
+                || Object.values(line.source.bbox).some(value => typeof value !== 'number' || !Number.isFinite(value))))
+            || Object.hasOwn(line.source, 'textRanges') && (!sameKeys(line.source.textRanges, ['product', 'quantity', 'unit'])
+                || !Array.isArray(line.source.textRanges.product) || line.source.textRanges.product.length > 20
+                || [...line.source.textRanges.product, line.source.textRanges.quantity, line.source.textRanges.unit].some(range => range !== null && (!sameKeys(range, ['start', 'end']) || !int(range.start) || !int(range.end) || range.start >= range.end)))) fail('분석 행 형식이 올바르지 않습니다.');
         ids.add(line.id);
     }
     for (const question of output.questions) if (question.lineId !== null && !ids.has(question.lineId)) fail('질문의 원본 행을 찾을 수 없습니다.');
@@ -219,13 +232,14 @@ export function normalizeOrderAiAnalysis({ id: analysisId, intakeId, revision, s
         customer = schoolSelection ? { id: matches[0].id, name: matches[0].name, revision: matches[0].revision, source: 'school_meal', erpCode: null }
             : { code: matches[0].code, name: matches[0].name, revision: matches[0].revision };
     } else block('customer_required', '학교급식 주간현황표에 등록된 업체를 선택해 주세요.');
-    const usedQuantities = new Map(), usedImageEvidence = new Map();
+    const usedQuantities = new Map(), usedImageEvidence = new Map(), usedTextQuantities = [];
     const lines = output.lines.map(candidate => {
         const issues = [...candidate.issues], source = candidate.source, product = PRODUCTS.get(candidate.productId);
         let quantity = null, sourceText = '', validSource = true;
         const file = indexed.files.get(source.attachmentId);
         const originalRowKey = rowKey(source.attachmentId, source.sheetIndex, source.rowIndex);
         if (!file || !indexed.rows.has(originalRowKey)) { issues.push('원본 행을 찾을 수 없습니다.'); validSource = false; }
+        if (file?.kind !== 'text' && Object.hasOwn(source, 'textRanges')) { issues.push('원본 형식과 근거 위치가 다릅니다.'); validSource = false; }
         if (file?.kind === 'workbook') {
             if (!int(source.sheetIndex, 32) || !int(source.rowIndex) || source.bbox !== null || candidate.imageQuantity !== null
                 || !source.productCells.length || new Set(source.productCells).size !== source.productCells.length) { issues.push('Excel 원본 위치를 확인해 주세요.'); validSource = false; }
@@ -245,6 +259,36 @@ export function normalizeOrderAiAnalysis({ id: analysisId, intakeId, revision, s
                 if (usedQuantities.has(key)) { issues.push('같은 수량 셀이 중복 사용되었습니다.'); usedQuantities.get(key).push(candidate.id); }
                 else usedQuantities.set(key, [candidate.id]);
             }
+        } else if (file?.kind === 'text') {
+            const row = indexed.rows.get(originalRowKey)?.row, ranges = source.textRanges;
+            const validRange = range => row && validOrderAiTextRange(range, row);
+            const productRangesValid = ranges && ranges.product.length > 0 && ranges.product.every(validRange)
+                && ranges.product.reduce((count, range) => count + range.end - range.start, 0) <= ORDER_AI_LIMITS.text
+                && !ranges.product.some((range, index) => ranges.product.slice(index + 1).some(other => range.start < other.end && other.start < range.end));
+            if (source.sheetIndex !== null || !int(source.rowIndex) || source.bbox !== null || source.productCells.length
+                || source.quantityCell !== null || source.unitCell !== null || candidate.imageQuantity !== null || !productRangesValid || !validRange(ranges.quantity) || !validRange(ranges.unit)) {
+                issues.push('텍스트 원본의 상품·수량·단위 위치를 확인해 주세요.'); validSource = false;
+            }
+            sourceText = productRangesValid ? ranges.product.map(range => file.text.slice(range.start, range.end)).join(' ') : '';
+            if (validRange(ranges?.quantity)) {
+                const range = ranges.quantity, before = file.text[range.start - 1] || '', after = file.text[range.end] || '';
+                if (/[0-9.,+\-\u2212\u2010-\u2015~～]/.test(before) || /[0-9.,+\-\u2212\u2010-\u2015~～]/.test(after)
+                    || /[+\-\u2212\u2010-\u2015~～]\s*$/.test(file.text.slice(row.start, range.start))) issues.push('수량 숫자의 일부만 선택되었거나 증감·범위 표기가 있습니다.');
+                else quantity = normalizeOrderAiQuantity(file.text.slice(range.start, range.end));
+                for (const old of usedTextQuantities) if (old.attachmentId === source.attachmentId && range.start < old.end && old.start < range.end) {
+                    issues.push('같은 원문 수량이 중복 사용되었습니다.'); old.lineIds.push(candidate.id);
+                }
+                usedTextQuantities.push({ attachmentId: source.attachmentId, ...range, lineIds: [candidate.id] });
+            }
+            if (validRange(ranges?.unit)) {
+                const rawUnit = file.text.slice(ranges.unit.start, ranges.unit.end);
+                if (unitText(rawUnit) !== unitText(candidate.unit)) issues.push('분석 단위와 원문 단위가 다릅니다.');
+                if (validRange(ranges.quantity)) {
+                    const q = ranges.quantity, u = ranges.unit;
+                    const between = q.end <= u.start ? file.text.slice(q.end, u.start) : u.end <= q.start ? file.text.slice(u.end, q.start) : null;
+                    if (between === null || !/^\s*$/.test(between)) issues.push('수량과 단위가 같은 원문 항목에 연결되었는지 확인해 주세요.');
+                }
+            }
         } else if (file?.kind === 'image') {
             if (source.sheetIndex !== null || source.rowIndex !== null || source.productCells.length || source.quantityCell !== null
                 || source.unitCell !== null || !validBox(source.bbox)) { issues.push('이미지의 원본 위치를 확인해 주세요.'); validSource = false; }
@@ -261,12 +305,16 @@ export function normalizeOrderAiAnalysis({ id: analysisId, intakeId, revision, s
         if (!product || !product.units.includes(unit)) issues.push('상품의 낱개 단위를 확인해 주세요.');
         if (product) issues.push(...sourceContradictions(sourceText, product));
         for (const question of questions) if (question.lineId === candidate.id) issues.push(question.text);
-        return { id: candidate.id, source: { ...source, productCells: [...source.productCells], bbox: source.bbox ? { ...source.bbox } : null },
+        return { id: candidate.id, source: { ...source, productCells: [...source.productCells], bbox: source.bbox ? { ...source.bbox } : null,
+                ...(source.textRanges ? { textRanges: { product: source.textRanges.product.map(range => ({ ...range })), quantity: source.textRanges.quantity ? { ...source.textRanges.quantity } : null, unit: source.textRanges.unit ? { ...source.textRanges.unit } : null } } : {}) },
             productId: product?.id || null, productLabel: product?.label || '상품 확인 필요', quantity, unit,
             sourceText, issues: [...new Set(issues)], blockers: [], validSource, image: file?.kind === 'image', rowKey: originalRowKey };
     });
     for (const lineIds of usedQuantities.values()) if (lineIds.length > 1) for (const lineId of lineIds) {
         const line = lines.find(value => value.id === lineId); if (!line.issues.includes('같은 수량 셀이 중복 사용되었습니다.')) line.issues.push('같은 수량 셀이 중복 사용되었습니다.');
+    }
+    for (const item of usedTextQuantities) if (item.lineIds.length > 1) for (const lineId of item.lineIds) {
+        const line = lines.find(value => value.id === lineId); if (!line.issues.includes('같은 원문 수량이 중복 사용되었습니다.')) line.issues.push('같은 원문 수량이 중복 사용되었습니다.');
     }
     for (const lineIds of usedImageEvidence.values()) if (lineIds.length > 1) for (const lineId of lineIds) {
         lines.find(value => value.id === lineId).issues.push('이미지의 같은 원본 영역이 중복 사용되었습니다.');
@@ -291,7 +339,7 @@ export function normalizeOrderAiAnalysis({ id: analysisId, intakeId, revision, s
         const copy = { ...record, lineIds: [...record.lineIds] }; coverage.push(copy);
         if (record.disposition === 'excluded') exclusions.push(copy);
     }
-    for (const [key, value] of indexed.rows) if (!seenRows.has(key)) block('row_uncovered', value.image ? '이미지 전체의 발주 내용을 확인해 주세요.' : `${value.sheet.sheetName} ${value.row.rowIndex + 1}행의 처리 여부가 누락되었습니다.`);
+    for (const [key, value] of indexed.rows) if (!seenRows.has(key)) block('row_uncovered', value.image ? '이미지 전체의 발주 내용을 확인해 주세요.' : `${value.text ? '텍스트 원본' : value.sheet.sheetName} ${value.row.rowIndex + 1}행의 처리 여부가 누락되었습니다.`);
     for (const question of questions) if (question.lineId === null) block('question_unanswered', question.text);
     for (const line of lines) {
         for (const message of line.issues) { line.blockers.push(message); block('line_unresolved', message, line.id); }
@@ -320,7 +368,7 @@ function identities(sources) {
     const seen = new Set();
     return sources.map(source => {
         if (!source || typeof source.attachmentId !== 'string' || seen.has(source.attachmentId) || !hash(source.sha256)
-            || !['image', 'workbook'].includes(source.kind) || source.complete !== true) fail('현재 원본 파일을 다시 확인해 주세요.');
+            || !['image', 'workbook', 'text'].includes(source.kind) || source.complete !== true) fail('현재 원본 파일을 다시 확인해 주세요.');
         seen.add(source.attachmentId); return JSON.stringify([source.attachmentId, source.sha256, source.kind]);
     }).sort();
 }

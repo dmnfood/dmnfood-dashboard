@@ -13,10 +13,23 @@
 .mail-source-list-panel { min-width: 0; border-right: 1px solid var(--border); background: var(--card-w); }
 .mail-source-list { max-height: 620px; overflow-y: auto; }
 .mail-source-list-panel > .order-button { margin: 12px; width: calc(100% - 24px); }
-.mail-source-item { display: grid; gap: 7px; width: 100%; padding: 15px; text-align: left; font: inherit; background: transparent; color: var(--t0); border: 0; border-bottom: 1px solid var(--border); cursor: pointer; }
+.mail-source-item { width: 100%; margin: 0; text-align: left; font: inherit; background: transparent; color: var(--t0); border: 0; border-bottom: 1px solid var(--border); }
 .mail-source-item:hover { background: var(--card-s); }
 .mail-source-item[aria-current="true"] { background: rgba(34, 211, 238, .1); box-shadow: inset 3px 0 var(--brand-a); }
-.mail-source-item:focus-visible { outline: 2px solid var(--brand-a); outline-offset: -3px; }
+.mail-source-select { display: grid; gap: 7px; width: 100%; padding: 15px; border: 0; background: transparent; color: inherit; text-align: left; font: inherit; cursor: pointer; }
+.mail-source-select:focus-visible { outline: 2px solid var(--brand-a); outline-offset: -3px; }
+.mail-source-item-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 0 15px 15px; }
+.mail-source-item-action { display: inline-flex; align-items: center; justify-content: center; min-height: 32px; padding: 5px 10px; border: 1px solid var(--border); border-radius: 7px; background: var(--card-w); color: var(--t1); font: inherit; font-size: 11px; text-decoration: none; cursor: pointer; }
+.mail-source-item-action:hover { border-color: var(--brand-a); color: var(--t0); }
+.mail-source-item-action:focus-visible { outline: 2px solid var(--brand-a); outline-offset: 2px; }
+.mail-source-item-action:disabled { opacity: .45; cursor: default; }
+.mail-source-outside-scope { margin: 0; padding: 12px 15px 0; font-size: 11px; color: var(--ac); }
+.mail-source-file-picker { width: min(520px, calc(100vw - 32px)); }
+.mail-source-file-picker-body { display: grid; gap: 10px; }
+.mail-source-file-choice { display: grid; gap: 6px; min-width: 0; }
+.mail-source-file-choice > .order-button { width: 100%; text-align: left; white-space: normal; overflow-wrap: anywhere; }
+.mail-source-file-choice p { margin: 0; }
+@media (max-width: 720px) { .mail-source-item-action { min-height: 44px; } }
 .mail-source-item strong { font-size: 13px; line-height: 1.7; overflow-wrap: anywhere; }
 .mail-source-sender { font-size: 11px; color: var(--t1); overflow-wrap: anywhere; }
 .mail-source-time { font-size: 11px; color: var(--t2); }

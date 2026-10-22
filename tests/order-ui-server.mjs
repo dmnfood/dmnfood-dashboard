@@ -7,6 +7,8 @@ import { createHash, randomUUID } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { normalizeOrderAiAnalysis, assertOrderAiConfirmation } from '../dashboard/js/order-ai-model.js';
 import { buildSchoolMealCompanies } from '../dashboard/js/school-meal-company-model.js';
+import { createOrderAiTextSource } from '../dashboard/js/order-text-source-model.js';
+import { ORDER_AI_PRODUCTS } from '../dashboard/js/order-ai-model.js';
 import {
     assertOrderRevision, buildOrderReview, emptyReviewChecks, normalizeOrderDraft,
     validateOrderDraft, validateOrderInput,
@@ -14,9 +16,11 @@ import {
 
 const HOST = '127.0.0.1', PORT = 4175;
 const require = createRequire(import.meta.url);
-const { extractWorkbook } = require('../lib/server/order-ai-extraction.cjs');
+const { extractWorkbook, imageDimensions } = require('../lib/server/order-ai-extraction.cjs');
+const { createOrderAiWire } = require('../lib/server/order-ai-wire.cjs');
+const { buildTextSource } = require('../lib/server/order-text-source.cjs');
 const base = new URL('../', import.meta.url);
-const orders = new Map(), streams = new Set(), orderAiAnalyses = new Map();
+const orders = new Map(), streams = new Set(), orderAiAnalyses = new Map(), textSourceFixtures = new Map();
 const actor = { uid: 'fictional-local-manager', name: '가상 검증 담당자' };
 const uiFiles = new Set([
     '/dashboard/home.html', '/dashboard/orders.html', '/dashboard/js/orders.js',
@@ -30,6 +34,7 @@ const uiFiles = new Set([
     '/dashboard/js/mail-preparation-ui.js', '/dashboard/js/mail-preparation-model.js', '/dashboard/css/mail-preparation.css',
     '/dashboard/js/order-ai-client.js', '/dashboard/js/order-ai-chat.js', '/dashboard/js/order-ai-evidence.js',
     '/dashboard/js/order-ai-model.js', '/dashboard/css/order-ai-chat.css',
+    '/dashboard/js/order-text-source-model.js', '/dashboard/js/order-text-sources.js',
     '/dashboard/js/school-meal-company-model.js',
     '/dashboard/js/erp-customer-model.js', '/dashboard/js/erp-customer-import.js',
     '/dashboard/js/erp-customer-settings.js', '/dashboard/css/erp-customer-settings.css',
@@ -49,7 +54,7 @@ const fixtures = new Map([
 ]);
 const headers = {
     'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff',
-    'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; font-src 'self'; img-src 'self' data:; base-uri 'none'; frame-ancestors 'none'",
+    'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; font-src 'self'; img-src 'self' data: blob:; base-uri 'none'; frame-ancestors 'none'",
 };
 const timestamp = () => ({ seconds: Date.now() / 1000 });
 const schoolScope = { folderId: '106', folderName: '학교급식 발주', available: null, verified: false, collectionMode: 'manual', automatic: false };
@@ -65,6 +70,7 @@ const mailFixtures = [
 ];
 for (const mail of mailFixtures) {
     mail.schemaVersion = 1; mail.account = 'official@dmnfood.co.kr';
+    mail.mailId = String(900001 + mailFixtures.indexOf(mail));
     mail.rawStorage = { sha256: createHash('sha256').update(JSON.stringify(mail.raw)).digest('hex') };
 }
 // An intentionally fictional weekly-company catalog used only on loopback.
@@ -97,6 +103,7 @@ function orderAiProposal(blocked, customerId) {
                     : '발주 행의 원본 수량 합산' })) };
 }
 function createOrderAiFixture(input, scenario, old) {
+    if (['text', 'image'].includes(input.sourceKind)) return createTextAiFixture(input, old);
     if (input.intakeId !== SCHOOL_MAIL_ID) throw new Error('이 가상 메일에는 분석할 발주 첨부가 없습니다.');
     if (input.expectedRevision !== (old?.revision || 0) || old?.status === 'confirmed') throw new Error('가상 분석의 최신 버전을 다시 불러와 주세요.');
     const customers = orderAiCustomers(), selectedId = input.customerId || old?.customer?.id || customers[0]?.id || null;
@@ -107,6 +114,30 @@ function createOrderAiFixture(input, scenario, old) {
     const conversation = [...(old?.conversation || []), ...(input.message ? [{ role: 'user', content: String(input.message) }] : []),
         { role: 'assistant', content: normalized.assistantMessage }];
     return { ...normalized, conversation, mode: 'fictional_local_only', updatedAt: new Date().toISOString() };
+}
+// Deterministic fictional input only; this fixture never calls a model.
+function createTextAiFixture(input, old) {
+    const record = textSourceFixtures.get(input.intakeId);
+    if (!record || input.expectedRevision !== (old?.revision || 0)) throw new Error('가상 텍스트 발주를 다시 선택해 주세요.');
+    if (record.kind === 'image') {
+        const dimensions = imageDimensions(Buffer.from(record.contentBase64, 'base64'), record.mimeType);
+        const source = { attachmentId: 'message-image', kind: 'image', complete: true, fileName: record.fileName, sha256: record.sha256, ...dimensions };
+        const lines = ['2', '1'].map((quantity, index) => ({ id: `fictional-image-${index}`, productId: 'oil-cn-1_8l', unit: '병', imageQuantity: quantity, issues: [],
+            source: { attachmentId: source.attachmentId, sheetIndex: null, rowIndex: null, productCells: [], quantityCell: null, unitCell: null, bbox: { x: .35, y: index ? .48 : .38, width: .55, height: .13 } } }));
+        const output = { assistantMessage: '가상 검증: 이미지 화면 시험용 2병·1병 결과입니다. 실제 AI 호출은 하지 않습니다.', questions: [], customerId: orderAiCustomers()[0]?.id || null, lines,
+            coverage: [{ attachmentId: source.attachmentId, sheetIndex: null, rowIndex: null, disposition: 'included', lineIds: lines.map(line => line.id), reason: '' }] };
+        const analysis = normalizeOrderAiAnalysis({ id: 'fictional-image-analysis', intakeId: input.intakeId, revision: (old?.revision || 0) + 1, sourceHash: record.sha256, sources: [source], customers: orderAiCustomers(), output });
+        return { ...analysis, conversation: [{ role: 'assistant', content: output.assistantMessage }], mode: 'fictional_local_only', updatedAt: new Date().toISOString() };
+    }
+    const file = createOrderAiTextSource(record), wire = createOrderAiWire([file], ORDER_AI_PRODUCTS), rows = [];
+    for (const row of wire.sources[0].rows) {
+        const unit = row.tokens.findLastIndex(token => token.text === '병'), quantity = unit - 1;
+        if (row.text.includes('중국산') && row.text.includes('참기름') && unit > 0 && /^\d+(?:\.\d+)?$/.test(row.tokens[quantity]?.text || '')) rows.push({ r: row.rowId, d: 'included', x: '', l: [{ p: 4, c: [{ s: 0, e: quantity - 1 }], q: { s: quantity, e: quantity }, u: { s: unit, e: unit }, x: [] }] });
+        else rows.push({ r: row.rowId, d: 'excluded', x: '가상 업체 제목', l: [] });
+    }
+    const output = wire.expand({ assistantMessage: '가상 검증: 붙여넣은 원문의 수량을 합산했습니다. 실제 AI 호출은 하지 않습니다.', questions: [], customerId: orderAiCustomers()[0]?.id || null, rows, excludedRows: [] });
+    const analysis = normalizeOrderAiAnalysis({ id: 'fictional-text-analysis', intakeId: input.intakeId, revision: (old?.revision || 0) + 1, sourceHash: record.sha256, sources: [file], customers: orderAiCustomers(), output });
+    return { ...analysis, conversation: [{ role: 'assistant', content: output.assistantMessage }], mode: 'fictional_local_only', updatedAt: new Date().toISOString() };
 }
 const state = () => [...orders.values()].sort((a, b) => b.createdAt.seconds - a.createdAt.seconds);
 const snapshot = () => `data: ${JSON.stringify(state())}\n\n`;
@@ -177,6 +208,18 @@ const server = createServer(async (req, res) => {
             if (req.headers.authorization !== 'Bearer fictional-local-token-not-a-firebase-credential') return reply(res, 401, { ok: false });
             const referer = new URL(req.headers.referer || localOrigin), scenario = referer.searchParams.get('orderAiScenario') || 'valid';
             if (referer.origin !== localOrigin) return reply(res, 403, { ok: false });
+            if (url.pathname.endsWith('/text-sources')) {
+                if (req.method === 'GET') {
+                    const id = url.searchParams.get('id');
+                    if (id) return reply(res, textSourceFixtures.has(id) ? 200 : 404, textSourceFixtures.has(id) ? { ok: true, source: textSourceFixtures.get(id) } : { ok: false, message: '가상 원문 없음' });
+                    return reply(res, 200, { ok: true, sources: [...textSourceFixtures.values()].toReversed().map(({ text, contentBase64, ...summary }) => summary) });
+                }
+                if (req.method !== 'POST' || req.headers.origin !== localOrigin) return reply(res, 405, { ok: false });
+                const built = buildTextSource(await readAction(req), actor.uid), existed = textSourceFixtures.get(built.id);
+                const source = existed || { id: built.id, ...built.data, createdAt: new Date().toISOString() };
+                if (existed && existed.sha256 !== built.data.sha256) throw new Error('가상 요청 ID 충돌');
+                textSourceFixtures.set(built.id, source); return reply(res, 200, { ok: true, source, created: !existed, mode: 'fictional_local_only' });
+            }
             if (url.pathname.endsWith('/status') && req.method === 'GET') return reply(res, 200, { ok: true,
                 configured: scenario !== 'unconfigured', mode: 'fictional_local_only', message: '로컬 가상 검증이며 실제 OpenAI에 연결하지 않습니다.' });
             const key = `${scenario}:${url.searchParams.get('intakeId')}`;
@@ -190,8 +233,10 @@ const server = createServer(async (req, res) => {
             }
             if (url.pathname.endsWith('/confirm')) {
                 if (!previous || previous.updatedAt !== input.expectedUpdatedAt) throw new Error('가상 분석의 최신 버전을 다시 대조해 주세요.');
-                assertOrderAiConfirmation(previous, { revision: input.expectedRevision, sourceHash: mailFixtures[0].rawStorage.sha256,
-                    sources: orderAiSources, customers: orderAiCustomers(), reviewedGroupIds: input.reviewedGroupIds,
+                const text = ['text', 'image'].includes(input.sourceKind) ? textSourceFixtures.get(input.intakeId) : null;
+                const manualSources = text?.kind === 'image' ? [{ attachmentId: 'message-image', kind: 'image', complete: true, fileName: text.fileName, sha256: text.sha256, ...imageDimensions(Buffer.from(text.contentBase64, 'base64'), text.mimeType) }] : text ? [createOrderAiTextSource(text)] : null;
+                assertOrderAiConfirmation(previous, { revision: input.expectedRevision, sourceHash: text?.sha256 || mailFixtures[0].rawStorage.sha256,
+                    sources: manualSources || orderAiSources, customers: orderAiCustomers(), reviewedGroupIds: input.reviewedGroupIds,
                     reviewedExclusions: input.reviewedExclusions });
                 const analysis = { ...previous, status: 'confirmed', confirmedRevision: previous.revision,
                     reviewedGroupIds: [...input.reviewedGroupIds], reviewedExclusions: input.reviewedExclusions === true,

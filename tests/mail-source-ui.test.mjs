@@ -50,14 +50,18 @@ class UiNode {
     getAttribute(name) { return this.attributes[name] || null; }
     addEventListener(name, handler) { this.listeners.set(name, handler); }
     fire(name) { return this.listeners.get(name)?.({ target: this }); }
+    showModal() { this.open = true; }
+    close() { this.open = false; }
+    remove() { this.removed = true; }
+    focus() { this.focused = true; }
     scrollIntoView() {}
 }
 function uiNodes(node, predicate) { return [...(predicate(node) ? [node] : []), ...node.children.flatMap(child => uiNodes(child, predicate))]; }
 const settleUi = async () => { await new Promise(resolve => setImmediate(resolve)); await new Promise(resolve => setImmediate(resolve)); };
-function viewerHarness(respond, href = 'https://dashboard.dmnfood.co.kr/orders', { split = false, onSelectMail, onBeforeSelectMail, onWorkbookClosed, onMailLoaded } = {}) {
-    const calls = [], listeners = new Map(), mount = new UiNode('section'), location = { href, get search() { return new URL(this.href).search; } };
+function viewerHarness(respond, href = 'https://dashboard.dmnfood.co.kr/orders', { split = false, summaryOnly = false, manageHistory = false, omitDetailMount = false, onSelectMail, onBeforeSelectMail, onWorkbookClosed, onMailLoaded, onPreviewAttachment, onHistoryChange } = {}) {
+    const calls = [], listeners = new Map(), mount = new UiNode('section'), body = new UiNode('body'), location = { href, get search() { return new URL(this.href).search; } };
     const history = { state: {}, pushState(state, title, path) { location.href = new URL(path, location.href).href; }, replaceState(state, title, path) { location.href = new URL(path, location.href).href; } };
-    const context = vm.createContext({ document: { createElement: tag => new UiNode(tag), createTextNode: value => { const node = new UiNode('#text'); node.nodeType = 3; node.textContent = value; return node; } }, Node: UiNode,
+    const context = vm.createContext({ document: { body, createElement: tag => new UiNode(tag), createTextNode: value => { const node = new UiNode('#text'); node.nodeType = 3; node.textContent = value; return node; } }, Node: UiNode,
         location, window: { history, addEventListener: (name, callback) => listeners.set(name, callback), removeEventListener: name => listeners.delete(name) },
         URL, URLSearchParams, AbortController, DOMException, Intl, Date,
         fetch: async (path, settings) => { calls.push({ path, settings }); const body = await respond(new URL(path, location.href), settings); return { ok: true, status: 200, json: async () => body }; },
@@ -65,9 +69,9 @@ function viewerHarness(respond, href = 'https://dashboard.dmnfood.co.kr/orders',
     vm.runInContext(`${viewerSource.replace(/^export /gm, '')}\nglobalThis.startViewer = initMailSourceViewer`, context);
     const listMount = new UiNode('aside'), detailMount = new UiNode('section'), toolbarMount = new UiNode('div'), staticHeader = new UiNode('h2');
     staticHeader.textContent = '발주함'; detailMount.setAttribute('role', 'tabpanel'); detailMount.setAttribute('aria-labelledby', 'mailOriginalTab');
-    if (split) mount.append(staticHeader, toolbarMount, listMount, detailMount);
-    const cleanup = context.startViewer({ user: { getIdToken: async () => 'fictional-ui-token' } }, mount, { ...(split ? { listMount, detailMount, toolbarMount } : {}), onSelectMail, onBeforeSelectMail, onWorkbookClosed, onMailLoaded });
-    return { calls, mount, listMount, detailMount, toolbarMount, staticHeader, cleanup, location, listeners, select: () => uiNodes(mount, node => node.tagName === 'SELECT')[0] };
+    if (split) mount.append(staticHeader, toolbarMount, listMount, ...(omitDetailMount ? [] : [detailMount]));
+    const cleanup = context.startViewer({ user: { getIdToken: async () => 'fictional-ui-token' } }, mount, { ...(split ? { listMount, ...(omitDetailMount ? {} : { detailMount }), toolbarMount } : {}), summaryOnly, manageHistory, onSelectMail, onBeforeSelectMail, onWorkbookClosed, onMailLoaded, onPreviewAttachment, onHistoryChange });
+    return { calls, mount, body, listMount, detailMount, toolbarMount, staticHeader, cleanup, location, listeners, select: () => uiNodes(mount, node => node.tagName === 'SELECT')[0] };
 }
 const scoped = (folderId, mails, nextCursor = null) => ({ ok: true, scope: { folderId }, mails, nextCursor });
 const mailSummary = (id, folderId = '106') => ({ id, folderId, subject: id, from: 'fictional@example.test', receivedAt: '2026-10-21T01:00:00Z' });
@@ -140,7 +144,7 @@ test('split mounts preserve the surrounding card and render attachments without 
     assert.equal(app.staticHeader.textContent, '발주함');
     assert.equal(uiNodes(app.toolbarMount, node => node.tagName === 'H2').length, 0);
     assert.equal(uiNodes(app.listMount, node => node.className === 'mail-source-item').length, 1);
-    uiNodes(app.listMount, node => node.className === 'mail-source-item')[0].fire('click'); await settleUi();
+    uiNodes(app.listMount, node => node.className === 'mail-source-select')[0].fire('click'); await settleUi();
     assert.equal(selected.length, 1);
     assert.equal(selected[0].id, 'school-original');
     assert.equal(selected[0].history, 'push');
@@ -230,5 +234,127 @@ test('allowed history switches ask once and carry the active source lifecycle th
     assert.equal(prompts, before.prompts + 2); assert.equal(closed, before.closed + 2); assert.equal(app.calls.length, before.requests + 1, 'clearing the mail does not fetch another source');
     assert.deepEqual(selected, ['first-source', 'second-source', '']); assert.match(app.mount.textContent, /왼쪽에서 메일을 선택/);
     app.listeners.get('popstate')(); await settleUi(); assert.equal(prompts, before.prompts + 2, 'unchanged history does not prompt');
+    app.cleanup();
+});
+
+test('compact mail cards keep source actions on the left and omit duplicated details and attachment names', async () => {
+    const summary = { ...mailSummary('compact-mail'), mailId: '5928', attachmentCount: 1 };
+    const app = viewerHarness(url => url.searchParams.has('intakeId') ? { ok: true, mail: { ...summary, raw: { mail: {}, attachments: [ordinary] } } } : scoped('106', [summary]),
+        'https://dashboard.dmnfood.co.kr/orders?mail=compact-mail', { split: true, summaryOnly: true });
+    await settleUi();
+    assert.equal(app.detailMount.textContent, '');
+    assert.doesNotMatch(app.mount.textContent, /원본 보관|확인 링크 복사|보낸 사람|받은 시각|학교급식 발주서\.xls/);
+    const card = uiNodes(app.listMount, node => node.className === 'mail-source-item')[0];
+    assert.equal(card.tagName, 'ARTICLE');
+    const select = uiNodes(card, node => node.className === 'mail-source-select')[0];
+    assert.equal(uiNodes(select, node => ['A', 'BUTTON'].includes(node.tagName)).length, 1, 'selection button contains no nested action controls');
+    const link = uiNodes(card, node => node.tagName === 'A')[0];
+    assert.equal(link.textContent, '네이버웍스 ↗'); assert.equal(link.href, getNaverworksMailUrl(5928));
+    assert.equal(link.target, '_blank'); assert.equal(link.rel, 'noopener noreferrer');
+    assert.equal(uiNodes(card, node => node.tagName === 'BUTTON' && node.textContent === '첨부파일').length, 1);
+    app.cleanup();
+});
+
+test('opening an unselected mail attachment passes its own source without changing the active analysis or URL', async () => {
+    const selections = [], loaded = [], previews = [];
+    const summaries = ['active-mail', 'other-mail'].map((id, index) => ({ ...mailSummary(id), mailId: String(5928 + index), attachmentCount: 1 }));
+    const app = viewerHarness(url => url.searchParams.has('intakeId') ? { ok: true, mail: { ...summaries.find(mail => mail.id === url.searchParams.get('intakeId')), raw: { mail: {}, attachments: [ordinary] } } } : scoped('106', summaries),
+        'https://dashboard.dmnfood.co.kr/orders?mail=active-mail', { split: true, summaryOnly: true, onSelectMail: value => selections.push(value.id), onMailLoaded: value => loaded.push(value.id), onPreviewAttachment: (attachment, context) => previews.push({ attachment, mail: context.mail }) });
+    await settleUi(); const before = app.location.href;
+    uiNodes(app.listMount, node => node.tagName === 'BUTTON' && node.textContent === '첨부파일')[1].fire('click'); await settleUi();
+    assert.deepEqual(selections, ['active-mail']); assert.deepEqual(loaded, ['active-mail']); assert.equal(app.location.href, before);
+    assert.equal(previews.length, 1); assert.equal(previews[0].mail.id, 'other-mail'); assert.equal(previews[0].attachment.id, '101');
+    assert.equal(app.calls.at(-1).path, '/api/naverworks/source?intakeId=other-mail');
+    assert.equal(app.calls.filter(call => call.path.includes('/attachment')).length, 0, 'original bytes remain the existing evidence viewer responsibility');
+    app.cleanup();
+});
+
+test('multiple attachments use a separate chooser and close it before opening the requested original', async () => {
+    const previews = [], second = { ...ordinary, attachmentId: '102', filename: '다음 원본.xlsx', contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' };
+    const summary = { ...mailSummary('multi-mail'), mailId: '5928', attachmentCount: 3 };
+    const app = viewerHarness(url => url.searchParams.has('intakeId') ? { ok: true, mail: { ...summary, raw: { mail: {}, attachments: [ordinary, second, { ...ordinary, attachmentId: '103', filename: '별도 확인.pdf', contentType: 'application/pdf' }] } } } : scoped('106', [summary]),
+        'https://dashboard.dmnfood.co.kr/orders', { split: true, summaryOnly: true, onPreviewAttachment: (attachment, context) => previews.push({ attachment, sourceId: context.mail.id, pickerOpen: uiNodes(app.body, node => node.tagName === 'DIALOG')[0].open }) });
+    await settleUi(); uiNodes(app.listMount, node => node.tagName === 'BUTTON' && node.textContent === '첨부파일')[0].fire('click'); await settleUi();
+    assert.doesNotMatch(app.listMount.textContent, /학교급식 발주서|다음 원본|별도 확인/);
+    const picker = uiNodes(app.body, node => node.tagName === 'DIALOG')[0]; assert.equal(picker.open, true);
+    const choices = uiNodes(picker, node => node.tagName === 'BUTTON');
+    assert.equal(choices.find(node => node.textContent === '별도 확인.pdf').disabled, true);
+    choices.find(node => node.textContent === second.filename).fire('click');
+    assert.equal(previews.length, 1); assert.equal(previews[0].attachment.id, '102'); assert.equal(previews[0].sourceId, 'multi-mail'); assert.equal(previews[0].pickerOpen, false);
+    assert.equal(new URL(app.location.href).searchParams.has('mail'), false);
+    app.cleanup();
+});
+
+test('late attachment metadata cannot reopen a previous source after mail selection or disposal', async () => {
+    for (const dispose of [false, true]) {
+        let finishPreview; const previews = [], summaries = ['active-mail', 'slow-mail'].map(id => ({ ...mailSummary(id), mailId: '5928', attachmentCount: 1 }));
+        const source = id => ({ ok: true, mail: { ...summaries.find(mail => mail.id === id), raw: { mail: {}, attachments: [ordinary] } } });
+        const app = viewerHarness(url => !url.searchParams.has('intakeId') ? scoped('106', summaries) : url.searchParams.get('intakeId') === 'slow-mail' ? new Promise(resolve => { finishPreview = resolve; }) : source('active-mail'),
+            'https://dashboard.dmnfood.co.kr/orders', { split: true, summaryOnly: true, onPreviewAttachment: value => previews.push(value) });
+        await settleUi(); uiNodes(app.listMount, node => node.tagName === 'BUTTON' && node.textContent === '첨부파일')[1].fire('click'); await settleUi();
+        const pending = app.calls.at(-1);
+        if (dispose) app.cleanup(); else { uiNodes(app.listMount, node => node.className === 'mail-source-select')[0].fire('click'); await settleUi(); }
+        assert.equal(pending.settings.signal.aborted, true);
+        finishPreview(source('slow-mail')); await settleUi(); assert.equal(previews.length, 0); assert.equal(uiNodes(app.body, node => node.tagName === 'DIALOG').length, 0);
+        if (!dispose) app.cleanup();
+    }
+});
+
+test('a selected source outside the current list stays visible with actions and clearing respects the navigation guard', async () => {
+    let allowed = true; const selected = [];
+    const app = viewerHarness(url => url.searchParams.has('intakeId') ? { ok: true, mail: { ...mailSummary('outside-mail', '0'), mailId: '5928', raw: { mail: {}, attachments: [ordinary] } } } : scoped('106', [mailSummary('inside-mail')]),
+        'https://dashboard.dmnfood.co.kr/orders?mail=outside-mail', { split: true, summaryOnly: true, onBeforeSelectMail: () => allowed, onSelectMail: value => selected.push(value.id) });
+    await settleUi(); assert.match(app.listMount.textContent, /현재 선택한 메일 · 목록 범위 밖/);
+    assert.match(app.listMount.textContent, /outside-mail/); assert.equal(app.detailMount.textContent, '');
+    allowed = false; assert.equal(app.cleanup.clearSelection(), false); assert.equal(new URL(app.location.href).searchParams.get('mail'), 'outside-mail');
+    allowed = true; assert.equal(app.cleanup.clearSelection(), true); assert.equal(new URL(app.location.href).searchParams.has('mail'), false);
+    assert.deepEqual(selected, ['outside-mail', '']); assert.doesNotMatch(app.listMount.textContent, /outside-mail|목록 범위 밖/);
+    app.cleanup();
+});
+
+test('a parent can own shared-source history while mail selection and compact mounts remain available', async () => {
+    const selected = [];
+    const app = viewerHarness(url => url.searchParams.has('intakeId') ? { ok: true, mail: { ...mailSummary(url.searchParams.get('intakeId')), mailId: '5928', raw: { mail: {}, attachments: [ordinary] } } } : scoped('106', [mailSummary('first-mail'), mailSummary('second-mail')]),
+        'https://dashboard.dmnfood.co.kr/orders?mail=first-mail', { split: true, summaryOnly: true, manageHistory: true, omitDetailMount: true, onSelectMail: value => selected.push(value.id) });
+    await settleUi();
+    assert.deepEqual(selected, ['first-mail']); assert.equal(app.listeners.has('popstate'), false);
+    assert.equal(app.mount.children[0], app.staticHeader); assert.equal(app.detailMount.textContent, '');
+    app.location.href = 'https://dashboard.dmnfood.co.kr/orders?mail=second-mail';
+    await app.cleanup.selectMail('second-mail', { history: false, checkedNavigation: true });
+    assert.deepEqual(selected, ['first-mail', 'second-mail']);
+    assert.equal(app.cleanup.clearSelection({ history: false, checkedNavigation: true }), true); assert.deepEqual(selected, ['first-mail', 'second-mail', '']);
+    const before = app.calls.length; app.cleanup(); await app.cleanup.selectMail('first-mail');
+    assert.equal(app.calls.length, before, 'disposed parent callbacks cannot issue another source request');
+});
+
+test('parent history synchronization restores both mail scope and the selected source', async () => {
+    const selected = [];
+    const app = viewerHarness(url => url.searchParams.has('intakeId') ? { ok: true, mail: { ...mailSummary(url.searchParams.get('intakeId')), raw: { mail: {}, attachments: [] } } } : scoped(url.searchParams.get('folderId'), [mailSummary('school-mail')]),
+        'https://dashboard.dmnfood.co.kr/orders?mail=school-mail', { split: true, summaryOnly: true, manageHistory: true, onSelectMail: value => selected.push(value.id) });
+    await settleUi(); assert.equal(app.select().value, 'school'); assert.equal(app.listeners.has('popstate'), false);
+    app.location.href = 'https://dashboard.dmnfood.co.kr/orders?mail=outside-mail&mail_scope=all';
+    app.cleanup.syncHistory(); await settleUi();
+    assert.equal(app.select().value, 'all'); assert.equal(app.calls.some(call => call.path === '/api/naverworks/source'), true);
+    assert.deepEqual(selected, ['school-mail', 'outside-mail']);
+    app.location.href = 'https://dashboard.dmnfood.co.kr/orders?mail=school-mail';
+    app.cleanup.syncHistory(); await settleUi();
+    assert.equal(app.select().value, 'school'); assert.equal(app.calls.at(-1).path, '/api/naverworks/source?intakeId=school-mail');
+    assert.deepEqual(selected, ['school-mail', 'outside-mail', 'school-mail']);
+    app.cleanup();
+});
+
+test('scope, selection and clear URL changes notify the parent after the resulting URL is available', async () => {
+    const changed = [];
+    const app = viewerHarness(url => url.searchParams.has('intakeId') ? { ok: true, mail: { ...mailSummary('selected-mail'), raw: { mail: {}, attachments: [] } } } : scoped(url.searchParams.get('folderId'), [mailSummary('selected-mail')]),
+        'https://dashboard.dmnfood.co.kr/orders', { split: true, summaryOnly: true, manageHistory: true, onHistoryChange: () => changed.push(new URL(app.location.href).search) });
+    await settleUi(); assert.deepEqual(changed, []);
+    app.select().value = 'all'; app.select().fire('change'); await settleUi();
+    assert.deepEqual(changed, ['?mail_scope=all']);
+    await app.cleanup.selectMail('selected-mail');
+    assert.deepEqual(changed, ['?mail_scope=all', '?mail_scope=all&mail=selected-mail']);
+    assert.equal(app.cleanup.clearSelection({ history: 'replace' }), true);
+    assert.deepEqual(changed, ['?mail_scope=all', '?mail_scope=all&mail=selected-mail', '?mail_scope=all']);
+    await app.cleanup.selectMail('selected-mail', { history: false }); app.cleanup.clearSelection({ history: false });
+    assert.equal(changed.length, 3, 'parent-owned navigation does not create duplicate history notifications');
     app.cleanup();
 });

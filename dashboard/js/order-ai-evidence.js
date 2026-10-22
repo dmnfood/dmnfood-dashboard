@@ -1,5 +1,7 @@
 import { renderMailWorkbook } from './mail-workbook-preview.js';
 import { parseCellAddress } from './mail-workbook-selection.js';
+import { createOrderAiTextSource, getOrderAiTextRows, validOrderAiTextRange } from './order-text-source-model.js';
+import { normalizeOrderAiQuantity } from './order-ai-model.js';
 
 function el(tag, text, cls) { const node = document.createElement(tag); if (text != null) node.textContent = text; if (cls) node.className = cls; return node; }
 function button(text, action, cls = '') { const node = el('button', text, `order-button ${cls}`); node.type = 'button'; node.addEventListener('click', action); return node; }
@@ -34,6 +36,71 @@ export function initOrderAiEvidence(session) {
     if (digest !== item.sha256) throw new Error('원본 파일 확인에 실패했습니다.');
     const value = { ...item, bytes }; if (!signal.aborted) { cache.set(key, value); if (cache.size > 8) cache.delete(cache.keys().next().value); } return value;
   }
+  async function textArchive(mail, expectedHash, signal) {
+    if (!/^[a-f0-9]{64}$/.test(mail?.id || '') || !/^[a-f0-9]{64}$/.test(expectedHash || mail?.rawStorage?.sha256 || '')) throw new Error('보관된 텍스트 원본을 확인할 수 없습니다.');
+    const token = await session.user.getIdToken();
+    const response = await fetch(`/api/order-ai/text-sources?id=${encodeURIComponent(mail.id)}`, { cache: 'no-store', credentials: 'same-origin', signal, headers: { Authorization: `Bearer ${token}` } });
+    const data = await response.json().catch(() => ({})); if (!response.ok || !data.ok) throw new Error(data.message || '텍스트 원본을 열지 못했습니다.');
+    const item = data.source;
+    if (item?.id !== mail.id || item.sha256 !== (expectedHash || mail.rawStorage.sha256)) throw new Error('분석한 텍스트와 보관된 원문이 다릅니다.');
+    const source = createOrderAiTextSource(item);
+    const digest = [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(source.text)))].map(value => value.toString(16).padStart(2, '0')).join('');
+    if (digest !== source.sha256) throw new Error('텍스트 원본 확인에 실패했습니다.');
+    return source;
+  }
+  async function imageArchive(mail, expectedHash, signal) {
+    if (!/^[a-f0-9]{64}$/.test(mail?.id || '') || !/^[a-f0-9]{64}$/.test(expectedHash || mail?.rawStorage?.sha256 || '')) throw new Error('보관된 이미지 원본을 확인할 수 없습니다.');
+    const token = await session.user.getIdToken();
+    const response = await fetch(`/api/order-ai/text-sources?id=${encodeURIComponent(mail.id)}`, { cache: 'no-store', credentials: 'same-origin', signal, headers: { Authorization: `Bearer ${token}` } });
+    const data = await response.json().catch(() => ({})); if (!response.ok || !data.ok) throw new Error(data.message || '이미지 원본을 열지 못했습니다.');
+    const item = data.source, maximum = 600 * 1024;
+    if (item?.id !== mail.id || item.kind !== 'image' || item.sha256 !== (expectedHash || mail.rawStorage.sha256)
+      || !['image/png', 'image/jpeg'].includes(item.mimeType) || typeof item.fileName !== 'string' || !item.fileName || item.fileName.length > 255 || /[\u0000-\u001f\u007f]/.test(item.fileName)
+      || !Number.isSafeInteger(item.byteLength) || item.byteLength < 1 || item.byteLength > maximum
+      || typeof item.contentBase64 !== 'string' || item.contentBase64.length > Math.ceil(maximum / 3) * 4 + 4 || !/^[A-Za-z0-9+/]*={0,2}$/.test(item.contentBase64)) throw new Error('분석한 이미지와 보관된 원문이 다릅니다.');
+    const binary = atob(item.contentBase64), bytes = Uint8Array.from(binary, value => value.charCodeAt(0));
+    if (bytes.length !== item.byteLength) throw new Error('이미지 원본의 크기가 일치하지 않습니다.');
+    const png = bytes.length >= 24 && [137,80,78,71,13,10,26,10].every((value, index) => bytes[index] === value) && [73,72,68,82].every((value, index) => bytes[index + 12] === value);
+    const jpeg = bytes.length >= 4 && bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255;
+    if (item.mimeType === 'image/png' ? !png : !jpeg) throw new Error('이미지 원본 형식을 확인할 수 없습니다.');
+    const digest = [...new Uint8Array(await crypto.subtle.digest('SHA-256', bytes))].map(value => value.toString(16).padStart(2, '0')).join('');
+    if (digest !== item.sha256) throw new Error('이미지 원본 확인에 실패했습니다.');
+    return { ...item, bytes };
+  }
+  function showText(file, part, original) {
+    const rows = getOrderAiTextRows(file.text), byRow = new Map(rows.map(row => [row.rowIndex, row]));
+    if (original && (original.kind !== 'text' || !Array.isArray(original.rows) || original.rows.length !== rows.length || original.rows.some((row, index) => row.rowIndex !== rows[index].rowIndex || row.start !== rows[index].start || row.end !== rows[index].end))) throw new Error('분석한 텍스트 행과 원문이 다릅니다.');
+    const ranges = [];
+    for (const line of part.lines) {
+      const row = byRow.get(line.source.rowIndex); if (!row) throw new Error('텍스트 원본 행을 찾을 수 없습니다.');
+      if (active.exclusions) { ranges.push({ start: row.start, end: row.end, type: 'excluded' }); continue; }
+      const textRanges = line.source.textRanges;
+      if (!textRanges || !textRanges.product.length || [...textRanges.product, textRanges.quantity, textRanges.unit].some(range => !validOrderAiTextRange(range, row))) throw new Error('텍스트의 근거 위치를 확인할 수 없습니다.');
+      if (normalizeOrderAiQuantity(file.text.slice(textRanges.quantity.start, textRanges.quantity.end)) !== line.quantity || file.text.slice(textRanges.unit.start, textRanges.unit.end).trim().toUpperCase() !== line.unit.trim().toUpperCase()) throw new Error('분석한 수량·단위와 원문이 다릅니다.');
+      ranges.push(...textRanges.product.map(range => ({ ...range, type: 'product' })), { ...textRanges.unit, type: 'unit' }, { ...textRanges.quantity, type: 'quantity' });
+    }
+    const stage = el('div', null, 'order-ai-text-original'); stage.setAttribute('aria-label', '붙여넣은 원문');
+    let rowIndex = 0;
+    for (const match of file.text.matchAll(/([^\r\n]*)(?:\r\n|\r|\n|$)/g)) {
+      if (!match[0] && match.index === file.text.length) break;
+      const index = rowIndex++;
+      if (part.textPage != null && Math.floor(index / 40) !== part.textPage) continue;
+      const start = match.index, end = start + match[1].length, line = el('div', null, `order-ai-text-row${part.rows.includes(index) ? ' order-ai-text-row-highlight' : ''}`);
+      const number = el('span', String(index + 1), 'order-ai-text-number'); number.setAttribute('aria-hidden', 'true');
+      const content = el('span', null, 'order-ai-text-content');
+      const inside = ranges.filter(range => range.start < end && start < range.end), boundaries = [...new Set([start, end, ...inside.flatMap(range => [Math.max(start, range.start), Math.min(end, range.end)])])].sort((a, b) => a - b);
+      for (let i = 0; i < boundaries.length - 1; i++) {
+        const left = boundaries[i], right = boundaries[i + 1], marks = inside.filter(range => range.start <= left && right <= range.end);
+        const type = marks.some(range => range.type === 'quantity') ? 'quantity' : marks.length ? 'product' : '';
+        const piece = el(type ? 'mark' : 'span', file.text.slice(left, right), type ? `order-ai-text-mark-${type}` : '');
+        if (type === 'quantity') piece.setAttribute('aria-label', `확인할 원문 수량 ${file.text.slice(left, right)}`);
+        content.append(piece);
+      }
+      if (!match[1]) content.append(el('span', '\u200b'));
+      line.append(number, content); stage.append(line);
+    }
+    sourceMount.append(stage);
+  }
   function renderNavigation() {
     navigation.replaceChildren();
     parts.forEach((part, index) => { const node = button(`${index + 1}/${parts.length}${visited.has(index) ? ' · 확인' : ''}`, () => void show(index)); node.setAttribute('aria-current', String(index === current)); navigation.append(node); });
@@ -47,11 +114,17 @@ export function initOrderAiEvidence(session) {
     try {
       const original = value.analysis?.sources?.find(source => fileId(source) === part.attachmentId);
       if (value.group && (!original || !/^[a-f0-9]{64}$/.test(original.sha256 || ''))) throw new Error('분석에 연결된 원본 파일을 확인할 수 없습니다.');
-      const file = await archive(value.mail, part.attachmentId, original?.sha256, signal);
+      const isText = value.mail?.sourceKind === 'text' || original?.kind === 'text';
+      const isPastedImage = value.mail?.sourceKind === 'image';
+      if (isPastedImage && (part.attachmentId !== 'message-image' || original && original.kind !== 'image')) throw new Error('분석한 이미지 원본의 종류가 다릅니다.');
+      const file = isText ? await textArchive(value.mail, original?.sha256, signal) : isPastedImage ? await imageArchive(value.mail, original?.sha256, signal) : await archive(value.mail, part.attachmentId, original?.sha256, signal);
       if (disposed || token !== generation || active !== value) return;
       sourceMount.replaceChildren();
       pageTitle.textContent = `${file.fileName}${part.sheetIndex != null ? ` · 시트 ${part.sheetIndex + 1}${part.rows.length ? ` · ${part.rows.map(row => row + 1).join(', ')}행` : ''}` : ''}`;
-      if (/\.(xlsx|xls|csv)$/i.test(file.fileName)) {
+      if (isText) {
+        pageTitle.textContent = `${file.fileName}${part.rows.length ? ` · ${part.rows.map(row => row + 1).join(', ')}행` : ''}`;
+        showText(file, part, original);
+      } else if (!isPastedImage && /\.(xlsx|xls|csv)$/i.test(file.fileName)) {
         const opened = await renderMailWorkbook({ mount: sourceMount, bytes: new Uint8Array(file.bytes), fileName: file.fileName, signal });
         if (disposed || token !== generation || active !== value) { opened?.(); return; }
         workbook = opened;
@@ -60,9 +133,10 @@ export function initOrderAiEvidence(session) {
           if (disposed || token !== generation || active !== value) return;
           if (!evidence) throw new Error('분석한 셀 위치를 원본에서 확인하지 못했습니다.');
         } else if (!workbook.getMetadata?.()) throw new Error('원본 Excel을 읽지 못했습니다.');
-      } else if (/\.(png|jpe?g)$/i.test(file.fileName)) {
-        const stage = el('div', null, 'order-ai-image-stage'), image = el('img'); image.alt = file.fileName; blobUrl = URL.createObjectURL(new Blob([file.bytes], { type: /\.png$/i.test(file.fileName) ? 'image/png' : 'image/jpeg' })); image.src = blobUrl; stage.append(image); sourceMount.append(stage);
+      } else if (isPastedImage || /\.(png|jpe?g)$/i.test(file.fileName)) {
+        const stage = el('div', null, 'order-ai-image-stage'), image = el('img'); image.alt = file.fileName; blobUrl = URL.createObjectURL(new Blob([file.bytes], { type: isPastedImage ? file.mimeType : /\.png$/i.test(file.fileName) ? 'image/png' : 'image/jpeg' })); image.src = blobUrl; stage.append(image); sourceMount.append(stage);
         await image.decode(); if (disposed || token !== generation || signal.aborted) return;
+        if (!Number.isSafeInteger(image.naturalWidth) || image.naturalWidth < 1 || !Number.isSafeInteger(image.naturalHeight) || image.naturalHeight < 1 || image.naturalWidth * image.naturalHeight > 16000000) throw new Error('이미지 크기를 확인할 수 없습니다.');
         if (original && (original.width !== image.naturalWidth || original.height !== image.naturalHeight)) throw new Error('분석한 이미지 크기와 원본이 다릅니다.');
         for (const box of part.boxes) {
           if (![box.x, box.y, box.width, box.height].every(Number.isFinite) || box.x < 0 || box.y < 0 || box.width <= 0 || box.height <= 0 || box.x + box.width > 1 || box.y + box.height > 1) throw new Error('이미지의 근거 위치를 확인하지 못했습니다.');
@@ -84,6 +158,13 @@ export function initOrderAiEvidence(session) {
     const lines = exclusions ? (analysis.exclusions || []).map(item => ({ reason: item.reason, source: { attachmentId: item.attachmentId, sheetIndex: item.sheetIndex, rowIndex: item.rowIndex, productCells: [], quantityCell: null, unitCell: null, bbox: null } })) : (analysis.lines || []).filter(line => group.lineIds.includes(line.id));
     for (const line of lines) {
       const ref = line.source, source = analysis.sources?.find(item => fileId(item) === String(ref.attachmentId)), sheet = source?.sheets?.find(item => item.sheetIndex === ref.sheetIndex), originRow = sheet?.range?.s?.r, originColumn = sheet?.range?.s?.c;
+      if (source?.kind === 'text') {
+        const row = source.rows?.find(item => item.rowIndex === ref.rowIndex);
+        if (ref.sheetIndex !== null || !row) throw new Error('텍스트 원본 행을 확인할 수 없습니다.');
+        const textPage = Math.floor(ref.rowIndex / 40), key = `${ref.attachmentId}:text:${textPage}`;
+        if (!byPage.has(key)) byPage.set(key, { attachmentId: String(ref.attachmentId), sheetIndex: null, textPage, rows: [], quantityCells: [], boxes: [], lines: [] });
+        const part = byPage.get(key); part.lines.push(line); if (!part.rows.includes(ref.rowIndex)) part.rows.push(ref.rowIndex); continue;
+      }
       const page = ref.rowIndex == null ? 0 : originRow == null ? ref.rowIndex : Math.floor((ref.rowIndex - originRow) / 100);
       const addresses = [...(ref.productCells || []), ref.quantityCell, ref.unitCell].filter(Boolean), positions = addresses.map(parseCellAddress);
       if (exclusions && ref.rowIndex != null && (!sheet?.range || originColumn == null)) throw new Error('제외한 행의 전체 열을 확인할 수 없습니다. 최신 분석을 불러와 주세요.');
@@ -102,17 +183,17 @@ export function initOrderAiEvidence(session) {
     return [...byPage.values()];
   }
   function open(value, selectedParts) {
-    finish(false); if (disposed) return Promise.resolve(false); active = value; parts = selectedParts; visited = new Set(); current = 0; error.hidden = true; error.textContent = ''; heading.textContent = value.group ? `${value.group.label} · 원본 대조` : '첨부 원본'; complete.textContent = value.exclusions ? '제외한 행 원본 확인 완료' : '이 상품 원본 대조 완료';
+    finish(false); if (disposed) return Promise.resolve(false); active = value; parts = selectedParts; visited = new Set(); current = 0; error.hidden = true; error.textContent = ''; heading.textContent = value.group ? `${value.group.label} · 원본 대조` : value.mail?.sourceKind === 'text' ? '붙여넣은 원문' : value.mail?.sourceKind === 'image' ? '받은 이미지 원본' : '첨부 원본'; complete.textContent = value.exclusions ? '제외한 행 원본 확인 완료' : '이 상품 원본 대조 완료';
     dialog.showModal(); const promise = new Promise(done => { resolve = done; }); if (parts.length) void show(0); else { sourceMount.replaceChildren(el('p', '대조할 원본 위치가 없습니다.')); renderNavigation(); } return promise;
   }
   return { review: value => {
       const valid = value.analysis?.intakeId === value.mail?.id && value.analysis?.sourceHash === value.mail?.rawStorage?.sha256;
-      let selectedParts = [], failure = valid ? '' : '분석과 메일 원본이 다릅니다. 최신 분석을 확인해 주세요.';
+      let selectedParts = [], failure = valid ? '' : '분석과 수신 원본이 다릅니다. 최신 분석을 확인해 주세요.';
       try { if (valid) selectedParts = buildParts(value.analysis, value.group, value.exclusions); } catch { failure = '원본의 전체 대조 위치를 확인할 수 없습니다. 최신 분석을 불러와 주세요.'; }
       const result = open({ ...value, readOnly: ['confirmed', 'approved'].includes(value.analysis?.status) }, selectedParts);
       if (failure) { error.textContent = failure; error.hidden = false; }
       return result;
     },
-    preview: ({ mail, attachment }) => open({ mail, readOnly: true }, [{ attachmentId: String(attachment.id || attachment.attachmentId), sheetIndex: null, rows: [], quantityCells: [], boxes: [], lines: [] }]),
+    preview: ({ mail, attachment }) => open({ mail, readOnly: true }, [{ attachmentId: mail?.sourceKind === 'text' ? 'text' : mail?.sourceKind === 'image' ? 'message-image' : String(attachment.id || attachment.attachmentId), sheetIndex: null, rows: [], quantityCells: [], boxes: [], lines: [] }]),
     close: () => finish(false), destroy() { disposed = true; finish(false); cache.clear(); dialog.remove(); } };
 }

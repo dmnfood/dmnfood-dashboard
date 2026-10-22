@@ -4,6 +4,8 @@ import { readFile } from 'node:fs/promises';
 import { createHash, webcrypto } from 'node:crypto';
 import vm from 'node:vm';
 import { parseCellAddress } from '../dashboard/js/mail-workbook-selection.js';
+import { createOrderAiTextSource, getOrderAiTextRows, validOrderAiTextRange } from '../dashboard/js/order-text-source-model.js';
+import { normalizeOrderAiQuantity } from '../dashboard/js/order-ai-model.js';
 
 const source = await readFile(new URL('../dashboard/js/order-ai-evidence.js', import.meta.url), 'utf8');
 class Node {
@@ -30,22 +32,23 @@ function analysisValue({ rows = [100, 199], sources = true, mailId = 'a'.repeat(
   return { mail: { id: mailId, rawStorage: { sha256: rawHash } }, analysis: { id: 'test-analysis', intakeId: mailId, sourceHash, revision: 1, status: 'ready',
     sources: sources ? [{ attachmentId: '2', sha256, kind: 'workbook', complete: true }] : [], lines }, group: { id: 'oil', label: '가상 참기름', quantity: '3', unit: '병', lineIds: lines.map(line => line.id) } };
 }
-function harness({ defer = false, sheetRange = { s: { r: 2, c: 2 }, e: { r: 204, c: 24 } } } = {}) {
-  const body = new Node('body'), fetches = [], pending = [], books = [], focuses = [];
+function harness({ defer = false, textSource, imageSize = { width: 1, height: 1 }, deferImage = false, sheetRange = { s: { r: 2, c: 2 }, e: { r: 204, c: 24 } } } = {}) {
+  const body = new Node('body'), fetches = [], pending = [], books = [], focuses = [], imageDecodes = [];
   const metadata = { sheets: [{ index: 0, name: '원본', range: sheetRange }] };
   function book() {
     const cleanup = () => { cleanup.closed = true; }; cleanup.getMetadata = () => metadata;
     cleanup.focusEvidence = async value => { if (cleanup.closed) return null; focuses.push(JSON.parse(JSON.stringify(value))); return value; };
     books.push(cleanup); return cleanup;
   }
-  const context = vm.createContext({ document: { body, createElement: tag => new Node(tag) }, parseCellAddress, URL, Uint8Array, Blob, atob, crypto: webcrypto, AbortController,
+  const createElement = tag => { const node = new Node(tag); if (String(tag).toLowerCase() === 'img') { node.naturalWidth = imageSize.width; node.naturalHeight = imageSize.height; node.decode = () => deferImage ? new Promise(resolve => imageDecodes.push(resolve)) : Promise.resolve(); } return node; };
+  const context = vm.createContext({ document: { body, createElement }, parseCellAddress, createOrderAiTextSource, getOrderAiTextRows, validOrderAiTextRange, normalizeOrderAiQuantity, TextEncoder, URL, Uint8Array, Blob, atob, crypto: webcrypto, AbortController,
     renderMailWorkbook: () => defer ? new Promise(resolve => pending.push(() => resolve(book()))) : Promise.resolve(book()),
-    fetch: async (path, init) => { fetches.push(JSON.parse(init.body)); return { ok: true, json: async () => ({ ok: true, attachment: {
+    fetch: async (path, init) => { fetches.push(init.body ? JSON.parse(init.body) : { path }); if (String(path).includes('/text-sources?')) return { ok: true, json: async () => ({ ok: true, source: textSource }) }; return { ok: true, json: async () => ({ ok: true, attachment: {
       id: '2', fileName: '가상 발주.xlsx', byteLength: originalBytes.length, contentBase64: originalBytes.toString('base64'), sha256,
     } }) }; } });
   vm.runInContext(`${source.replace(/^import .*\r?\n/gm, '').replace(/^export /gm, '')}\nglobalThis.init = initOrderAiEvidence;`, context);
   const ui = context.init({ user: { getIdToken: async () => 'fictional-ui-token' } });
-  return { ui, body, fetches, pending, books, focuses, complete: () => all(body, node => node.tagName === 'BUTTON' && ['이 상품 원본 대조 완료', '제외한 행 원본 확인 완료'].includes(node.textContent))[0],
+  return { ui, body, fetches, pending, books, focuses, imageDecodes, complete: () => all(body, node => node.tagName === 'BUTTON' && ['이 상품 원본 대조 완료', '제외한 행 원본 확인 완료'].includes(node.textContent))[0],
     navigation: () => all(body, node => node.className === 'order-ai-evidence-navigation')[0] };
 }
 
@@ -125,5 +128,102 @@ test('excluded row review fails closed when the original sheet bounds are missin
     await until(() => app.body.textContent.includes('전체 대조 위치'));
     assert.equal(app.complete().disabled, true); assert.equal(app.fetches.length, 0);
     app.ui.close(); assert.equal(await review, false);
+  } finally { app.ui.destroy(); }
+});
+
+function textValue(text) {
+  const id = 'a'.repeat(64), sha256 = digest(Buffer.from(text)), file = createOrderAiTextSource({ text, sha256, channel: 'kakao' });
+  const lines = file.rows.filter(row => text.slice(row.start, row.end).includes('11병')).map((row, index) => {
+    const q = text.indexOf('11병', row.start);
+    return { id: `line-${index}`, quantity: '11', unit: '병', source: { attachmentId: 'text', sheetIndex: null, rowIndex: row.rowIndex, productCells: [], quantityCell: null, unitCell: null, bbox: null,
+      textRanges: { product: [{ start: row.start, end: q }], quantity: { start: q, end: q + 2 }, unit: { start: q + 2, end: q + 3 } } } };
+  });
+  const record = { id, sha256, text, channel: 'kakao', title: '가상 원문' };
+  return { record, value: { mail: { id, sourceKind: 'text', sourceChannel: 'kakao', rawStorage: { sha256 }, textSource: record },
+    analysis: { intakeId: id, sourceHash: sha256, revision: 1, status: 'needs_review', sources: [{ attachmentId: 'text', kind: 'text', sha256, complete: true, rows: file.rows.map(({ rowIndex, start, end }) => ({ rowIndex, start, end })) }], lines },
+    group: { id: 'test-oil', label: '중국산 참기름 1.8L', quantity: String(lines.length * 11), unit: '병', lineIds: lines.map(line => line.id) } } };
+}
+test('pasted-text evidence fetches immutable raw text, highlights exact quantities and requires every referenced text page', async () => {
+  const { value, record } = textValue('중국산 참기름 1.8L 11병\n' + '\n'.repeat(41) + '중국산 참기름 1.8L 11병'), app = harness({ textSource: record }), review = app.ui.review(value);
+  try {
+    await until(() => app.navigation().children.length === 2 && app.body.textContent.includes('합계 22'));
+    assert.equal(app.complete().disabled, true); assert.match(app.fetches[0].path, /\/api\/order-ai\/text-sources\?id=/);
+    assert.equal(all(app.body, node => node.className === 'order-ai-text-mark-quantity').map(node => node.textContent).join(','), '11');
+    app.navigation().children[1].fire('click'); await until(() => app.complete().disabled === false);
+    assert.equal(all(app.body, node => node.className === 'order-ai-text-mark-quantity').map(node => node.textContent).join(','), '11');
+    app.complete().fire('click'); assert.equal(await review, true);
+  } finally { app.ui.destroy(); }
+});
+test('changed raw pasted text or forged text quantity ranges cannot enable source review completion', async () => {
+  for (const change of ['hash', 'range', 'manifest']) {
+    const { value, record } = textValue('중국산 참기름 1.8L 11병');
+    if (change === 'hash') record.text = record.text.replace('11병', '99병');
+    if (change === 'range') value.analysis.lines[0].source.textRanges.quantity.end--;
+    if (change === 'manifest') value.analysis.sources[0].rows[0].end--;
+    const app = harness({ textSource: record }), review = app.ui.review(value);
+    try { await until(() => app.body.textContent.includes('실패') || app.body.textContent.includes('다릅니다')); assert.equal(app.complete().disabled, true); app.ui.close(); assert.equal(await review, false); }
+    finally { app.ui.destroy(); }
+  }
+});
+test('pasted-text preview preserves literal hostile text without HTML and has no approval action', async () => {
+  const { value, record } = textValue('<img src="https://example.invalid/pixel">\r\n중국산 참기름 1.8L 11병'), app = harness({ textSource: record });
+  const preview = app.ui.preview({ mail: value.mail });
+  try {
+    await until(() => app.body.textContent.includes('<img src='));
+    assert.equal(all(app.body, node => node.tagName === 'IMG' || node.tagName === 'SCRIPT').length, 0);
+    assert.equal(app.complete().hidden, true); app.ui.close(); assert.equal(await preview, false);
+  } finally { app.ui.destroy(); }
+});
+test('text exclusion review visits every referenced text page and accepts Firestore field reordering', async () => {
+  const { value, record } = textValue('가상 안내\n' + '\n'.repeat(40) + '가상 끝 안내'), app = harness({ textSource: record });
+  value.exclusions = true; value.group = { id: '__excluded__', label: '제외한 원문', lineIds: [] };
+  value.analysis.sources[0].rows = value.analysis.sources[0].rows.map(({ rowIndex, start, end }) => ({ end, start, rowIndex }));
+  value.analysis.exclusions = value.analysis.sources[0].rows.map(row => ({ attachmentId: 'text', sheetIndex: null, rowIndex: row.rowIndex, reason: '가상 안내' }));
+  const review = app.ui.review(value);
+  try { await until(() => app.navigation().children.length === 2 && app.body.textContent.includes('실제 발주가 제외')); assert.equal(app.complete().disabled, true);
+    app.navigation().children[1].fire('click'); await until(() => !app.complete().disabled); app.complete().fire('click'); assert.equal(await review, true);
+  } finally { app.ui.destroy(); }
+});
+
+function imageValue() {
+  const id = 'a'.repeat(64), contentBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', bytes = Buffer.from(contentBase64, 'base64'), sha256 = digest(bytes);
+  const record = { id, kind: 'image', channel: 'kakao', sha256, fileName: '가상 캡처.png', mimeType: 'image/png', byteLength: bytes.length, contentBase64 };
+  return { record, value: { mail: { id, sourceKind: 'image', sourceChannel: 'kakao', rawStorage: { sha256 }, textSource: { id, kind: 'image', sha256 } },
+    analysis: { intakeId: id, sourceHash: sha256, revision: 1, status: 'needs_review', sources: [{ attachmentId: 'message-image', kind: 'image', sha256, complete: true, width: 1, height: 1 }],
+      lines: [{ id: 'image-line', quantity: '11', unit: '병', source: { attachmentId: 'message-image', sheetIndex: null, rowIndex: null, productCells: [], quantityCell: null, unitCell: null, bbox: { x: 0.1, y: 0.1, width: 0.8, height: 0.8 } } }] },
+    group: { id: 'image-oil', label: '중국산 참기름 1.8L', quantity: '11', unit: '병', lineIds: ['image-line'] } } };
+}
+test('pasted-image preview and review fetch original bytes from the manual-source API and retain bbox evidence', async () => {
+  const { record, value } = imageValue(), app = harness({ textSource: record }); const review = app.ui.review(value);
+  try {
+    await until(() => !app.complete().disabled);
+    assert.equal(app.fetches.length, 1); assert.match(app.fetches[0].path, /\/api\/order-ai\/text-sources\?id=/);
+    assert.equal(all(app.body, node => node.tagName === 'IMG').length, 1);
+    const marks = all(app.body, node => node.className === 'order-ai-image-evidence'); assert.equal(marks.length, 1); assert.equal(marks[0].style.left, '10%');
+    assert.match(app.body.textContent, /합계 11 병/); app.complete().fire('click'); assert.equal(await review, true);
+    const preview = app.ui.preview({ mail: value.mail }); await until(() => all(app.body, node => node.tagName === 'IMG').length === 1);
+    assert.equal(app.complete().hidden, true); assert.equal(app.fetches.length, 2, 'readonly preview reads the full immutable source even when the list DTO contains no base64'); app.ui.close(); assert.equal(await preview, false);
+  } finally { app.ui.destroy(); }
+});
+test('pasted-image hash, byte size, source kind, decoded dimensions and invalid boxes all block review completion', async () => {
+  for (const change of ['hash', 'size', 'kind', 'pixels', 'box']) {
+    const { record, value } = imageValue();
+    if (change === 'hash') { const bytes = Buffer.from(record.contentBase64, 'base64'); bytes[bytes.length - 1] ^= 1; record.contentBase64 = bytes.toString('base64'); }
+    if (change === 'size') record.byteLength++;
+    if (change === 'kind') record.kind = 'text';
+    if (change === 'pixels') value.analysis.sources[0].width = 2;
+    if (change === 'box') value.analysis.lines[0].source.bbox.width = 2;
+    const app = harness({ textSource: record }), review = app.ui.review(value);
+    try { await until(() => app.body.textContent.includes('실패') || app.body.textContent.includes('다릅니다') || app.body.textContent.includes('일치') || app.body.textContent.includes('확인하지 못했습니다')); assert.equal(app.complete().disabled, true, change); app.ui.close(); assert.equal(await review, false); }
+    finally { app.ui.destroy(); }
+  }
+});
+test('an old pasted-image decode completing after a new review cannot unlock the active source', async () => {
+  const { record, value } = imageValue(), app = harness({ textSource: record, deferImage: true });
+  const previous = app.ui.review(value); await until(() => app.imageDecodes.length === 1);
+  const latest = app.ui.review(value); assert.equal(await previous, false); await until(() => app.imageDecodes.length === 2);
+  try {
+    app.imageDecodes[0](); await new Promise(resolve => setImmediate(resolve)); assert.equal(app.complete().disabled, true);
+    app.imageDecodes[1](); await until(() => !app.complete().disabled); app.ui.close(); assert.equal(await latest, false);
   } finally { app.ui.destroy(); }
 });

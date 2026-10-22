@@ -69,7 +69,7 @@ export function initOrderAiChat(session, mount, { openEvidence, previewAttachmen
     feedback.textContent = notice || (!connectionReady ? 'AI 연결을 확인하고 있습니다.' : !configured ? 'AI 연결 설정을 확인해 주세요.' : ''); feedback.dataset.error = String(error); feedback.hidden = !feedback.textContent; input.disabled = locked; send.disabled = locked;
     if (!mail || loading || busy || !analysis) {
       const saving = busy && step === 'final';
-      const state = el('div', null, 'order-ai-empty'); state.append(el('span', busy || loading ? '진행 중' : '시작하기', 'order-ai-kicker'), el('h2', !mail ? '발주 메일을 선택하세요' : loading ? '저장된 분석을 확인하고 있습니다' : saving ? '발주 확인을 저장하고 있습니다' : busy ? '첨부파일을 분석하고 있습니다' : '발주 분석을 시작할까요?'));
+      const state = el('div', null, 'order-ai-empty'); state.append(el('span', busy || loading ? '진행 중' : '시작하기', 'order-ai-kicker'), el('h2', !mail ? '발주 자료를 선택하세요' : loading ? '저장된 분석을 확인하고 있습니다' : saving ? '발주 확인을 저장하고 있습니다' : busy ? '발주 내용을 분석하고 있습니다' : '발주 분석을 시작할까요?'));
       state.append(el('p', !mail ? '왼쪽 목록에서 확인할 발주를 선택해 주세요.' : saving ? '원본 대조와 확정 기록을 저장합니다.' : busy ? '업체와 상품·수량을 정리한 뒤 확인할 내용을 보여드립니다.' : 'AI가 업체와 상품·수량을 정리합니다. 원본 대조 후 직접 확정하세요.'));
       if (!busy && !loading && mail) { const start = button('발주 분석 시작', () => void analyze(), 'order-primary'); start.disabled = locked; state.append(start); }
       if (error && !busy && !loading && mail) state.append(button('저장된 분석 불러오기', () => void loadAnalysis())); panel.append(state); return;
@@ -105,14 +105,14 @@ export function initOrderAiChat(session, mount, { openEvidence, previewAttachmen
   async function analyze({ message = '', customerId: selectedCustomerId } = {}) {
     if (!mail || busy || loading || !configured || !connectionReady || confirmed(analysis) || navigator.onLine === false) return;
     const token = generation, id = mail.id, revision = analysis?.revision || 0; controller?.abort(); const requestController = new AbortController(); controller = requestController; clearReviews(); busy = true; notice = ''; error = false; render();
-    try { await ensureSchoolMealCompanies(session); if (disposed || token !== generation || mail?.id !== id || requestController.signal.aborted) return; const data = await requestOrderAi(session, 'analysis', { body: { intakeId: id, expectedRevision: revision, ...(message ? { message } : {}), ...(selectedCustomerId ? { customerId: selectedCustomerId } : {}) }, signal: requestController.signal }); if (disposed || token !== generation || mail?.id !== id) return; analysis = data.analysis; clearReviews(); input.value = ''; }
+    try { await ensureSchoolMealCompanies(session); if (disposed || token !== generation || mail?.id !== id || requestController.signal.aborted) return; const data = await requestOrderAi(session, 'analysis', { body: { intakeId: id, expectedRevision: revision, ...(['text', 'image'].includes(mail.sourceKind) ? { sourceKind: mail.sourceKind } : {}), ...(message ? { message } : {}), ...(selectedCustomerId ? { customerId: selectedCustomerId } : {}) }, signal: requestController.signal }); if (disposed || token !== generation || mail?.id !== id) return; analysis = data.analysis; clearReviews(); input.value = ''; }
     catch (e) { if (!disposed && token === generation && e.name !== 'AbortError') { notice = e.message; error = true; } }
     finally { if (!disposed && token === generation) { busy = false; render(); panel.scrollTop = 0; } }
   }
   async function confirmAnalysis() {
     if (!analysis || step !== 'final' || busy || loading || confirmed(analysis) || navigator.onLine === false || !reviewReady() || !allReviewed()) return;
     const token = generation, id = mail.id; busy = true; notice = ''; error = false; render();
-    try { const data = await requestOrderAi(session, 'confirm', { body: { intakeId: id, expectedRevision: analysis.revision, expectedUpdatedAt: analysis.updatedAt, reviewedGroupIds: analysis.groups.map(group => group.id || group.productId), reviewedExclusions: !analysis.exclusions?.length || reviewed.has('__excluded__') }, signal: controller.signal }); if (disposed || generation !== token || mail?.id !== id) return; analysis = data.analysis; step = 'final'; notice = '원본 대조와 최종 확정을 저장했습니다.'; }
+    try { const data = await requestOrderAi(session, 'confirm', { body: { intakeId: id, expectedRevision: analysis.revision, expectedUpdatedAt: analysis.updatedAt, ...(['text', 'image'].includes(mail.sourceKind) ? { sourceKind: mail.sourceKind } : {}), reviewedGroupIds: analysis.groups.map(group => group.id || group.productId), reviewedExclusions: !analysis.exclusions?.length || reviewed.has('__excluded__') }, signal: controller.signal }); if (disposed || generation !== token || mail?.id !== id) return; analysis = data.analysis; step = 'final'; notice = '원본 대조와 최종 확정을 저장했습니다.'; }
     catch (e) { if (!disposed && generation === token && e.name !== 'AbortError') { notice = e.message; error = true; clearReviews(); } }
     finally { if (!disposed && generation === token) { busy = false; render(); } }
   }
@@ -120,7 +120,21 @@ export function initOrderAiChat(session, mount, { openEvidence, previewAttachmen
   const stopCustomers = subscribeSchoolMealCompanies((items, metadata = {}) => { const nextConfirmed = !metadata.fromCache && !metadata.hasPendingWrites && metadata.exists !== false, key = JSON.stringify(items.map(item => [customerId(item), item.name, item.revision])); if (key !== catalogKey || nextConfirmed !== catalogConfirmed) clearReviews(); customers = items; catalogKey = key; catalogConfirmed = nextConfirmed;
     if (metadata.exists === false && !metadata.fromCache && !metadata.hasPendingWrites && !initializingCatalog) { initializingCatalog = true; ensureSchoolMealCompanies(session).catch(e => { if (!disposed) { notice = e.message; error = true; render(); } }); } render();
   }, e => { clearReviews(); catalogConfirmed = false; notice = e.message || '학교급식 업체 목록을 확인하지 못했습니다.'; error = true; render(); });
-  const statusController = new AbortController(); requestOrderAi(session, 'status', { signal: statusController.signal }).then(data => { if (!disposed) { configured = data.configured === true; connectionReady = true; render(); } }).catch(e => { if (!disposed && e.name !== 'AbortError') { connectionReady = true; notice = e.message; error = true; render(); } });
+  const statusController = new AbortController(); const statusReady = requestOrderAi(session, 'status', { signal: statusController.signal }).then(data => { if (!disposed) { configured = data.configured === true; connectionReady = true; render(); } }).catch(e => { if (!disposed && e.name !== 'AbortError') { connectionReady = true; notice = e.message; error = true; render(); } });
   const connectionChanged = () => { if (navigator.onLine === false) clearReviews(); else reviewEpoch++; render(); }; window.addEventListener('offline', connectionChanged); window.addEventListener('online', connectionChanged); render();
-  return { setMail(value) { generation++; controller?.abort(); mail = value; analysis = null; clearReviews(); busy = false; loading = false; notice = ''; error = false; input.value = ''; render(); if (mail) void loadAnalysis(); }, previewAttachment: value => previewAttachment?.({ mail, attachment: value }), canLeave() { if (busy) { notice = '분석·저장 작업을 마친 뒤 다른 메일을 선택해 주세요.'; render(); return false; } if (input.value.trim() && !window.confirm('보내지 않은 답변이 있습니다. 다른 메일로 이동할까요?')) return false; input.value = ''; return true; }, destroy() { disposed = true; generation++; controller?.abort(); statusController.abort(); stopCustomers?.(); window.removeEventListener('offline', connectionChanged); window.removeEventListener('online', connectionChanged); } };
+  async function setSource(value, { analyze: autoAnalyze = false } = {}) {
+    const version = ++generation; controller?.abort(); mail = value; analysis = null; clearReviews(); busy = false; loading = false; notice = ''; error = false; input.value = ''; render();
+    if (!mail) return true;
+    await statusReady;
+    if (disposed || generation !== version || mail !== value) return false;
+    const readGeneration = generation + 1;
+    await loadAnalysis();
+    if (disposed || generation !== readGeneration || mail !== value || error) return false;
+    if (autoAnalyze && !analysis) {
+      if (!configured || !connectionReady || navigator.onLine === false) { notice = '원문을 저장했습니다. AI 연결 상태를 확인한 뒤 분석을 시작해 주세요.'; render(); return false; }
+      await analyze();
+    }
+    return !error;
+  }
+  return { setMail: setSource, setSource, previewAttachment: value => previewAttachment?.({ mail, attachment: value }), canLeave() { if (busy) { notice = '분석·저장 작업을 마친 뒤 다른 발주를 선택해 주세요.'; render(); return false; } if (input.value.trim() && !window.confirm('보내지 않은 답변이 있습니다. 다른 발주로 이동할까요?')) return false; input.value = ''; return true; }, destroy() { disposed = true; generation++; controller?.abort(); statusController.abort(); stopCustomers?.(); window.removeEventListener('offline', connectionChanged); window.removeEventListener('online', connectionChanged); } };
 }

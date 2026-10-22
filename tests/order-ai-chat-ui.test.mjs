@@ -67,6 +67,29 @@ async function reviewAll(app) {
 async function toFinal(app) { app.button('최종 확인으로')?.click(); await settle(); }
 const hasReviews = app => app.nodes(node => node.dataset.reviewed === 'true').length;
 
+test('new pasted text starts one explicitly requested analysis and keeps its source kind through final review', async () => {
+    const app = harness(); await settle();
+    await app.app.setSource({ id: 'text-A', sourceKind: 'text', subject: '가상 붙여넣기 발주' }, { analyze: true });
+    const analyzed = app.calls.filter(call => call.path === 'analysis'); assert.equal(analyzed.length, 1); assert.equal(analyzed[0].options.body.sourceKind, 'text');
+    assert.equal(app.final(), undefined); await reviewAll(app); await toFinal(app); app.final().click(); await settle();
+    assert.equal(app.calls.find(call => call.path === 'confirm').options.body.sourceKind, 'text'); app.app.destroy();
+});
+test('reopening a previously analyzed pasted source does not silently run another analysis', async () => {
+    const app = harness({ respond: path => path.startsWith('analysis?') ? { ok: true, analysis: draft('text-A') } : undefined }); await settle();
+    await app.app.setSource({ id: 'text-A', sourceKind: 'text' }, { analyze: true }); assert.equal(app.calls.filter(call => call.path === 'analysis').length, 0); app.app.destroy();
+});
+test('manual images preserve their own source kind in analysis and final confirmation', async () => {
+    const app = harness(); await settle(); await app.app.setSource({ id: 'image-A', sourceKind: 'image' }, { analyze: true });
+    assert.equal(app.calls.find(call => call.path === 'analysis').options.body.sourceKind, 'image');
+    await reviewAll(app); await toFinal(app); app.final().click(); await settle(); assert.equal(app.calls.find(call => call.path === 'confirm').options.body.sourceKind, 'image'); app.app.destroy();
+});
+test('delayed connection readiness cannot start pasted-source analysis after a different source is selected', async () => {
+    let finishStatus; const app = harness({ respond: path => path === 'status' ? new Promise(resolve => finishStatus = () => resolve({ ok: true, configured: true })) : undefined });
+    const first = app.app.setSource({ id: 'text-A', sourceKind: 'text' }, { analyze: true }); app.app.setMail(mail('mail-B'));
+    finishStatus(); await first; await settle(); assert.equal(app.calls.filter(call => call.path === 'analysis').length, 0);
+    assert.ok(app.calls.some(call => call.path === 'analysis?intakeId=mail-B')); assert.equal(app.calls.some(call => call.path === 'analysis?intakeId=text-A'), false); app.app.destroy();
+});
+
 test('no selected mail has no start action; selecting a mail only loads an existing result', async () => {
     const app = harness(); await settle(); assert.equal(app.button('발주 분석 시작'), undefined); assert.equal(app.calls.length, 1);
     app.app.setMail(mail('mail-A')); await settle(); assert.deepEqual(app.calls.map(call => call.path), ['status', 'analysis?intakeId=mail-A']);

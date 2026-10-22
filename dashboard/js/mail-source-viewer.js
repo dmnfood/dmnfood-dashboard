@@ -76,9 +76,9 @@ function decodeAttachment(value) {
 export function initMailSourceViewer(session, mount, options = {}) {
   if (!mount) return () => {};
   let disposed = false, mails = [], nextCursor = null, selectedId = '', currentMail = null, listBusy = false, listError = '', detailBusy = false, detailError = '', detailVersion = 0, listVersion = 0, attachmentVersion = 0;
-  let listController, detailController, attachmentController, workbookCleanup;
+  let listController, detailController, attachmentController, previewController, workbookCleanup, previewVersion = 0, filePicker, pickerBody, pickerTrigger;
   let listScope = new URLSearchParams(location.search).get('mail_scope') === 'all' ? 'all' : 'school';
-  const splitMode = Boolean(options.listMount && options.detailMount && options.toolbarMount);
+  const splitMode = Boolean(options.listMount && options.toolbarMount && (options.detailMount || options.summaryOnly));
   const blobUrls = new Set();
   const heading = element('div', undefined, 'mail-source-heading'), intro = element('div');
   intro.append(element('h2', '첨부 원본 확인'));
@@ -95,6 +95,7 @@ export function initMailSourceViewer(session, mount, options = {}) {
     listScope = scope; mails = []; nextCursor = null;
     const url = new URL(location.href); if (scope === 'all') url.searchParams.set('mail_scope', 'all'); else url.searchParams.delete('mail_scope');
     window.history.pushState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+    options.onHistoryChange?.();
     void loadList();
   });
   const feedback = element('p', '', 'mail-source-feedback'); feedback.setAttribute('role', 'status'); feedback.setAttribute('aria-live', 'polite'); feedback.hidden = true;
@@ -105,7 +106,7 @@ export function initMailSourceViewer(session, mount, options = {}) {
   if (splitMode) {
     options.toolbarMount.replaceChildren(scopeRow, feedback);
     options.listMount.replaceChildren(listSection);
-    options.detailMount.replaceChildren(detail);
+    options.detailMount?.replaceChildren(detail);
   } else {
     layout.append(listSection, detail); mount.replaceChildren(heading, scopeRow, feedback, layout);
   }
@@ -125,21 +126,81 @@ export function initMailSourceViewer(session, mount, options = {}) {
     if (!response.ok || data.ok !== true) { const error = new Error('Mail source request failed'); error.status = response.status; error.code = data.error?.code || data.code; throw error; }
     return data;
   }
+  function closeFilePicker() {
+    if (filePicker?.open) filePicker.close();
+    pickerTrigger?.focus?.(); pickerTrigger = null;
+  }
+  function cancelFilePreview() { previewVersion += 1; previewController?.abort(); previewController = null; closeFilePicker(); }
+  function showFilePicker(mail, attachments, trigger) {
+    if (!filePicker) {
+      filePicker = element('dialog', undefined, 'order-dialog mail-source-file-picker'); filePicker.setAttribute('aria-label', '첨부파일');
+      const header = element('div', undefined, 'order-dialog-header'); header.append(element('h2', '첨부파일'), button('닫기', closeFilePicker));
+      pickerBody = element('div', undefined, 'mail-source-file-picker-body');
+      filePicker.append(header, pickerBody); document.body.append(filePicker);
+      filePicker.addEventListener('cancel', event => { event.preventDefault(); closeFilePicker(); });
+    }
+    pickerBody.replaceChildren(); pickerTrigger = trigger;
+    if (!attachments.length) pickerBody.append(element('p', '첨부파일이 없습니다.', 'mail-source-muted'));
+    for (const attachment of attachments) {
+      const row = element('div', undefined, 'mail-source-file-choice');
+      const open = button(attachment.fileName, () => { closeFilePicker(); previewFile(mail, attachment); }); open.disabled = Boolean(attachment.restriction);
+      row.append(open); if (attachment.restriction) row.append(element('p', attachment.restriction, 'mail-source-muted'));
+      pickerBody.append(row);
+    }
+    filePicker.showModal();
+  }
+  function previewFile(mail, attachment) {
+    Promise.resolve(options.onPreviewAttachment?.(attachment, { mail })).catch(error => {
+      if (!disposed) { feedback.textContent = errorText(error); feedback.hidden = false; }
+    });
+  }
+  async function previewMailAttachments(mail, trigger) {
+    previewController?.abort(); const version = ++previewVersion, controller = new AbortController(); previewController = controller;
+    trigger.disabled = true; trigger.setAttribute('aria-busy', 'true');
+    try {
+      const source = currentMail?.id === mail.id ? currentMail : (await request(`${SOURCE_PATH}?intakeId=${encodeURIComponent(mail.id)}`, controller)).mail;
+      if (disposed || version !== previewVersion) return;
+      if (!source || source.id !== mail.id || !source.raw) throw new Error('Invalid mail source');
+      const attachments = (Array.isArray(source.raw.attachments) ? source.raw.attachments : []).map(getMailAttachmentPolicy);
+      if (attachments.length === 1 && !attachments[0].restriction) previewFile(source, attachments[0]);
+      else showFilePicker(source, attachments, trigger);
+    } catch (error) {
+      if (!disposed && version === previewVersion && error.name !== 'AbortError') { feedback.textContent = errorText(error); feedback.hidden = false; }
+    } finally {
+      if (!disposed) { trigger.disabled = false; trigger.setAttribute('aria-busy', 'false'); }
+    }
+  }
   function renderList() {
     scopeSelect.value = listScope;
     scopeSelect.title = listScope === 'school' ? '수집 당시 학교급식 발주 메일함에서 확인한 자료' : '전체 보관 메일';
     refresh.disabled = listBusy; more.disabled = listBusy; more.hidden = !nextCursor;
     listSection.setAttribute('aria-busy', String(listBusy)); list.replaceChildren();
     if (!mails.length) list.append(element('p', listBusy ? '수집한 메일을 불러오고 있습니다.' : listError ? '메일 목록 확인이 필요합니다.' : listScope === 'school' ? '아직 수집한 메일이 없습니다. 메일을 가져온 뒤 확인해 주세요.' : '아직 보관된 메일이 없습니다. 메일 수집 후 목록을 새로고침해 주세요.', 'mail-source-empty'));
-    for (const mail of mails) {
-      const item = element('button', undefined, 'mail-source-item'); item.type = 'button'; item.setAttribute('aria-current', String(mail.id === selectedId));
-      item.append(element('strong', mail.subject || '(제목 없음)'), element('span', sender(mail.from) || '발신자 확인 필요', 'mail-source-sender'), element('span', formatTime(mail.receivedAt), 'mail-source-time'), element('span', options.summaryOnly ? '원본 보관' : '해석 대기', 'mail-source-badge'));
-      item.addEventListener('click', () => void selectMail(mail.id)); list.append(item);
+    const outsideMail = currentMail && !mails.some(mail => mail.id === currentMail.id) ? currentMail : null;
+    for (const mail of [...(outsideMail ? [outsideMail] : []), ...mails]) {
+      const item = element('article', undefined, 'mail-source-item'); item.setAttribute('aria-current', String(mail.id === selectedId));
+      if (mail === outsideMail) item.append(element('p', listBusy ? '현재 선택한 메일' : '현재 선택한 메일 · 목록 범위 밖', 'mail-source-outside-scope'));
+      const select = element('button', undefined, 'mail-source-select'); select.type = 'button'; select.setAttribute('aria-current', String(mail.id === selectedId));
+      select.append(element('strong', mail.subject || '(제목 없음)'), element('span', sender(mail.from) || '발신자 확인 필요', 'mail-source-sender'), element('span', formatTime(mail.receivedAt), 'mail-source-time'));
+      select.addEventListener('click', () => void selectMail(mail.id)); item.append(select);
+      if (options.summaryOnly || options.onPreviewAttachment) {
+        const actions = element('div', undefined, 'mail-source-item-actions'), mailUrl = getNaverworksMailUrl(mail.mailId ?? (currentMail?.id === mail.id ? currentMail.raw?.mail?.mailId : null));
+        const openMail = mailUrl ? element('a', '네이버웍스 ↗', 'mail-source-item-action') : element('button', '네이버웍스 ↗', 'mail-source-item-action');
+        if (mailUrl) { openMail.href = mailUrl; openMail.target = '_blank'; openMail.rel = 'noopener noreferrer'; }
+        else { openMail.type = 'button'; openMail.disabled = true; openMail.title = '메일 원문 주소를 확인할 수 없습니다.'; }
+        openMail.setAttribute('aria-label', `네이버웍스에서 ${mail.subject || '제목 없는'} 메일 열기`);
+        const files = button('첨부파일', () => void previewMailAttachments(mail, files)); files.className = 'mail-source-item-action';
+        files.setAttribute('aria-label', `첨부파일 · ${mail.subject || '제목 없음'}`); files.disabled = mail.attachmentCount === 0;
+        if (files.disabled) files.title = '첨부파일이 없습니다.';
+        actions.append(openMail, files); item.append(actions);
+      }
+      list.append(item);
     }
-    feedback.textContent = listError; feedback.hidden = !listError;
+    feedback.textContent = listError || detailError; feedback.hidden = !feedback.textContent;
   }
   function renderDetail() {
     detail.setAttribute('aria-busy', String(detailBusy)); detail.replaceChildren();
+    if (options.summaryOnly) { detail.hidden = true; feedback.textContent = detailError || listError; feedback.hidden = !feedback.textContent; return; }
     if (detailBusy || detailError || !currentMail) { detail.append(element('p', detailBusy ? '첨부 원본을 불러오고 있습니다.' : detailError || '왼쪽에서 메일을 선택하면 첨부 원본을 확인할 수 있습니다.', 'mail-source-empty')); return; }
     const mail = currentMail, rawMail = mail.raw?.mail || {}, header = element('div', undefined, 'mail-source-detail-heading');
     header.append(element('span', '해석 대기', 'mail-source-badge'), element('h3', mail.subject || rawMail.subject || '(제목 없음)'));
@@ -160,12 +221,6 @@ export function initMailSourceViewer(session, mount, options = {}) {
       feedback.hidden = false;
     }); headerActions.append(copy); header.append(headerActions); detail.append(header);
     const attachments = (Array.isArray(mail.raw?.attachments) ? mail.raw.attachments : []).map(getMailAttachmentPolicy);
-    if (options.summaryOnly) {
-      const files = element('div', undefined, 'order-chat-files'); files.setAttribute('aria-label', '첨부 원본 목록');
-      for (const attachment of attachments) { const open = button(attachment.fileName, () => options.onPreviewAttachment?.(attachment)); open.disabled = Boolean(attachment.restriction); files.append(open); }
-      if (!attachments.length) files.append(element('span', '첨부파일 없음 · 네이버웍스에서 내용을 확인해 주세요.', 'mail-source-muted'));
-      detail.append(files); return;
-    }
     const attachmentSection = element('section', undefined, 'mail-source-attachments'); attachmentSection.setAttribute('aria-label', '메일 첨부파일'); attachmentSection.append(element('h4', '첨부 원본'));
     const preview = element('div', undefined, 'mail-source-attachment-preview'); preview.setAttribute('aria-live', 'polite');
     if (!attachments.length) attachmentSection.append(element('p', '첨부파일이 없는 메일입니다. 발주 내용은 네이버웍스에서 확인해 주세요.', 'mail-source-muted'));
@@ -219,11 +274,12 @@ export function initMailSourceViewer(session, mount, options = {}) {
     } finally { if (!disposed && version === attachmentVersion) preview.setAttribute('aria-busy', 'false'); }
   }
   async function selectMail(id, { history = 'push', scroll = true, checkedNavigation = false } = {}) {
-    if (!checkedNavigation && options.onBeforeSelectMail?.() === false) return;
+    if (disposed || !checkedNavigation && options.onBeforeSelectMail?.() === false) return;
+    cancelFilePreview();
     if (!SOURCE_ID.test(id)) { detailController?.abort(); detailVersion += 1; cleanupAttachment(); selectedId = ''; detailError = '메일 열람 링크가 올바르지 않습니다.'; currentMail = null; detailBusy = false; options.onSelectMail?.({ id: '', mail: null, history }); renderList(); renderDetail(); return; }
     detailController?.abort(); cleanupAttachment(); const version = ++detailVersion, controller = new AbortController(); detailController = controller;
     selectedId = id; currentMail = null; detailBusy = true; detailError = '';
-    if (history) { const url = new URL(location.href); url.searchParams.set('mail', id); window.history[history === 'replace' ? 'replaceState' : 'pushState'](window.history.state, '', `${url.pathname}${url.search}${url.hash}`); }
+    if (history) { const url = new URL(location.href); url.searchParams.set('mail', id); window.history[history === 'replace' ? 'replaceState' : 'pushState'](window.history.state, '', `${url.pathname}${url.search}${url.hash}`); options.onHistoryChange?.(); }
     options.onSelectMail?.({ id, mail: mails.find(mail => mail.id === id), history });
     renderList(); renderDetail();
     try {
@@ -233,7 +289,7 @@ export function initMailSourceViewer(session, mount, options = {}) {
       currentMail = data.mail;
       options.onMailLoaded?.(currentMail);
     } catch (error) { if (!disposed && version === detailVersion && error.name !== 'AbortError') detailError = errorText(error); }
-    finally { if (!disposed && version === detailVersion) { detailBusy = false; renderDetail(); if (scroll && (!splitMode || window.matchMedia?.('(max-width: 720px)')?.matches)) detail.scrollIntoView({ block: 'start', behavior: 'auto' }); } }
+    finally { if (!disposed && version === detailVersion) { detailBusy = false; renderList(); renderDetail(); if (scroll && !options.summaryOnly && (!splitMode || window.matchMedia?.('(max-width: 720px)')?.matches)) detail.scrollIntoView({ block: 'start', behavior: 'auto' }); } }
   }
   async function loadList(append = false) {
     if (disposed || (append && (listBusy || !nextCursor))) return;
@@ -250,7 +306,15 @@ export function initMailSourceViewer(session, mount, options = {}) {
     } catch (error) { if (!disposed && version === listVersion && error.name !== 'AbortError') listError = errorText(error); }
     finally { if (!disposed && version === listVersion) { listBusy = false; renderList(); } }
   }
+  function clearSelection({ history = 'push', checkedNavigation = false } = {}) {
+    if (disposed || !checkedNavigation && options.onBeforeSelectMail?.() === false) return false;
+    detailController?.abort(); detailVersion += 1; cleanupAttachment(); cancelFilePreview();
+    selectedId = ''; currentMail = null; detailBusy = false; detailError = '';
+    if (history) { const url = new URL(location.href); url.searchParams.delete('mail'); window.history[history === 'replace' ? 'replaceState' : 'pushState'](window.history.state, '', `${url.pathname}${url.search}${url.hash}`); options.onHistoryChange?.(); }
+    options.onSelectMail?.({ id: '', mail: null, history }); renderList(); renderDetail(); return true;
+  }
   function onPopState() {
+    if (disposed) return;
     const requestedId = new URLSearchParams(location.search).get('mail') || '';
     if (requestedId !== selectedId && options.onBeforeSelectMail?.() === false) {
       const url = new URL(location.href); if (selectedId) url.searchParams.set('mail', selectedId); else url.searchParams.delete('mail');
@@ -262,13 +326,17 @@ export function initMailSourceViewer(session, mount, options = {}) {
     const id = new URLSearchParams(location.search).get('mail') || '';
     if (id === selectedId) return;
     if (id) void selectMail(id, { history: false, checkedNavigation: true });
-    else { detailController?.abort(); detailVersion += 1; cleanupAttachment(); selectedId = ''; currentMail = null; detailBusy = false; detailError = ''; options.onSelectMail?.({ id: '', mail: null, history: false }); renderList(); renderDetail(); }
+    else clearSelection({ history: false, checkedNavigation: true });
   }
   const onMailCollected = () => { if (!disposed) void loadList(); };
-  window.addEventListener('popstate', onPopState);
+  if (!options.manageHistory) window.addEventListener('popstate', onPopState);
   window.addEventListener('mail-intakes-updated', onMailCollected);
   renderList(); renderDetail(); void loadList();
   const requested = new URLSearchParams(location.search).get('mail');
   if (requested) void selectMail(requested, { history: false });
-  return () => { disposed = true; listVersion += 1; detailVersion += 1; listController?.abort(); detailController?.abort(); cleanupAttachment(); window.removeEventListener('popstate', onPopState); window.removeEventListener('mail-intakes-updated', onMailCollected); };
+  const dispose = () => { disposed = true; listVersion += 1; detailVersion += 1; listController?.abort(); detailController?.abort(); cancelFilePreview(); cleanupAttachment(); filePicker?.remove(); window.removeEventListener('popstate', onPopState); window.removeEventListener('mail-intakes-updated', onMailCollected); };
+  dispose.clearSelection = clearSelection;
+  dispose.selectMail = selectMail;
+  dispose.syncHistory = onPopState;
+  return dispose;
 }

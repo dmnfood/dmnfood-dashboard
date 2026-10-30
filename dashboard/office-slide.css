@@ -97,3 +97,12 @@
 #office-scene .office-relation-selected .office-relation-dot{opacity:1}
 
 #office-scene .office-tool:focus{outline:2px solid #bfeafa;outline-offset:2px}
+
+/* Connection state only; the approved organization renderer is unchanged. */
+#office-unavailable{position:fixed;inset:100px 32px 80px;z-index:90;color:var(--t0);padding:32px;background:transparent}
+#office-unavailable[hidden]{display:none}
+#office-unavailable h1{font-size:22px;margin-bottom:16px}
+#office-unavailable p{line-height:1.8;margin-bottom:16px}
+#office-unavailable button{font:inherit;border:1px solid #617080;border-radius:8px;padding:8px 16px;background:transparent;color:inherit;cursor:pointer}
+#mainContent>.page-main.office-shell-away{visibility:hidden}
+@media(max-width:1023px){#office-unavailable{display:none}}

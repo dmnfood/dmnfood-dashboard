@@ -26,25 +26,28 @@ export function validResponse(v) {
   const seen=new Set();let n=item;while(n){if(seen.has(n.id))return false;seen.add(n.id);if(n.reportsTo!==null&&!byId.has(n.reportsTo))return false;n=byId.get(n.reportsTo);}
  }return true;
 }
-export function createOfficeClient({currentUser,sessionValid,request=fetch,render,clear,timeoutMs=5000}) {
+export function createOfficeClient({currentUser,sessionValid,request=fetch,render,clear,status=()=>{},timeoutMs=5000}) {
  let generation=0,controller;
  function reset(){generation++;controller?.abort();clear();}
  async function refresh(){
-  reset(); const epoch=generation,user=currentUser();if(!user || !sessionValid(user))return;
+  generation++;controller?.abort(); const epoch=generation,user=currentUser();if(!user || !sessionValid(user)){clear();return;}
+  clear({preserveEntry:true});status('loading');
   controller=new AbortController();const signal=controller.signal;
-  const timer=setTimeout(()=>{if(epoch===generation)reset();},timeoutMs);
+  const timer=setTimeout(()=>{if(epoch===generation){generation++;controller?.abort();if(currentUser()===user && sessionValid(user)){clear({preserveEntry:true});status('unavailable');}else clear();}},timeoutMs);
   const live=()=>epoch===generation && !signal.aborted && currentUser()===user && sessionValid(user);
   try {
    const token=await user.getIdToken();if(!live())return;
    const response=await request('/api/office/read',{headers:{Authorization:`Bearer ${token}`},credentials:'same-origin',cache:'no-store',redirect:'error',signal});
-   if(!live() || response.status!==200 || !(response.headers.get('content-type')||'').startsWith('application/json'))return;
+   if(!live())return;
+   if(response.status!==200){status(response.status===401?'unauthorized':response.status===403?'forbidden':'unavailable');return;}
+   if(!(response.headers.get('content-type')||'').startsWith('application/json')){status('unavailable');return;}
    // Bound the response while streaming, before parsing or rendering.
    const reader=response.body.getReader();let size=0;const chunks=[];
    try {while(true){const {done,value}=await reader.read();if(done)break;size+=value.byteLength;if(size>32768 || !live())throw Error('limit');chunks.push(value);}} finally {await reader.cancel();}
    const bytes=new Uint8Array(size);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length;}
    const value=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes));
-   if(live() && validResponse(value))render(value);
-  }catch{}finally{clearTimeout(timer);}
+   if(live()){if(validResponse(value))render(value);else status('unavailable');}
+  }catch{if(live())status('unavailable');}finally{clearTimeout(timer);}
  }
  return {refresh,reset};
 }

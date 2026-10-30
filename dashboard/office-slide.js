@@ -305,7 +305,7 @@ syncOfficeTop();
 syncAvailability();
 
  let destroyed=false;
- return {status:"mounted",destroy(){
+ return {status:"mounted",get isOpen(){return current;},open(){if(!current&&officeAvailable())toggle.click();},destroy(){
   if(destroyed)return;destroyed=true;
   const hadFocus=root.contains(document.activeElement)||dialog.contains(document.activeElement)||document.activeElement===toggle;
   show(false);clearTimeout(timer);cleanup.forEach(fn=>fn());

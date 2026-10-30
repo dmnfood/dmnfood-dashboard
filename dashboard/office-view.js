@@ -1,5 +1,6 @@
 import { validResponse } from './office-client.js';
 import { mountOffice } from './office-slide.js';
+import { mountOfficeShell } from './office-shell.js';
 // v1 has no organization edges: never invent a root or reporting relationship.
 export function toRendererDTO(value) {
  if(!validResponse(value) || ![2,3].includes(value.version) || !value.items.length)return null;
@@ -11,11 +12,18 @@ export function toRendererDTO(value) {
   departmentFunctions:Object.fromEntries(value.items.map(i=>[i.id,i.roleLabel])),
   serviceResearch:{connectorAccess:'연결 설정 미확인',categories:[],dot:'외부 도구 상태 미확인'}};
 }
-export function createOfficeView({mount=mountOffice,desktop=()=>window.innerWidth>=1024}={}) {
- let instance;
- const clear=()=>{instance?.destroy();instance=null;};
- const render=value=>{clear();if(!desktop())return;const dto=toRendererDTO(value);if(!dto)return;
-  try{instance=mount(dto);}catch(error){clear();throw error;}
+export function createOfficeView({mount=mountOffice,shell=mountOfficeShell,desktop=()=>window.innerWidth>=1024,retry}={}) {
+ let instance,entry,pendingOpen=false;
+ const clear=({preserveEntry=false}={})=>{
+  pendingOpen=preserveEntry && !!(pendingOpen||instance?.isOpen||entry?.isOpen);
+  instance?.destroy();instance=null;if(!preserveEntry){entry?.destroy();entry=null;}
  };
- return {render,clear};
+ const status=state=>{if(!desktop()){clear();return;}clear({preserveEntry:true});
+  if(!entry)entry=shell({retry});entry.setState(state);if(pendingOpen)entry.open?.();pendingOpen=false;
+ };
+ const render=value=>{if(!desktop()){clear();return;}const dto=toRendererDTO(value);if(!dto){status('empty');return;}
+  const reopen=!!(pendingOpen||entry?.isOpen||instance?.isOpen);
+  clear();try{instance=mount(dto);if(reopen)instance.open?.();}catch(error){pendingOpen=reopen;status('unavailable');throw error;}
+ };
+ return {render,clear,status};
 }

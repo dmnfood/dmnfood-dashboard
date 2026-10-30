@@ -3,7 +3,7 @@ import { onIdTokenChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/fir
 import { createOfficeClient } from './office-client.js';
 import { createOfficeView } from './office-view.js';
 const desktop=()=>window.innerWidth>=1024;
-const view=createOfficeView({desktop});
+const view=createOfficeView({desktop,retry:()=>client.refresh()});
 const client=createOfficeClient({currentUser:()=>auth.currentUser,
  sessionValid:user=>desktop() && hasValidLoginSession(user),...view});
 onIdTokenChanged(auth,()=>client.refresh());

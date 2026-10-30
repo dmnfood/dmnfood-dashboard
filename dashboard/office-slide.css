@@ -1,0 +1,99 @@
+/* New scene only. No baseline selector changes while home is active. */
+#office-switch {position:fixed;right:18px;bottom:18px;z-index:110;border:1px solid #67e8f9;border-radius:22px;background:#101c2d;color:#ecfeff;padding:10px 18px;font:600 13px 'Noto Sans KR',sans-serif;cursor:pointer;box-shadow:0 6px 22px #0006}
+#office-switch:focus-visible,#office-scene [role=button]:focus-visible{outline:3px solid #fff;outline-offset:4px}
+#office-scene{position:fixed;inset:0 0 0;z-index:90;overflow:auto;transform:translateX(100vw);visibility:hidden;color:var(--t0);isolation:isolate}
+#office-scene.office-visible{visibility:visible}
+#office-scene.office-current{transform:translateX(0)}
+#office-scene.office-moving{transition:transform 440ms cubic-bezier(.22,.7,.2,1)}
+#mainContent>.page-main.office-moving{transition:transform 440ms cubic-bezier(.22,.7,.2,1)}
+#mainContent>.page-main.office-away{transform:translateX(-100vw);pointer-events:none;visibility:hidden}
+#mainContent>.page-main.office-moving.office-away{visibility:visible}
+#office-scene .office-heading{padding:25px 32px 0;display:flex;justify-content:space-between;gap:20px;align-items:baseline}
+#office-scene h1{font-size:22px;font-weight:650;letter-spacing:-.5px}
+#office-scene .office-note{font-size:12px;color:#b2c3d6;line-height:1.7}
+#office-scene .office-map{display:block;width:100%;min-width:1050px;min-height:640px;height:calc(100dvh - 180px)}
+#office-scene .office-legend{padding:8px 32px 72px;display:flex;flex-wrap:wrap;gap:18px;font-size:12px;color:#c2d0e0}
+#office-scene .office-agent{cursor:pointer}
+#office-scene .office-agent:hover .office-floor,#office-scene .office-agent:focus .office-floor{stroke:#fff;stroke-width:2}
+#office-scene .office-wire{fill:none;stroke:#698098;stroke-width:1.3;stroke-dasharray:5 7;opacity:.4}
+#office-scene .office-wire.office-highlight{stroke:#67e8f9;stroke-width:2;opacity:1;stroke-dasharray:5 7}
+#office-detail{margin:auto;width:min(460px,calc(100vw - 32px));border:1px solid #6a859e;border-radius:14px;background:#111e30;color:#eef5ff;padding:26px;line-height:1.8;box-shadow:0 24px 90px #0009}
+#office-detail::backdrop{background:#030811b3}
+#office-detail h2{font-size:22px;margin-bottom:12px}
+#office-detail button{margin-top:20px;padding:8px 20px;border:1px solid #97cbdd;border-radius:7px;color:#e8faff;background:#20354a;font:inherit;cursor:pointer}
+#office-detail p{margin-top:8px;font-size:14px}
+@media(prefers-reduced-motion:reduce){#office-scene.office-moving,#mainContent>.page-main.office-moving{transition:none}}
+@media(max-width:700px){#office-scene .office-heading{padding:20px;display:block}#office-scene .office-legend{padding-left:20px}#office-switch{bottom:12px;right:12px}}
+
+#office-scene .office-department-label{pointer-events:none}
+#office-scene .office-department-label text{paint-order:stroke fill;stroke:#0b1420;stroke-width:5px;stroke-linejoin:round}
+#office-scene .office-tool{cursor:pointer}
+#office-detail{max-height:85dvh;overflow:auto}
+#office-detail a{color:#8de8f5}
+#office-detail ul{padding-left:20px}
+#office-detail h3{font-size:16px;margin-top:18px}
+#office-roster{color:#dbe9f6;background:#172638;border:1px solid #698098;padding:8px 12px;border-radius:8px;cursor:pointer}
+/* Revision 6: inspector affects only Office; home remains byte-preserved. */
+#office-detail[hidden]{display:none}
+#office-detail{position:fixed;right:12px;top:12px;bottom:64px;margin:0;width:min(360px,38vw);max-height:none;box-sizing:border-box;z-index:105;overflow:auto;overscroll-behavior:contain;border-radius:16px;padding:22px;background:#122237}
+#office-detail .office-avatar{display:block;width:110px;height:110px;object-fit:contain;margin:0 auto}
+#office-detail h3{font-size:22px}
+#office-detail .office-close{float:right;margin:0}
+#office-scene .office-map{transform-origin:left center;transition:transform 260ms ease}
+#office-scene.office-inspecting .office-map{transform:translateX(-2%) scale(.76)}
+#office-scene .office-department-label{pointer-events:auto;cursor:pointer}
+#office-scene .office-department-label text{stroke:none}
+#office-scene .office-wire{stroke:#52758b;stroke-width:6;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;opacity:.35;filter:drop-shadow(0 2px 1px #0008)}
+#office-scene .office-wire.office-highlight{stroke:#7eddeb;stroke-width:6;stroke-dasharray:3 8;opacity:.7}
+@media(max-width:700px){#office-detail{position:fixed;left:12px;right:12px;bottom:auto;width:calc(100vw - 24px);max-height:none;margin:0}#office-scene.office-inspecting .office-map{transform:none}}
+@media(prefers-reduced-motion:reduce){#office-scene .office-map{transition:none}}
+#office-scene .office-wire.office-verified{stroke:#80e8dc;opacity:.8}
+#office-scene .office-map{height:auto;min-height:0;aspect-ratio:1500/1050}
+#office-detail .office-info-card{padding:14px;margin-top:14px;border:1px solid #385269;border-radius:10px;background:#192d44}
+#office-detail h4{font-size:14px;color:#c9eeee}
+
+/* Revision 9: Office is available at >=1024 CSS px only. */
+#office-switch[hidden]{display:none}
+@media not all and (min-width:1024px){
+ #office-switch,#office-scene,#office-detail{display:none!important}
+}
+
+/* Revision10: one scene fit, independent of prior transforms. */
+#office-scene{overflow:auto;background:#070b14}
+#office-scene .office-heading{height:52px;box-sizing:border-box;padding:12px 24px 0}
+#office-scene .office-heading h1{font-size:20px;margin:0}
+#office-scene .office-map{min-width:0;min-height:0;max-width:none;aspect-ratio:auto;transform-origin:0 0;margin-bottom:calc(var(--scene-height) - 550px)}
+#office-scene.office-inspecting .office-map{transform-origin:0 0}
+#office-scene .office-legend{position:absolute;left:24px;bottom:12px;padding:0;align-items:center;max-width:calc(100% - 200px);font-size:11px}
+#office-scene .office-tubes{pointer-events:none}
+#office-scene .office-wire{stroke-width:1.3;stroke-dasharray:3 6;opacity:.5;filter:none;vector-effect:non-scaling-stroke}
+#office-scene .office-wire.office-highlight{stroke-width:1.3;opacity:.85;filter:none;stroke-dasharray:3 6}
+#office-scene .office-wire[data-current-activity="confirmed"]{filter:drop-shadow(0 0 2px currentColor)}
+#office-scene .office-name{pointer-events:none;paint-order:stroke;stroke:#070b14;stroke-width:2px}
+#office-detail{width:min(352px,34vw);padding:18px;font-size:14px}
+#office-detail h2{font-size:20px}
+#office-detail .office-info-card{padding:12px}
+@media(prefers-reduced-motion:reduce){#office-scene .office-map,#office-scene .office-wire{transition:none;animation:none}}
+
+#office-scene .office-compact-list{display:none;box-sizing:border-box;padding:12px 24px;font-size:15px;max-height:calc(100dvh - 180px);overflow:auto}
+#office-scene.office-compact .office-map{display:none}
+#office-scene.office-compact .office-compact-list{display:block}
+#office-scene .office-compact-list section{margin:10px 0}
+#office-scene .office-compact-list h2{font-size:16px}
+#office-scene .office-compact-list button{margin:4px;padding:9px;background:#172638;color:#e3ebf5;border:1px solid #526476;border-radius:8px;font-size:15px}
+
+/* Revision12: shared HOME background remains visible; only Office styles change. */
+#office-scene{background:transparent}
+#office-scene .office-heading{height:22px;padding:0}
+#office-scene .office-visually-hidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+#office-scene .office-service-wire{stroke:#91aabc;opacity:.16;stroke-width:1;stroke-dasharray:3 7}
+#office-scene .office-service-wire.office-highlight{opacity:.6;stroke-width:1.2}
+
+/* v13: tracing is selection, never an activity signal. */
+#office-scene .office-service-relation .office-service-wire{stroke:var(--relation-color);opacity:.13;stroke-width:1;stroke-dasharray:3 7;filter:none}
+#office-scene .office-relation-dot{fill:var(--relation-color);opacity:.24}
+#office-scene.office-relation-selection .office-service-relation:not(.office-relation-selected){opacity:.32}
+#office-scene .office-service-relation.office-relation-selected .office-service-wire{stroke:var(--relation-color);opacity:.82;stroke-width:1.5;filter:none}
+#office-scene .office-relation-selected .office-relation-dot{opacity:1}
+
+#office-scene .office-tool:focus{outline:2px solid #bfeafa;outline-offset:2px}

@@ -4,6 +4,7 @@
         "api/order-ai/*.js": { "maxDuration": 180 }
     },
     "rewrites": [
+        { "source": "/api/office/read", "destination": "/api/order-ai/status?resource=office-read" },
         { "source": "/api/order-ai/text-sources", "destination": "/api/order-ai/status?resource=text-sources" },
         { "source": "/api/order-ai/background", "destination": "/api/order-ai/status?resource=background" },
         { "source": "/orders", "destination": "/dashboard/orders.html" },

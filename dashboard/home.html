@@ -1049,6 +1049,8 @@
       document.getElementById('greetingText').textContent = `${greeting}, ${userName}님 👋`;
       document.getElementById('loadingScreen').classList.add('hidden');
       document.getElementById('mainContent').classList.remove('auth-hidden');
+      // Optional Office starts only after the existing approved-user check.
+      import('/dashboard/office-bootstrap.js').catch(() => console.warn('Office could not load; home remains available.'));
     });
 
     setInterval(() => {
@@ -1184,6 +1186,7 @@
       await logoutToLogin({ page: 'home' });
     };
   </script>
+  <link rel="stylesheet" href="/dashboard/office-slide.css">
 </body>
 
 </html>
